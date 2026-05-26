@@ -1,0 +1,47 @@
+[project]
+name = "empilhadeira-pi"
+version = "0.0.0"
+description = "App de alto nivel da empilhadeira robotica (Raspberry Pi)"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "opencv-python",
+    "pupil-apriltags",
+    "pyserial-asyncio",
+    "numpy",
+    "filterpy",
+    "pydantic>=2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "black",
+    "pytest",
+]
+
+# O pacote `app` vive em pi/app. Define o diretorio de pacotes do workspace.
+[tool.setuptools]
+package-dir = { "" = "pi" }
+
+[tool.setuptools.packages.find]
+where = ["pi"]
+include = ["app*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["pi"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+# Permite `import app...` nos testes a partir de pi/.
+pythonpath = ["pi"]
+testpaths = ["pi/tests"]

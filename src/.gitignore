@@ -1,0 +1,29 @@
+# --- Ambiente ---
+.env
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# --- Node / Frontend ---
+node_modules/
+dist/
+.vite/
+*.log
+
+# --- PlatformIO / Firmware ---
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# --- SO / editores ---
+.DS_Store
+.vscode/
+.idea/
