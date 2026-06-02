@@ -10,7 +10,7 @@ Serial Loop.
 
 from __future__ import annotations
 
-from app.models import Command, Mode, Sensors, Telemetry, VisionState
+from app.models import Command, ImuAngles, Mode, Sensors, Telemetry, VisionState, WheelSpeeds
 
 
 class SharedState:
@@ -25,7 +25,10 @@ class SharedState:
 
     def __init__(self) -> None:
         """Inicializa o estado compartilhado em PARADO, sem leituras."""
-        raise NotImplementedError
+        self.mode: Mode = Mode.PARADO
+        self.last_command: Command | None = None
+        self.last_sensors: Sensors | None = None
+        self.last_vision: VisionState = VisionState()
 
     def update_command(self, command: Command) -> None:
         """Registra o último comando do frontend (thread/loop-safe).
@@ -33,7 +36,8 @@ class SharedState:
         Args:
             command: comando recebido via WebSocket.
         """
-        raise NotImplementedError
+        self.last_command = command
+        self.mode = command.modo
 
     def update_sensors(self, sensors: Sensors) -> None:
         """Registra a última leitura de sensores do ESP32.
@@ -41,7 +45,7 @@ class SharedState:
         Args:
             sensors: pacote de sensores recebido via UART.
         """
-        raise NotImplementedError
+        self.last_sensors = sensors
 
     def update_vision(self, vision: VisionState) -> None:
         """Registra a última saída de visão.
@@ -49,7 +53,7 @@ class SharedState:
         Args:
             vision: detecção/pose produzida pelo Vision Loop.
         """
-        raise NotImplementedError
+        self.last_vision = vision
 
     def set_mode(self, mode: Mode) -> None:
         """Atualiza o estado atual da máquina de estados.
@@ -57,7 +61,7 @@ class SharedState:
         Args:
             mode: novo estado (MANUAL/AUTOMATICO/PARADO).
         """
-        raise NotImplementedError
+        self.mode = mode
 
     def snapshot_telemetry(self) -> Telemetry:
         """Monta um snapshot de telemetria a partir do estado atual.
@@ -65,4 +69,17 @@ class SharedState:
         Returns:
             Telemetry: contrato (2) pronto para envio ao frontend.
         """
-        raise NotImplementedError
+        #TODO: Revisar esta parte pois está relacionada ao controle.
+        if self.last_sensors is None:
+            rodas = WheelSpeeds(esq=0.0, dir=0.0)
+            imu = ImuAngles(roll=0.0, pitch=0.0)
+        else:
+            rodas = self.last_sensors.enc
+            imu = ImuAngles(roll=0.0, pitch=0.0)
+
+        return Telemetry(
+            estado=self.mode,
+            rodas=rodas,
+            imu=imu,
+            visao=self.last_vision,
+        )
