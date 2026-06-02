@@ -66,6 +66,20 @@ TAG_LOST_FRAMES: int = 5  # [ref: Seção 7]
 APRILTAG_FAMILY: str = "tag25h9"  # decisão fechada (Seção 8)
 APRILTAG_SIZE_CM: float | None = None  # TODO(equipe): confirmar — tamanho físico da tag (cm).
 
+# Intrínsecos da câmera usados na estimativa de pose.
+# Enquanto a calibração real não entrar, estes valores vêm do protótipo.
+CAMERA_FX: float = 799.3907361857031
+CAMERA_FY: float = 794.2843064465196
+CAMERA_CX: float = 399.03967921864864
+CAMERA_CY: float = 273.1926221127301
+
+CAMERA_PARAMS: tuple[float, float, float, float] = (
+    CAMERA_FX,
+    CAMERA_FY,
+    CAMERA_CX,
+    CAMERA_CY,
+)
+
 # Offset extrínseco câmera → garfo (alinhar câmera ≠ alinhar garfo). [ref: Seção 4]
 CAMERA_TO_FORK_OFFSET_CM: tuple[float, float, float] | None = (
     None  # TODO(equipe): confirmar (x, y, z).
