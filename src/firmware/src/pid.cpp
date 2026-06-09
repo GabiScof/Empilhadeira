@@ -16,10 +16,10 @@
  *   - Sinal: sentido de rotacao (positivo = frente, negativo = re).
  *   - Modulo: mapeado para duty PWM em motors.cpp (clamped a MAX_DUTY).
  *
- * Os ganhos (Kp, Ki, Kd) sao placeholder (0.0) ate a sintonia empirica pela
- * equipe (Ziegler-Nichols inicial, depois ajuste manual). Com ganhos zerados,
- * a saida e sempre 0 — o que e o comportamento seguro esperado antes da
- * calibracao.
+ * Os ganhos iniciais (Kp=20, Ki=5, Kd=1) sao conservadores para o Lego NXT
+ * 53787 @ 12V via L298n com LEDC 8 bits (0-255). Devem ser refinados via
+ * Ziegler-Nichols e ajuste empirico com o hardware montado. Ver config.h
+ * para o procedimento detalhado de sintonia.
  *
  * [ref: Secao 5.2 e 7 da AGENTS.md; Secao 5.2 do relatorio]
  */

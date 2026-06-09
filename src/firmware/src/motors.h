@@ -11,7 +11,7 @@
  *   Se o garfo esta no topo e o comando e SUBIR, o motor nao liga.
  *   Se o garfo esta na base e o comando e DESCER, o motor nao liga.
  *   O sentido oposto continua liberado normalmente.
- *   Com pinos placeholder (-1), os fim-de-curso ficam desabilitados.
+ *   Pinos configurados: GPIO 5 (topo), GPIO 15 (base). Setar -1 para desabilitar.
  */
 #pragma once
 
@@ -33,6 +33,6 @@ void motorsStop();
 
 // Consulta o estado dos fim-de-curso do garfo.
 // Retorna true se o switch esta acionado (garfo na posicao extrema).
-// Com pinos placeholder (-1), retorna sempre false (desabilitado).
+// Retorna false se o pino e -1 (desabilitado) ou se o switch nao esta acionado.
 bool forkAtTopLimit();
 bool forkAtBottomLimit();
