@@ -56,8 +56,9 @@ Exemplo (ilustrativo, CRC fictício):
 {"w_esq":1.5,"w_dir":1.5,"garfo":"parar"}*a3\n
 ```
 
-> O algoritmo de CRC8 (polinômio, init) deve ser idêntico nos dois lados. A escolha
-> do polinômio é `TODO(equipe)` — ver `pi/app/comms/crc8.py` e `firmware/src/protocol.h`.
+> O algoritmo de CRC8 deve ser idêntico nos dois lados: CRC-8/MAXIM
+> (Dallas/1-Wire), polinômio normal `0x31` / refletido `0x8C`, init `0x00`,
+> RefIn/RefOut true e XorOut `0x00`.
 
 ---
 

@@ -17,7 +17,7 @@ constexpr float SERIAL_HZ = 20.0f;                 // taxa de troca de mensagens
 
 // Timeout "manter ultimo setpoint": se nao chegar setpoint novo nesse intervalo,
 // o ESP32 entra em estado seguro (motores zerados). [ref: Secao 4 e 7]
-constexpr unsigned long SETPOINT_TIMEOUT_MS = 200;  // TODO(equipe): confirmar.
+constexpr unsigned long SETPOINT_TIMEOUT_MS = 0;  // TODO(equipe): definir.
 
 // ---------------------------------------------------------------------------
 // Malha de controle
