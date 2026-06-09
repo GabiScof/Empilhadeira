@@ -1,2 +1,14 @@
+# Dependências de produção
+fastapi
+uvicorn
+pyserial-asyncio
+numpy
+filterpy
+pydantic>=2
 pupil-apriltags==1.0.4.post11
 opencv-python==4.13.0.92
+ 
+# Dependências de desenvolvimento
+ruff
+black
+pytest
