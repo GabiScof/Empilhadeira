@@ -1,65 +1,86 @@
-# App do Raspberry Pi (alto nível)
+# Empilhadeira — Backend Pi (Python)
 
-Backend assíncrono único em **Python** (FastAPI + asyncio) que roda no Raspberry Pi.
-É a camada de **alto nível**: visão, fusão de sensores, controle, máquina de estados
-e ponte entre o frontend (WebSocket) e o ESP32 (UART).
+Backend assíncrono (FastAPI + asyncio) que roda no Raspberry Pi. Recebe comandos do
+frontend via WebSocket, detecta AprilTag via câmera, controla o ESP32 via UART serial,
+e envia telemetria de volta ao frontend a 20 Hz.
 
-> ⚠️ **Fase de scaffolding.** Toda a lógica está como stub (`NotImplementedError`).
-> Nada de PID/Kalman/cinemática/navegação/CRC implementado ainda.
+## Arquitetura
 
-## Três tarefas concorrentes (asyncio)
+Três tarefas asyncio concorrentes compartilham `SharedState`:
 
-- **WebSocket Handler** — recebe comando (contrato 1), envia telemetria @20 Hz
-  (contrato 2), watchdog de comando.
-- **Vision Loop** — captura, detecta AprilTag (`tag25h9`), estima pose.
-- **Serial Loop** — troca setpoint (contrato 3) / sensores (contrato 4) com o ESP32,
-  aplica Kalman, watchdog serial.
+- **WebSocket Handler** — recebe comandos (contrato 1), aplica máquina de estados,
+  gera setpoints via cinemática/navegação, envia telemetria (contrato 2).
+- **Vision Loop** — captura frames, detecta AprilTag (tag25h9), estima pose.
+- **Serial Loop** — troca setpoints (contrato 3) e sensores (contrato 4) com o ESP32.
 
 ## Estrutura
 
 ```
 app/
-├── main.py            # cria as 3 tarefas asyncio
-├── config.py          # TODAS as constantes/placeholders (Seção 3)
-├── state.py           # estado compartilhado entre tarefas
-├── models.py          # schemas Pydantic dos 4 contratos
-├── tasks/             # websocket_handler, vision_loop, serial_loop
-├── vision/            # detector, calibration, pose
-├── control/           # state_machine, kinematics, navigation, kalman
-├── comms/             # protocol (JSON+CRC8+\n), crc8
-└── telemetry/         # aggregator
-calibracao/
-└── camera_intrinsics.json   # placeholder (fx/fy/cx/cy = null)
-tests/                 # test_crc8, test_kinematics, test_protocol (casos marcados)
+├── main.py              # FastAPI factory + startup das 3 tarefas
+├── config.py            # Todos os parâmetros (provisórios marcados)
+├── state.py             # Estado compartilhado (locks asyncio)
+├── models.py            # Schemas Pydantic dos 4 contratos
+├── comms/               # CRC-8/MAXIM + protocolo serial
+├── control/             # Cinemática, navegação, estado, Kalman
+├── tasks/               # WebSocket, visão, serial
+├── telemetry/           # Agregador de telemetria
+├── vision/              # Detector AprilTag, estimativa de pose
+└── sim/                 # Camada de simulação (SIM=1)
+    ├── firmware_emulator.py  # Réplica do firmware ESP32
+    ├── world.py              # Mundo físico simulado
+    ├── synthetic_vision.py   # Visão sem câmera
+    └── fault_injector.py     # Injeção de falhas
 ```
 
-## Dependências
-
-Python 3.11+. Principais libs (ver `pyproject.toml` na raiz):
-`fastapi`, `uvicorn`, `opencv-python`, `pupil-apriltags`, `pyserial-asyncio`,
-`numpy`, `filterpy`, `pydantic`.
-
-## Como rodar (dev)
+## Como rodar
 
 ```bash
-# a partir da raiz do monorepo (src/)
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+# Instalar dependências
+cd src && pip install -e ".[dev]"
 
-# verificação de import (deve passar mesmo sem lógica)
-cd pi && python -c "import app.main, app.models, app.config"
+# Modo simulação (sem hardware)
+SIM=1 uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000 --app-dir pi
 
-# servidor (quando implementado)
-uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
-# ou: ../scripts/run_pi.sh
+# Modo real (com hardware)
+uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000 --app-dir pi
+
+# Testes
+pytest pi/tests/ -v
+
+# Lint + formato
+ruff check pi/
+black --check pi/
 ```
 
-## Qualidade
+## Modo Simulação (SIM=1)
 
-```bash
-ruff check pi
-black --check pi
-pytest pi   # testes ainda marcados como skip
-```
+Com `SIM=1`, o backend substitui:
+- UART serial → emulador do firmware ESP32 (PID, motor, encoder, MPU, garfo)
+- Câmera → visão sintética baseada na geometria robô-tag
 
-Configuração de porta/baudrate via `.env` (ver `.env.example` na raiz).
+O resto do código (controle, navegação, estado, telemetria) é **idêntico** ao modo real.
+
+APIs de simulação (só disponíveis com SIM=1):
+- `POST /sim/reset-pose` — define pose do robô `{x, y, theta}`
+- `POST /sim/inject-fault` — injeta falhas `{fault_type, active}`
+- `GET /sim/world-state` — estado completo do mundo simulado
+
+## Parâmetros Provisórios
+
+Todos marcados com `# PROVISÓRIO — TODO(equipe): confirmar` em `config.py`:
+
+| Parâmetro | Valor provisório | Unidade | Observação |
+|-----------|-----------------|---------|------------|
+| `WHEEL_BASE_L_CM` | 15.0 | cm | Distância entre rodas |
+| `WHEEL_RADIUS_R_CM` | 2.8 | cm | Raio da roda Lego NXT |
+| `MAX_LINEAR_SPEED` | 30.0 | cm/s | Velocidade máxima |
+| `MAX_ANGULAR_SPEED` | 3.0 | rad/s | Velocidade angular máxima |
+| `NAV_KZ` | 0.5 | — | Ganho de aproximação |
+| `NAV_KX` | 2.0 | — | Ganho lateral |
+| `NAV_KP_PITCH` | 0.5 | — | Ganho de pitch |
+| `ZREF_CM` | 5.0 | cm | Distância de parada |
+| `APRILTAG_SIZE_CM` | 5.0 | cm | Tamanho físico da tag |
+| `PALLET_MASS_KG` | 0.1 | kg | Inconsistência 1kg vs 0.1kg |
+| `CAMERA_TO_FORK_OFFSET_CM` | (0,0,0) | cm | Offset câmera→garfo |
+| `COMMAND_WATCHDOG_MS` | 500 | ms | Timeout de comando |

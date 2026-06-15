@@ -40,4 +40,11 @@ def build_telemetry(
     Returns:
         Telemetry pronto para serialização e envio.
     """
-    raise NotImplementedError
+    return Telemetry(
+        estado=estado,
+        rodas=rodas,
+        imu=imu,
+        visao=visao,
+        bateria=bateria,
+        ts_ms=ts_ms,
+    )

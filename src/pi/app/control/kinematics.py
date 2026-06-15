@@ -1,41 +1,72 @@
-"""Cinemática diferencial: (v, ω) → velocidades de roda (rad/s).
+"""Cinemática diferencial: joystick → twist → velocidades de roda.
 
-Especificação [ref: Seção 7 da AGENTS.md]:
+Equações [ref: Seção 7 da AGENTS.md]:
     ω_esq = (v − ω·L/2) / r
     ω_dir = (v + ω·L/2) / r
-onde `L` é a distância entre rodas e `r` o raio da roda (ver app/config.py).
 
-No modo **manual**, o joystick (x, y) ∈ [-1, 1] vira (v, ω) com saturação
-(`MAX_LINEAR_SPEED`, `MAX_ANGULAR_SPEED`). A saída (ω_esq, ω_dir) é a **mesma
-interface nos dois modos** (manual e automático).
-
-Premissa: rodas **sem escorregamento** (odometria degrada se patinar). [ref: Seção 4]
+Unidades: v em cm/s, ω em rad/s, L em cm, r em cm, saída em rad/s.
 """
 
 from __future__ import annotations
 
+from app import config
+
 
 def joystick_to_twist(x: float, y: float) -> tuple[float, float]:
-    """Converte o joystick em velocidade linear e angular (modo manual).
+    """Mapeia posição do joystick para velocidade linear e angular.
 
     Args:
-        x: componente de giro do joystick, [-1, 1].
-        y: componente de avanço do joystick, [-1, 1].
+        x: componente de giro [-1, 1]. Positivo = virar à direita.
+        y: componente de avanço [-1, 1]. Positivo = frente.
 
     Returns:
-        (v, ω): velocidade linear (cm/s) e angular (rad/s), já saturadas.
+        (v_cm_s, omega_rad_s) com saturação em MAX_LINEAR_SPEED / MAX_ANGULAR_SPEED.
     """
-    raise NotImplementedError
+    x = max(-1.0, min(1.0, x))
+    y = max(-1.0, min(1.0, y))
+
+    v = y * config.MAX_LINEAR_SPEED
+    omega = x * config.MAX_ANGULAR_SPEED
+
+    v = max(-config.MAX_LINEAR_SPEED, min(config.MAX_LINEAR_SPEED, v))
+    omega = max(-config.MAX_ANGULAR_SPEED, min(config.MAX_ANGULAR_SPEED, omega))
+
+    return v, omega
 
 
 def twist_to_wheel_speeds(v: float, omega: float) -> tuple[float, float]:
-    """Converte (v, ω) em velocidades angulares das rodas.
+    """Converte twist (v, ω) em velocidades angulares das rodas.
 
     Args:
-        v: velocidade linear (cm/s).
-        omega: velocidade angular (rad/s).
+        v: velocidade linear em cm/s.
+        omega: velocidade angular em rad/s.
 
     Returns:
-        (w_esq, w_dir): velocidades angulares das rodas (rad/s).
+        (w_esq, w_dir) em rad/s.
     """
-    raise NotImplementedError
+    half_l = config.WHEEL_BASE_L_CM / 2.0
+    r = config.WHEEL_RADIUS_R_CM
+
+    w_esq = (v - omega * half_l) / r
+    w_dir = (v + omega * half_l) / r
+
+    return w_esq, w_dir
+
+
+def wheel_speeds_to_twist(w_esq: float, w_dir: float) -> tuple[float, float]:
+    """Inversa: velocidades de roda → twist (v, ω).
+
+    Args:
+        w_esq: velocidade angular roda esquerda (rad/s).
+        w_dir: velocidade angular roda direita (rad/s).
+
+    Returns:
+        (v_cm_s, omega_rad_s).
+    """
+    r = config.WHEEL_RADIUS_R_CM
+    half_l = config.WHEEL_BASE_L_CM / 2.0
+
+    v = r * (w_esq + w_dir) / 2.0
+    omega = r * (w_dir - w_esq) / (2.0 * half_l)
+
+    return v, omega

@@ -28,9 +28,7 @@ class AprilTagDetector:
 
         # Valor de fallback até a equipe fechar APRILTAG_SIZE_CM.
         self.tag_size_m: float = (
-            (config.APRILTAG_SIZE_CM / 100.0)
-            if config.APRILTAG_SIZE_CM is not None
-            else 0.05
+            (config.APRILTAG_SIZE_CM / 100.0) if config.APRILTAG_SIZE_CM is not None else 0.05
         )
 
         self.camera_params: tuple[float, float, float, float] = config.CAMERA_PARAMS

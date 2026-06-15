@@ -1,21 +1,35 @@
-// ModeSelector.jsx — Seletor de modo (MANUAL / AUTOMATICO / PARADO).
-//
-// Define o campo `modo` do Command (contrato 1). Sair de PARADO exige acao
-// explicita do operador. [ref: Secao 6 e 7 da AGENTS.md]
-//
-// Fase de scaffolding: apenas placeholder visual; sem estado real.
-export default function ModeSelector() {
-  // TODO: estado do modo selecionado + envio via sendCommand.
-  const modos = ["MANUAL", "AUTOMATICO", "PARADO"];
+const MODES = ["MANUAL", "AUTOMATICO", "PARADO"];
+
+const MODE_COLORS = {
+  MANUAL: "bg-blue-600 hover:bg-blue-500",
+  AUTOMATICO: "bg-green-600 hover:bg-green-500",
+  PARADO: "bg-red-600 hover:bg-red-500",
+};
+
+export default function ModeSelector({ currentMode, onModeChange, disabled }) {
   return (
     <div className="rounded-lg bg-slate-800 p-4">
       <h2 className="font-semibold mb-2">Modo</h2>
       <div className="flex gap-2">
-        {modos.map((m) => (
-          <button key={m} className="flex-1 rounded bg-slate-700 py-2 text-sm" type="button">
-            {m}
-          </button>
-        ))}
+        {MODES.map((m) => {
+          const isActive = currentMode === m;
+          const base = isActive
+            ? MODE_COLORS[m]
+            : "bg-slate-700 hover:bg-slate-600";
+          return (
+            <button
+              key={m}
+              className={`flex-1 rounded py-2 text-sm font-medium transition-colors ${base} ${
+                isActive ? "ring-2 ring-white/30" : ""
+              }`}
+              type="button"
+              disabled={disabled}
+              onClick={() => onModeChange?.(m)}
+            >
+              {m}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

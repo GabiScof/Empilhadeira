@@ -10,76 +10,96 @@ Serial Loop.
 
 from __future__ import annotations
 
-from app.models import Command, ImuAngles, Mode, Sensors, Telemetry, VisionState, WheelSpeeds
+import asyncio
+import time
+
+from app.control.kalman import AttitudeKalman
+from app.control.navigation import NavigationController
+from app.control.state_machine import StateMachine
+from app.models import (
+    Battery,
+    Command,
+    ImuAngles,
+    Mode,
+    Sensors,
+    Setpoint,
+    Telemetry,
+    VisionState,
+    WheelSpeeds,
+)
+from app.telemetry.aggregator import build_telemetry
 
 
 class SharedState:
-    """Estado compartilhado, protegido para acesso concorrente entre tarefas.
-
-    Atributos esperados (a definir na implementação):
-        mode: estado atual da máquina de estados.
-        last_command: último Command recebido do frontend.
-        last_sensors: último Sensors recebido do ESP32.
-        last_vision: última VisionState produzida pelo Vision Loop.
-    """
+    """Estado compartilhado, protegido por lock asyncio para acesso concorrente."""
 
     def __init__(self) -> None:
-        """Inicializa o estado compartilhado em PARADO, sem leituras."""
-        self.mode: Mode = Mode.PARADO
+        self.lock = asyncio.Lock()
+        self.state_machine = StateMachine()
+        self.kalman = AttitudeKalman()
+        self.navigator = NavigationController()
+
         self.last_command: Command | None = None
         self.last_sensors: Sensors | None = None
         self.last_vision: VisionState = VisionState()
+        self.last_imu: ImuAngles = ImuAngles(roll=0.0, pitch=0.0)
 
-    def update_command(self, command: Command) -> None:
-        """Registra o último comando do frontend (thread/loop-safe).
+        self.current_setpoint: Setpoint = Setpoint(w_esq=0.0, w_dir=0.0)
 
-        Args:
-            command: comando recebido via WebSocket.
-        """
-        self.last_command = command
-        self.mode = command.modo
+    @property
+    def mode(self) -> Mode:
+        return self.state_machine.mode
 
-    def update_sensors(self, sensors: Sensors) -> None:
-        """Registra a última leitura de sensores do ESP32.
+    async def update_command(self, command: Command) -> None:
+        """Registra o último comando do frontend."""
+        async with self.lock:
+            self.last_command = command
 
-        Args:
-            sensors: pacote de sensores recebido via UART.
-        """
-        self.last_sensors = sensors
+    async def clear_command(self) -> None:
+        """Limpa a intenção do operador (ex.: ao cair a conexão WebSocket)."""
+        async with self.lock:
+            self.last_command = None
 
-    def update_vision(self, vision: VisionState) -> None:
-        """Registra a última saída de visão.
+    async def update_sensors(self, sensors: Sensors) -> None:
+        """Registra a última leitura de sensores do ESP32."""
+        async with self.lock:
+            self.last_sensors = sensors
 
-        Args:
-            vision: detecção/pose produzida pelo Vision Loop.
-        """
-        self.last_vision = vision
+    async def update_vision(self, vision: VisionState) -> None:
+        """Registra a última saída de visão."""
+        async with self.lock:
+            self.last_vision = vision
 
-    def set_mode(self, mode: Mode) -> None:
-        """Atualiza o estado atual da máquina de estados.
+    async def update_imu(self, imu: ImuAngles) -> None:
+        """Registra o roll/pitch filtrado pelo Kalman."""
+        async with self.lock:
+            self.last_imu = imu
 
-        Args:
-            mode: novo estado (MANUAL/AUTOMATICO/PARADO).
-        """
-        self.mode = mode
+    async def update_setpoint(self, setpoint: Setpoint) -> None:
+        """Registra o setpoint atual a enviar ao ESP32."""
+        async with self.lock:
+            self.current_setpoint = setpoint
 
-    def snapshot_telemetry(self) -> Telemetry:
-        """Monta um snapshot de telemetria a partir do estado atual.
+    async def snapshot_telemetry(self) -> Telemetry:
+        """Monta um snapshot de telemetria a partir do estado atual."""
+        async with self.lock:
+            if self.last_sensors is not None:
+                rodas = WheelSpeeds(
+                    esq=self.last_sensors.enc.esq,
+                    dir=self.last_sensors.enc.dir,
+                )
+            else:
+                rodas = WheelSpeeds(esq=0.0, dir=0.0)
 
-        Returns:
-            Telemetry: contrato (2) pronto para envio ao frontend.
-        """
-        #TODO: Revisar esta parte pois está relacionada ao controle.
-        if self.last_sensors is None:
-            rodas = WheelSpeeds(esq=0.0, dir=0.0)
-            imu = ImuAngles(roll=0.0, pitch=0.0)
-        else:
-            rodas = self.last_sensors.enc
-            imu = ImuAngles(roll=0.0, pitch=0.0)
+            bateria = Battery()
+            if self.last_sensors is not None and self.last_sensors.bms is not None:
+                bateria = self.last_sensors.bms
 
-        return Telemetry(
-            estado=self.mode,
-            rodas=rodas,
-            imu=imu,
-            visao=self.last_vision,
-        )
+            return build_telemetry(
+                estado=self.state_machine.mode,
+                rodas=rodas,
+                imu=self.last_imu,
+                visao=self.last_vision,
+                bateria=bateria,
+                ts_ms=int(time.time() * 1000),
+            )

@@ -3,9 +3,9 @@
 Centraliza **todos** os números do alto nível. Nenhum número mágico deve aparecer
 fora deste módulo (convenção da Seção 10).
 
-Os parâmetros marcados com ``TODO(equipe): confirmar`` são **placeholders** — a
-equipe ainda não fechou o valor real (Seção 3 da AGENTS.md). NÃO trate placeholder
-como verdade nem otimize em cima dele.
+Os parâmetros marcados com ``PROVISÓRIO — TODO(equipe): confirmar`` são **placeholders**
+com valores provisórios razoáveis para simulação. A equipe deve medir e confirmar
+cada um no hardware real antes de usar em produção.
 
 [ref: Seção 3 da AGENTS.md]
 """
@@ -16,58 +16,87 @@ import os
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
+# Modo de simulação
+# ---------------------------------------------------------------------------
+SIM: bool = os.getenv("SIM", "0") == "1"
+
+# ---------------------------------------------------------------------------
 # Rede / WebSocket (Frontend ↔ Pi)
 # ---------------------------------------------------------------------------
-# Host/porta do servidor FastAPI/WebSocket. Lidos de .env quando presente.
 WS_HOST: str = os.getenv("PI_HOST", "0.0.0.0")
 WS_PORT: int = int(os.getenv("PI_PORT", "8000"))
 
-# Taxa de telemetria Pi → Frontend.
 TELEMETRY_HZ: float = 20.0
 
-# Watchdog do canal de comando: se nenhum comando chegar nesse intervalo durante o
-# modo MANUAL com o robô andando, o Pi força PARADO. [ref: Seção 4 e 7]
-COMMAND_WATCHDOG_MS: int = 500  # TODO(equipe): confirmar (depende do RTT alvo < 170 ms).
+# Frequência do loop de controle (navegação + máquina de estados → setpoint).
+# Roda independente da cadência de comando do operador (o frontend é orientado a
+# evento, não envia stream contínuo).
+CONTROL_HZ: float = 20.0
+
+# PROVISÓRIO — TODO(equipe): confirmar (depende do RTT alvo < 170 ms)
+COMMAND_WATCHDOG_MS: int = 500
 
 # ---------------------------------------------------------------------------
 # Serial (Pi ↔ ESP32)
 # ---------------------------------------------------------------------------
 SERIAL_PORT: str = os.getenv("SERIAL_PORT", "/dev/ttyUSB0")
-SERIAL_BAUDRATE: int = int(os.getenv("SERIAL_BAUDRATE", "115200"))  # decisão fechada (Seção 2)
-SERIAL_HZ: float = 20.0  # taxa de troca Pi↔ESP32 (decisão fechada)
+SERIAL_BAUDRATE: int = int(os.getenv("SERIAL_BAUDRATE", "115200"))
+SERIAL_HZ: float = 20.0
 
 # ---------------------------------------------------------------------------
 # Cinemática diferencial — [ref: Seção 3 e 7]
 # ---------------------------------------------------------------------------
-WHEEL_BASE_L_CM: float | None = None  # TODO(equipe): confirmar — distância entre rodas (cm).
-WHEEL_RADIUS_R_CM: float | None = None  # TODO(equipe): confirmar — raio da roda (cm).
+# PROVISÓRIO — TODO(equipe): confirmar — distância entre rodas (cm).
+# Estimado para chassi Lego em escala; medir no robô montado.
+WHEEL_BASE_L_CM: float = 15.0
 
-# Saturação do joystick → (v, ω) no modo manual.
-MAX_LINEAR_SPEED: float | None = None  # TODO(equipe): confirmar — v máx (cm/s).
-MAX_ANGULAR_SPEED: float | None = None  # TODO(equipe): confirmar — ω máx (rad/s).
+# PROVISÓRIO — TODO(equipe): confirmar — raio da roda (cm).
+# Roda Lego NXT ~56 mm de diâmetro → r ≈ 2.8 cm.
+WHEEL_RADIUS_R_CM: float = 2.8
+
+# PROVISÓRIO — TODO(equipe): confirmar — v máx (cm/s).
+# Conservador para ambiente interno controlado.
+MAX_LINEAR_SPEED: float = 30.0
+
+# PROVISÓRIO — TODO(equipe): confirmar — ω máx (rad/s).
+MAX_ANGULAR_SPEED: float = 3.0
 
 # ---------------------------------------------------------------------------
 # Navegação automática — [ref: Seção 3 e 7]
-# Objetivo: X≈0, Pitch≈0, Z≈Zref.  v = Kz·(Z−Zref); ω = Kx·X + Kp_pitch·Pitch
 # ---------------------------------------------------------------------------
-NAV_KZ: float | None = None  # TODO(equipe): confirmar — ganho de aproximação (eixo Z).
-NAV_KX: float | None = None  # TODO(equipe): confirmar — ganho de alinhamento lateral (X).
-NAV_KP_PITCH: float | None = None  # TODO(equipe): confirmar — ganho de orientação (Pitch).
-ZREF_CM: float | None = (
-    None  # TODO(equipe): confirmar — distância de parada (~5 cm? depende do garfo).
-)
+# PROVISÓRIO — TODO(equipe): confirmar — ganho de aproximação (eixo Z).
+NAV_KZ: float = 0.5
 
-# Perda de tag: nº de frames sem detecção que leva a PARADO (>5 frames ~250 ms @20 Hz).
-TAG_LOST_FRAMES: int = 5  # [ref: Seção 7]
+# PROVISÓRIO — TODO(equipe): confirmar — ganho de alinhamento lateral (X).
+NAV_KX: float = 2.0
+
+# PROVISÓRIO — TODO(equipe): confirmar — ganho de orientação (Pitch).
+NAV_KP_PITCH: float = 0.5
+
+# PROVISÓRIO — TODO(equipe): confirmar — distância de parada (~5 cm? depende do garfo).
+ZREF_CM: float = 5.0
+
+TAG_LOST_FRAMES: int = 5
+
+# Limiar de oscilação para trocar de estratégia A para B na navegação.
+NAV_OSCILLATION_THRESHOLD: float = 3.0  # PROVISÓRIO — TODO(equipe): confirmar
+NAV_OSCILLATION_WINDOW: int = 10  # nº de amostras para detectar oscilação
+
+# FOV/foco: distância mínima abaixo da qual a tag pode sair do FOV.
+NAV_MIN_Z_FOR_PRIMARY: float = 8.0  # PROVISÓRIO — TODO(equipe): confirmar (cm)
+
+# Tolerâncias para fallback sequencial
+NAV_ALIGN_X_TOL: float = 0.5  # cm — tolerância lateral para considerar alinhado
+NAV_ALIGN_PITCH_TOL: float = 2.0  # graus — tolerância angular
 
 # ---------------------------------------------------------------------------
 # Visão / AprilTag — [ref: Seção 3 e 8]
 # ---------------------------------------------------------------------------
-APRILTAG_FAMILY: str = "tag25h9"  # decisão fechada (Seção 8)
-APRILTAG_SIZE_CM: float | None = None  # TODO(equipe): confirmar — tamanho físico da tag (cm).
+APRILTAG_FAMILY: str = "tag25h9"
 
-# Intrínsecos da câmera usados na estimativa de pose.
-# Enquanto a calibração real não entrar, estes valores vêm do protótipo.
+# PROVISÓRIO — TODO(equipe): confirmar — tamanho físico da tag (cm).
+APRILTAG_SIZE_CM: float = 5.0
+
 CAMERA_FX: float = 799.3907361857031
 CAMERA_FY: float = 794.2843064465196
 CAMERA_CX: float = 399.03967921864864
@@ -80,23 +109,61 @@ CAMERA_PARAMS: tuple[float, float, float, float] = (
     CAMERA_CY,
 )
 
-# Offset extrínseco câmera → garfo (alinhar câmera ≠ alinhar garfo). [ref: Seção 4]
-CAMERA_TO_FORK_OFFSET_CM: tuple[float, float, float] | None = (
-    None  # TODO(equipe): confirmar (x, y, z).
-)
+# PROVISÓRIO — TODO(equipe): confirmar (x, y, z) em cm.
+# Sem offset até a equipe medir a posição relativa câmera-garfo.
+CAMERA_TO_FORK_OFFSET_CM: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
-# Arquivo de intrínsecos da câmera (saída da calibração).
 CAMERA_INTRINSICS_PATH: Path = (
     Path(__file__).resolve().parent.parent / "calibracao" / "camera_intrinsics.json"
 )
 
 # ---------------------------------------------------------------------------
-# Plataforma / mecânica — parâmetros em aberto — [ref: Seção 3]
+# Plataforma / mecânica — [ref: Seção 3]
 # ---------------------------------------------------------------------------
+# PROVISÓRIO — TODO(equipe): confirmar — massa real do pallet (kg).
 # INCONSISTÊNCIA ABERTA: a intro do relatório diz ~1 kg, mas o cálculo do garfo
-# usou 0,1 kg. A equipe precisa fechar o valor real antes de dimensionar o motor.
-PALLET_MASS_KG: float | None = None  # TODO(equipe): confirmar — massa real do pallet (kg).
+# usou 0,1 kg. Usando 0,1 kg como padrão conservador para o garfo.
+PALLET_MASS_KG: float = 0.1
 
-# Versão/torque do motor do garfo depende da massa real (a versão 40 rpm pode estar
-# subdimensionada).
-FORK_MOTOR_VERSION: str | None = None  # TODO(equipe): confirmar — versão/torque do motor do garfo.
+# PROVISÓRIO — TODO(equipe): confirmar — versão/torque do motor do garfo.
+FORK_MOTOR_VERSION: str = "JGY-370-12V-40rpm"
+
+# ---------------------------------------------------------------------------
+# Constantes do emulador / simulação (espelho do firmware)
+# ---------------------------------------------------------------------------
+# PID (espelha config.h do firmware)
+EMU_PID_KP: float = 20.0
+EMU_PID_KI: float = 5.0
+EMU_PID_KD: float = 1.0
+EMU_PID_INTEGRAL_LIMIT: float = 500.0
+EMU_PID_HZ: float = 100.0
+
+# Motor Lego NXT 53787: ~117 rpm ≈ 12.25 rad/s no eixo de saída
+EMU_MAX_OMEGA: float = 12.25
+EMU_MOTOR_TAU: float = 0.05  # constante de tempo 1ª ordem (s)
+EMU_MAX_DUTY: int = 255
+EMU_LEDC_RESOLUTION_BITS: int = 8
+
+# Garfo JGY-370-12V worm gear
+EMU_FORK_DUTY: int = 180
+EMU_FORK_SPEED: float = 2.0  # cm/s de deslocamento vertical — PROVISÓRIO — TODO(equipe): confirmar
+EMU_FORK_MIN_HEIGHT: float = 0.0  # cm
+EMU_FORK_MAX_HEIGHT: float = 10.0  # cm — PROVISÓRIO — TODO(equipe): confirmar
+
+# Encoder Lego NXT 53787
+EMU_ENCODER_PPR: int = 360
+
+# Watchdog de setpoint (espelha SETPOINT_TIMEOUT_MS do firmware)
+EMU_SETPOINT_TIMEOUT_MS: int = 200
+
+# Mundo de simulação
+SIM_ARENA_WIDTH: float = 200.0  # cm
+SIM_ARENA_HEIGHT: float = 200.0  # cm
+SIM_DEFAULT_SEED: int = 42
+
+# Visão sintética
+SIM_VISION_FOV_H_DEG: float = 60.0  # campo de visão horizontal (graus)
+SIM_VISION_MIN_RANGE: float = 3.0  # cm — distância mínima de detecção
+SIM_VISION_MAX_RANGE: float = 150.0  # cm — distância máxima de detecção
+SIM_VISION_NOISE_STD_CM: float = 0.2  # desvio-padrão do ruído de posição (cm)
+SIM_VISION_NOISE_STD_DEG: float = 0.5  # desvio-padrão do ruído de ângulo (graus)
