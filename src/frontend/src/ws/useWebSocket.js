@@ -1,25 +1,84 @@
 // useWebSocket.js — Hook de conexao WebSocket com o Pi.
 //
-// Responsabilidades (a implementar):
-//  - Conectar ao Pi (ws://<IP_DO_PI>:<porta>) e reconectar em queda.
-//  - Enviar Command (contrato 1) e receber Telemetry (contrato 2) @20 Hz.
-//  - Expor estado de conexao para a UI poder refletir perda de link.
+// Conecta a ws://<IP_DO_PI>:<porta>/ws, recebe Telemetry (contrato 2) @20 Hz
+// e expoe sendCommand para emitir Command (contrato 1).
+// Reconecta automaticamente com backoff exponencial (500 ms → 10 s) em qualquer queda.
 //
 // [ref: Secao 6 da AGENTS.md] · tipos em ../types/contracts.ts
-// Fase de scaffolding: stub sem conexao real.
+
+import { useState, useEffect, useRef, useCallback } from "react";
+
+const RECONNECT_BASE_MS = 500;
+const RECONNECT_MAX_MS = 10_000;
 
 /**
  * @param {string} url URL do WebSocket do Pi (ex.: ws://192.168.0.10:8000/ws).
- * @returns {{ telemetry: object|null, connected: boolean, sendCommand: (cmd: object) => void }}
+ * @returns {{ telemetry: import('../types/contracts').Telemetry|null, connected: boolean, sendCommand: (cmd: import('../types/contracts').Command) => void }}
  */
 export function useWebSocket(url) {
-  // TODO: implementar conexao, reconexao, parse de telemetria e envio de comando.
-  void url;
-  return {
-    telemetry: null,
-    connected: false,
-    sendCommand: () => {
-      // TODO: enviar Command serializado pelo socket.
-    },
-  };
+  const [telemetry, setTelemetry] = useState(null);
+  const [connected, setConnected] = useState(false);
+
+  const wsRef = useRef(null);
+  const backoffRef = useRef(RECONNECT_BASE_MS);
+  const timerRef = useRef(null);
+  const mountedRef = useRef(true);
+
+  // connect é estável enquanto url não muda
+  const connect = useCallback(() => {
+    if (!url || !mountedRef.current) return;
+
+    const ws = new WebSocket(url);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      if (!mountedRef.current) {
+        ws.close();
+        return;
+      }
+      setConnected(true);
+      backoffRef.current = RECONNECT_BASE_MS;
+    };
+
+    ws.onmessage = (event) => {
+      if (!mountedRef.current) return;
+      try {
+        setTelemetry(JSON.parse(event.data));
+      } catch {
+        /* ignora frames malformados */
+      }
+    };
+
+    ws.onclose = () => {
+      if (!mountedRef.current) return;
+      setConnected(false);
+      wsRef.current = null;
+      const delay = backoffRef.current;
+      backoffRef.current = Math.min(delay * 2, RECONNECT_MAX_MS);
+      timerRef.current = setTimeout(connect, delay);
+    };
+
+    ws.onerror = () => {
+      // onerror sempre é seguido de onclose; fechar explicitamente aciona o backoff.
+      ws.close();
+    };
+  }, [url]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    connect();
+    return () => {
+      mountedRef.current = false;
+      clearTimeout(timerRef.current);
+      wsRef.current?.close();
+    };
+  }, [connect]);
+
+  const sendCommand = useCallback((cmd) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(cmd));
+    }
+  }, []);
+
+  return { telemetry, connected, sendCommand };
 }
