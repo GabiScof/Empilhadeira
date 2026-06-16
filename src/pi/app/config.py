@@ -25,9 +25,11 @@ WS_PORT: int = int(os.getenv("PI_PORT", "8000"))
 # Taxa de telemetria Pi → Frontend.
 TELEMETRY_HZ: float = 20.0
 
-# Watchdog do canal de comando: se nenhum comando chegar nesse intervalo durante o
-# modo MANUAL com o robô andando, o Pi força PARADO. [ref: Seção 4 e 7]
-COMMAND_WATCHDOG_MS: int = 500  # TODO(equipe): confirmar (depende do RTT alvo < 170 ms).
+# Timeout do canal de comando: se nenhum comando chegar neste intervalo, o Pi força
+# PARADO independentemente do modo. [ref: Seção 4 e 7]
+# RTT alvo < 170 ms; o frontend envia heartbeat a ~100 ms, então 400 ms é conservador
+# e seguro — ajustar empiricamente conforme a rede da PUC.
+COMMAND_TIMEOUT_MS: int = 400  # ajustável; deve ser >> RTT + jitter
 
 # ---------------------------------------------------------------------------
 # Serial (Pi ↔ ESP32)
