@@ -50,6 +50,8 @@ async def websocket_handler(ws: WebSocket, state: SharedState) -> None:
         async for text in ws.iter_text():
             try:
                 cmd = Command.model_validate_json(text)
+                _log.info("[WS] comando recebido: %s", cmd.model_dump())
+                print("Comando recebido:", cmd.model_dump())
                 state.update_command(cmd)
                 last_cmd_time = loop.time()
             except ValidationError as exc:
