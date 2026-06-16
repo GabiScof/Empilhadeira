@@ -36,7 +36,7 @@ async def vision_loop(state: SharedState) -> None:
 
     try:
         while True:
-            read_ok, frame = capture.read()
+            read_ok, frame = await asyncio.to_thread(capture.read)
             if not read_ok:
                 await asyncio.sleep(0.01)
                 continue
