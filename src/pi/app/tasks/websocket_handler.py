@@ -68,7 +68,7 @@ async def websocket_endpoint(websocket: WebSocket, state: SharedState) -> None:
 
         # Conexão caiu: estado seguro. Limpa a intenção do operador para o
         # control_loop não continuar dirigindo com um comando obsoleto.
-        state.state_machine.force_stop()
+        state.state_machine.force_stop(reason="ws_disconnect")
         await state.clear_command()
         logger.info("WS desconectado → PARADO (intenção do operador limpa)")
 
