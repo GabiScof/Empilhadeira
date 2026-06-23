@@ -24,7 +24,14 @@ from app.models import ForkCommand
 
 
 class PidController:
-    """Réplica do PID do firmware (pid.cpp)."""
+    """Réplica do PID do firmware (pid.cpp).
+
+    Inclui filtro passa-baixa no derivativo para evitar oscilação causada pela
+    discretização a 100 Hz. Motores reais têm atrito que amortece o derivativo;
+    o filtro emula esse comportamento.
+    """
+
+    _DERIV_FILTER_ALPHA: float = 0.8
 
     def __init__(self, kp: float, ki: float, kd: float) -> None:
         self.kp = kp
@@ -33,27 +40,35 @@ class PidController:
         self.setpoint = 0.0
         self.integral = 0.0
         self.prev_error = 0.0
+        self._filtered_deriv = 0.0
 
     def update(self, measured: float, dt: float) -> float:
         if dt <= 0:
             return 0.0
 
         error = self.setpoint - measured
+
+        if self.integral * error < 0:
+            self.integral = 0.0
+
         self.integral += error * dt
         self.integral = max(
             -config.EMU_PID_INTEGRAL_LIMIT,
             min(config.EMU_PID_INTEGRAL_LIMIT, self.integral),
         )
 
-        derivative = (error - self.prev_error) / dt
+        raw_deriv = (error - self.prev_error) / dt
+        a = self._DERIV_FILTER_ALPHA
+        self._filtered_deriv = a * self._filtered_deriv + (1 - a) * raw_deriv
         self.prev_error = error
 
-        return self.kp * error + self.ki * self.integral + self.kd * derivative
+        return self.kp * error + self.ki * self.integral + self.kd * self._filtered_deriv
 
     def reset(self) -> None:
         self.setpoint = 0.0
         self.integral = 0.0
         self.prev_error = 0.0
+        self._filtered_deriv = 0.0
 
 
 class MotorModel:
@@ -110,6 +125,23 @@ class FirmwareEmulator:
         self._last_time = time.monotonic()
 
         self._serial_drop = False
+
+    def pid_state(self) -> dict:
+        """Estado interno dos PIDs para telemetria/debug."""
+        return {
+            "esq": {
+                "setpoint": round(self.pid_esq.setpoint, 4),
+                "error": round(self.pid_esq.prev_error, 4),
+                "integral": round(self.pid_esq.integral, 4),
+                "output": round(self.motor_esq.omega, 4),
+            },
+            "dir": {
+                "setpoint": round(self.pid_dir.setpoint, 4),
+                "error": round(self.pid_dir.prev_error, 4),
+                "integral": round(self.pid_dir.integral, 4),
+                "output": round(self.motor_dir.omega, 4),
+            },
+        }
 
     @property
     def world(self) -> object | None:
@@ -186,11 +218,27 @@ class FirmwareEmulator:
             if isinstance(self._world, SimWorld):
                 self._world.step(self.measured_esq, self.measured_dir, dt)
 
+    _SETTLE_THRESHOLD: float = 1.0  # rad/s — abaixo disso com setpoint 0, freia
+
     def _pid_step(self, dt: float) -> None:
         """Um passo de PID + motor."""
         if self.setpoint_valid:
             self.pid_esq.setpoint = self.setpoint_w_esq
             self.pid_dir.setpoint = self.setpoint_w_dir
+
+            # Frenagem: setpoint ≈ 0 → zera integral imediatamente para evitar
+            # que windup residual (da fase AUTOMATICO) mantenha as rodas girando.
+            # O firmware real chama motorsStop() que reseta o PID; aqui emulamos
+            # o mesmo comportamento.
+            if abs(self.setpoint_w_esq) < 0.01 and abs(self.setpoint_w_dir) < 0.01:
+                self.pid_esq.integral = 0.0
+                self.pid_dir.integral = 0.0
+                if (
+                    abs(self.measured_esq) < self._SETTLE_THRESHOLD
+                    and abs(self.measured_dir) < self._SETTLE_THRESHOLD
+                ):
+                    self._motors_stop()
+                    return
 
             u_esq = self.pid_esq.update(self.measured_esq, dt)
             u_dir = self.pid_dir.update(self.measured_dir, dt)
@@ -237,8 +285,14 @@ class FirmwareEmulator:
         """
         mpu = self._generate_mpu()
 
+        enc_esq = self.measured_esq
+        enc_dir = self.measured_dir
+        if self._world is not None and hasattr(self._world, "noisy_encoder"):
+            enc_esq = self._world.noisy_encoder(enc_esq)
+            enc_dir = self._world.noisy_encoder(enc_dir)
+
         data = {
-            "enc": {"esq": round(self.measured_esq, 4), "dir": round(self.measured_dir, 4)},
+            "enc": {"esq": round(enc_esq, 4), "dir": round(enc_dir, 4)},
             "mpu": {
                 "ax": round(mpu["ax"], 4),
                 "ay": round(mpu["ay"], 4),
@@ -271,6 +325,16 @@ class FirmwareEmulator:
             from app.sim.world import SimWorld
 
             if isinstance(self._world, SimWorld):
+                robot_model = self._world._robot_model
+                _, omega_z_rads = robot_model.forward_kinematics(
+                    self.measured_esq, self.measured_dir,
+                )
+                if hasattr(self._world, "noisy_gyro_z"):
+                    omega_z_rads = self._world.noisy_gyro_z(omega_z_rads)
+                else:
+                    omega_z_rads += self._rng.gauss(0, 0.01)
+                gz = math.degrees(omega_z_rads)
+            elif hasattr(self._world, "robot_theta"):
                 r = config.WHEEL_RADIUS_R_CM
                 omega_z = (self.measured_dir - self.measured_esq) * r / config.WHEEL_BASE_L_CM
                 gz = math.degrees(omega_z) + self._rng.gauss(0, 0.1)

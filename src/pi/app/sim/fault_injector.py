@@ -23,6 +23,10 @@ class FaultState:
     slip_esq: float = 1.0
     slip_dir: float = 1.0
     battery_saturated: bool = False
+    vision_blur_prob: float = 0.0
+    vision_drop_prob: float = 0.0
+    encoder_noise_std: float = 0.05
+    gyro_drift_rads: float = 0.001
 
 
 class FaultInjector:
@@ -63,12 +67,40 @@ class FaultInjector:
         """Injeta/remove saturação de bateria."""
         self.state.battery_saturated = active
 
+    def inject_vision_blur(self, prob: float) -> None:
+        """Injeta probabilidade de motion blur."""
+        self.state.vision_blur_prob = prob
+        if self._vision is not None and hasattr(self._vision, 'set_blur_prob'):
+            self._vision.set_blur_prob(prob)
+
+    def inject_vision_drop(self, prob: float) -> None:
+        """Injeta probabilidade de drop (sem detecção)."""
+        self.state.vision_drop_prob = prob
+        if self._vision is not None and hasattr(self._vision, 'set_drop_prob'):
+            self._vision.set_drop_prob(prob)
+
+    def inject_encoder_noise(self, std: float) -> None:
+        """Injeta ruído de encoder."""
+        self.state.encoder_noise_std = std
+        if self._world is not None and hasattr(self._world, 'encoder_noise_std'):
+            self._world.encoder_noise_std = std
+
+    def inject_gyro_drift(self, drift: float) -> None:
+        """Injeta drift do giroscópio."""
+        self.state.gyro_drift_rads = drift
+        if self._world is not None and hasattr(self._world, 'gyro_drift_rads'):
+            self._world.gyro_drift_rads = drift
+
     def clear_all(self) -> None:
         """Remove todas as falhas injetadas."""
         self.inject_serial_drop(False)
         self.inject_tag_hidden(False)
         self.inject_wheel_slip(1.0, 1.0)
         self.inject_battery_saturated(False)
+        self.inject_vision_blur(0.0)
+        self.inject_vision_drop(0.0)
+        self.inject_encoder_noise(0.05)
+        self.inject_gyro_drift(0.001)
 
     def get_state(self) -> dict:
         """Retorna estado das falhas para a UI."""
@@ -78,4 +110,8 @@ class FaultInjector:
             "slip_esq": self.state.slip_esq,
             "slip_dir": self.state.slip_dir,
             "battery_saturated": self.state.battery_saturated,
+            "vision_blur_prob": self.state.vision_blur_prob,
+            "vision_drop_prob": self.state.vision_drop_prob,
+            "encoder_noise_std": self.state.encoder_noise_std,
+            "gyro_drift_rads": self.state.gyro_drift_rads,
         }
