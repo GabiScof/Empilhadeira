@@ -68,13 +68,18 @@ MAX_ANGULAR_SPEED: float = 3.0
 NAV_KZ: float = 0.5
 
 # PROVISÓRIO — TODO(equipe): confirmar — ganho de alinhamento lateral (X).
-NAV_KX: float = 2.0
+# Valor baixo para que ruído de visão (±0.5 cm) não gere omega que cancele v.
+NAV_KX: float = 0.80
 
 # PROVISÓRIO — TODO(equipe): confirmar — ganho de orientação (Pitch).
-NAV_KP_PITCH: float = 0.5
+# Suave: com a fórmula de pitch corrigida, o valor nominal é ~0° e correções
+# grandes não são necessárias.
+NAV_KP_PITCH: float = 0.1
 
-# PROVISÓRIO — TODO(equipe): confirmar — distância de parada (~5 cm? depende do garfo).
-ZREF_CM: float = 5.0
+# PROVISÓRIO — TODO(equipe): confirmar — distância de parada.
+# 15 cm dá margem para frenagem e mantém a tag confortavelmente no FOV/foco.
+# Com 5 cm o PID não freia a tempo e o robô ultrapassa a tag.
+ZREF_CM: float = 15.0
 
 TAG_LOST_FRAMES: int = 5
 
@@ -84,6 +89,12 @@ NAV_OSCILLATION_WINDOW: int = 10  # nº de amostras para detectar oscilação
 
 # FOV/foco: distância mínima abaixo da qual a tag pode sair do FOV.
 NAV_MIN_Z_FOR_PRIMARY: float = 8.0  # PROVISÓRIO — TODO(equipe): confirmar (cm)
+
+# Perfil de desaceleração — evita overshoot do ZREF
+# v_max = sqrt(2 · a_decel · d).  O PID do emulador (Kd=1 a 100 Hz) causa
+# windup de integral que atrasa a frenagem; sem este limite o robô ultrapassa a tag.
+NAV_DECEL_CMS2: float = 5.0  # PROVISÓRIO — TODO(equipe): confirmar (cm/s²)
+NAV_MAX_APPROACH_SPEED: float = 15.0  # PROVISÓRIO — TODO(equipe): confirmar (cm/s)
 
 # Tolerâncias para fallback sequencial
 NAV_ALIGN_X_TOL: float = 0.5  # cm — tolerância lateral para considerar alinhado
@@ -116,6 +127,15 @@ CAMERA_TO_FORK_OFFSET_CM: tuple[float, float, float] = (0.0, 0.0, 0.0)
 CAMERA_INTRINSICS_PATH: Path = (
     Path(__file__).resolve().parent.parent / "calibracao" / "camera_intrinsics.json"
 )
+
+# Índice do dispositivo de câmera para cv2.VideoCapture (0 = /dev/video0).
+CAMERA_INDEX: int = int(os.getenv("CAMERA_INDEX", "0"))
+CAMERA_FRAME_WIDTH: int = int(os.getenv("CAMERA_FRAME_WIDTH", "1280"))
+CAMERA_FRAME_HEIGHT: int = int(os.getenv("CAMERA_FRAME_HEIGHT", "720"))
+
+# Se True, o modo real exige calibração válida da câmera no boot (recomendado:
+# os intrínsecos placeholder de config NÃO servem para o hardware real).
+REQUIRE_CAMERA_CALIBRATION: bool = os.getenv("REQUIRE_CAMERA_CALIBRATION", "1") == "1"
 
 # ---------------------------------------------------------------------------
 # Plataforma / mecânica — [ref: Seção 3]
@@ -167,3 +187,64 @@ SIM_VISION_MIN_RANGE: float = 3.0  # cm — distância mínima de detecção
 SIM_VISION_MAX_RANGE: float = 150.0  # cm — distância máxima de detecção
 SIM_VISION_NOISE_STD_CM: float = 0.2  # desvio-padrão do ruído de posição (cm)
 SIM_VISION_NOISE_STD_DEG: float = 0.5  # desvio-padrão do ruído de ângulo (graus)
+
+# ---------------------------------------------------------------------------
+# Modelo de mundo — [ref: Seção 2 do mega-prompt]
+# ---------------------------------------------------------------------------
+# Mapa padrão — selecionável por .env/CLI/UI.
+DEFAULT_MAP: str = os.getenv("MAP", "corredor_pequeno")
+
+# Diretório dos mapas
+MAPS_DIR: Path = Path(__file__).resolve().parent.parent / "maps"
+
+# ---------------------------------------------------------------------------
+# Parâmetros SI — usados internamente pela navegação/EKF/mundo
+# ---------------------------------------------------------------------------
+# Os valores abaixo derivam dos parâmetros em cm já existentes.
+# O Pi usa SI internamente; converte só na fronteira do protocolo.
+WHEELBASE_M: float = WHEEL_BASE_L_CM / 100.0    # PROVISÓRIO — TODO(equipe): confirmar
+WHEEL_RADIUS_M: float = WHEEL_RADIUS_R_CM / 100.0  # PROVISÓRIO — TODO(equipe): confirmar
+ENCODER_PPR: int = EMU_ENCODER_PPR  # TODO(equipe): confirmar
+
+MAX_LINEAR_SPEED_MS: float = MAX_LINEAR_SPEED / 100.0  # m/s
+MAX_ANGULAR_SPEED_RADS: float = MAX_ANGULAR_SPEED  # já em rad/s
+
+# ---------------------------------------------------------------------------
+# EKF 2D — [ref: Seção 3 do mega-prompt]
+# ---------------------------------------------------------------------------
+EKF_Q_XY: float = 0.001   # TODO(equipe): ruído de processo posição (m²)
+EKF_Q_THETA: float = 0.002  # TODO(equipe): ruído de processo heading (rad²)
+EKF_R_XY: float = 0.01    # TODO(equipe): ruído de observação tag posição (m²)
+EKF_R_THETA: float = 0.05  # TODO(equipe): ruído de observação tag heading (rad²)
+EKF_MAHALANOBIS_GATE: float = 3.0  # TODO(equipe): limiar de Mahalanobis
+
+# ---------------------------------------------------------------------------
+# Navegação genérica — [ref: Seção 4 do mega-prompt]
+# ---------------------------------------------------------------------------
+NAV_K_DIST: float = 1.5     # ganho proporcional distância → v (1/s); cap em MAX_LINEAR_SPEED_MS
+NAV_K_HEADING: float = 2.5  # ganho proporcional heading → ω (1/s); cap em MAX_ANGULAR_SPEED_RADS
+NAV_POS_TOL_M: float = 0.02  # tolerância de posição (m)
+NAV_HEADING_TOL_RAD: float = 0.035  # ~2° — tolerância de heading
+NAV_FALLBACK_V_MS: float = 0.08  # velocidade fixa quando K_DIST=0 (fallback de segurança)
+NAV_FALLBACK_OMEGA_RADS: float = 1.0  # vel. angular fixa quando K_HEADING=0 (fallback)
+NAV_MAX_SEGMENT_TIME_S: float = 45.0  # timeout por segmento (margem p/ corredores longos)
+
+# ---------------------------------------------------------------------------
+# Simulação — injeção de falhas de visão
+# ---------------------------------------------------------------------------
+SIM_VISION_BLUR_PROB: float = 0.0   # probabilidade de blur por frame
+SIM_VISION_DROP_PROB: float = 0.0   # probabilidade de drop (sem detecção)
+SIM_ENCODER_NOISE_STD: float = 0.05  # desvio-padrão do ruído de encoder (rad/s)
+SIM_GYRO_DRIFT_RADS: float = 0.001  # drift do giroscópio (rad/s)
+SIM_SLIP_FRICTION: float = 1.0  # multiplicador de atrito desigual
+
+# Standoff de aproximação: distância em frente ao tag onde o robô para.
+# Garante que o robô chega PELA FRENTE da tag (face visível).
+TAG_APPROACH_STANDOFF_M: float = float(os.getenv("TAG_STANDOFF_M", "0.15"))
+
+# ---------------------------------------------------------------------------
+# Missão — [ref: Seção 5 do mega-prompt]
+# ---------------------------------------------------------------------------
+MISSION_SEED: int = int(os.getenv("MISSION_SEED", "42"))
+# TODO(equipe): confirmar gatilho de retomada — "continuar" (default) ou auto pelo fim-de-curso
+MISSION_RESUME_TRIGGER: str = os.getenv("MISSION_RESUME_TRIGGER", "button")

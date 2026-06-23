@@ -117,6 +117,74 @@ class Telemetry(BaseModel):
     visao: VisionState = Field(default_factory=VisionState)
     bateria: Battery = Field(default_factory=Battery)
     ts_ms: int = Field(0, ge=0)
+    parado_reason: str | None = Field(
+        None,
+        description="Razão da parada de segurança ativa (tag_loss, command_watchdog, "
+        "ws_disconnect, force_stop). None se não há parada de segurança.",
+    )
+    nav_phase: str | None = Field(
+        None,
+        description="Fase atual da navegação automática (APPROACH, FACE, RETREAT). "
+        "None fora do modo AUTOMATICO.",
+    )
+    ekf: EkfState | None = Field(None, description="Estado do EKF 2D.")
+    mission: MissionInfo | None = Field(None, description="Estado da missão.")
+    navigation: NavigationInfo | None = Field(None, description="Estado da navegação.")
+    detected_tags: list[DetectedTag] = Field(default_factory=list, description="Tags detectadas.")
+    map_name: str | None = Field(None, description="Nome do mapa carregado.")
+
+
+# ---------------------------------------------------------------------------
+# Campos estendidos de telemetria — [ref: Seção 8 do mega-prompt]
+# ---------------------------------------------------------------------------
+class EkfState(BaseModel):
+    """Estado do EKF 2D para telemetria."""
+
+    x_m: float = Field(description="Posição X estimada (m).")
+    y_m: float = Field(description="Posição Y estimada (m).")
+    theta_rad: float = Field(description="Heading estimado (rad).")
+    theta_deg: float = Field(description="Heading estimado (graus).")
+    covariance_trace: float = Field(description="Traço da covariância.")
+    last_correction: str = Field(description="Fonte da última correção.")
+    correction_count: int = Field(0, description="Nº de correções por tag.")
+    ellipse_semi_major_m: float = Field(0.0, description="Semi-eixo maior da elipse.")
+    ellipse_semi_minor_m: float = Field(0.0, description="Semi-eixo menor da elipse.")
+    ellipse_angle_rad: float = Field(0.0, description="Ângulo da elipse.")
+
+
+class MissionInfo(BaseModel):
+    """Informação da missão para telemetria."""
+
+    state: str = Field("IDLE", description="Estado da missão.")
+    pick_position_id: str | None = None
+    place_position_id: str | None = None
+    fault_reason: str | None = None
+    is_navigating: bool = False
+    is_waiting_operator: bool = False
+    elapsed_s: float = 0.0
+
+
+class NavigationInfo(BaseModel):
+    """Informação de navegação para telemetria."""
+
+    executor_state: str = Field("IDLE", description="Estado do executor.")
+    segment_index: int = 0
+    total_segments: int = 0
+    progress: float = 0.0
+    current_segment_type: str | None = None
+
+
+class DetectedTag(BaseModel):
+    """Tag detectada para telemetria."""
+
+    tag_id: int
+    position_id: str | None = None
+    x_m: float
+    y_m: float
+    quality: float = 1.0
+
+
+Telemetry.model_rebuild()
 
 
 # ---------------------------------------------------------------------------
