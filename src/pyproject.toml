@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "empilhadeira-pi"
 version = "0.0.0"
@@ -5,8 +9,7 @@ description = "App de alto nivel da empilhadeira robotica (Raspberry Pi)"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi",
-    "uvicorn",
-    "websockets",
+    "uvicorn[standard]",
     "opencv-python",
     "pupil-apriltags",
     "pyserial-asyncio",
