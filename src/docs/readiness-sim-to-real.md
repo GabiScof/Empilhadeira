@@ -270,7 +270,7 @@ Fonte de verdade: [`serial-protocol.md`](./serial-protocol.md).
 | TypeScript | `frontend/src/types/contracts.ts` | ✅ |
 | Pydantic | `models.py::Command` | ✅ |
 | Handler | `websocket_handler.py` | ✅ |
-| Watchdog | `COMMAND_WATCHDOG_MS=500` no control loop | ✅ |
+| Watchdog | `COMMAND_WATCHDOG_MS=400` no control loop | ✅ |
 
 **SIM vs Real:** idêntico. Sem CRC (WebSocket garante integridade).
 
@@ -366,7 +366,7 @@ Framing: `{"w_esq":1.5,"w_dir":1.5,"garfo":"parar"}*a3\n`
 | APRILTAG_SIZE | 5 cm | Paquímetro |
 | CAMERA_TO_FORK_OFFSET | (0,0,0) | Medir posição relativa |
 | Convenção yaw em pose.py | Derivada de pitch | Validar vs câmera real |
-| COMMAND_WATCHDOG_MS | 500 ms | Validar RTT Wi-Fi |
+| COMMAND_WATCHDOG_MS | 400 ms | Validar RTT Wi-Fi |
 
 ### ❌ Bloqueante — impede operação autônoma confiável
 
