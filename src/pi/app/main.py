@@ -7,6 +7,11 @@ Rotas sim: /sim/reset-pose, /sim/inject-fault, /sim/world-state, /sim/debug-dump
           /sim/load-map, /sim/list-maps, /sim/mission/start, /sim/mission/continue,
           /sim/mission/reset.
 
+Como subir:
+    uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
+    # Para carregar o .env da raiz do monorepo:
+    uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000 --env-file ../.env
+
 [ref: Seção 2 da AGENTS.md]
 """
 
