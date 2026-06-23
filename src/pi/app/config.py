@@ -33,8 +33,12 @@ TELEMETRY_HZ: float = 20.0
 # evento, não envia stream contínuo).
 CONTROL_HZ: float = 20.0
 
-# PROVISÓRIO — TODO(equipe): confirmar (depende do RTT alvo < 170 ms)
-COMMAND_WATCHDOG_MS: int = 500
+# Timeout do canal de comando: se nenhum comando chegar neste intervalo, o Pi força
+# PARADO independentemente do modo. [ref: Seção 4 e 7]
+# RTT alvo < 170 ms; o frontend envia heartbeat a ~100 ms, então 400 ms é conservador
+# e seguro — ajustar empiricamente conforme a rede da PUC.
+# Valor de contrato vindo de main (real); nome usado pelo state_machine.
+COMMAND_WATCHDOG_MS: int = 400  # ajustável; deve ser >> RTT + jitter
 
 # ---------------------------------------------------------------------------
 # Serial (Pi ↔ ESP32)
@@ -42,6 +46,9 @@ COMMAND_WATCHDOG_MS: int = 500
 SERIAL_PORT: str = os.getenv("SERIAL_PORT", "/dev/ttyUSB0")
 SERIAL_BAUDRATE: int = int(os.getenv("SERIAL_BAUDRATE", "115200"))
 SERIAL_HZ: float = 20.0
+
+# Ciclos consecutivos sem sensor que ativam o watchdog serial → PARADO (~250 ms @20 Hz).
+SERIAL_LOST_FRAMES: int = 5  # [ref: Seção 7]
 
 # ---------------------------------------------------------------------------
 # Cinemática diferencial — [ref: Seção 3 e 7]
