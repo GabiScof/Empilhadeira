@@ -195,8 +195,15 @@ async def vision_loop(state: SharedState, source: VisionSource) -> None:
 
     try:
         get_all = getattr(source, "get_all_detections", None)
+        # Câmera real: a leitura OpenCV bloqueia, então roda em thread para não
+        # travar o event loop (melhoria de infra trazida de main, via to_thread).
+        # SIM permanece síncrono (visão sintética é barata e evita corrida com o mundo).
+        offload = isinstance(source, RealVisionSource)
         while True:
-            vision_state = source.get_vision()
+            if offload:
+                vision_state = await asyncio.to_thread(source.get_vision)
+            else:
+                vision_state = source.get_vision()
             await state.update_vision(vision_state)
 
             # Fusão multi-tag no EKF para qualquer fonte que exponha detecções
