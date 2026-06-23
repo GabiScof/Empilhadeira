@@ -8,10 +8,14 @@ import TelemetryPanel from "./components/TelemetryPanel.jsx";
 import SafetyAlert from "./components/SafetyAlert.jsx";
 import DemoPage from "./pages/DemoPage.jsx";
 
+// Contrato de comunicação vindo de main: o alvo do WebSocket é configurável via
+// VITE_PI_WS_URL (ex.: ws://192.168.0.10:8000/ws) para apontar o frontend ao IP do
+// Pi. Sem a env, cai no mesmo-host (servido a partir do próprio Pi).
 const WS_URL =
+  import.meta.env.VITE_PI_WS_URL ||
   (window.location.protocol === "https:" ? "wss://" : "ws://") +
-  (window.location.hostname || "localhost") +
-  ":8000/ws";
+    (window.location.hostname || "localhost") +
+    ":8000/ws";
 
 function OperatorPage() {
   const { telemetry, connected, sendCommand } = useWebSocket(WS_URL);

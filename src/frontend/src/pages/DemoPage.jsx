@@ -13,10 +13,13 @@ import DebugExport from "../components/DebugExport.jsx";
 import MapSelector from "../components/MapSelector.jsx";
 import MissionPanel from "../components/MissionPanel.jsx";
 
+// Contrato de comunicação vindo de main: alvo do WebSocket configurável via
+// VITE_PI_WS_URL; sem a env, cai no mesmo-host (servido a partir do Pi).
 const WS_URL =
+  import.meta.env.VITE_PI_WS_URL ||
   (window.location.protocol === "https:" ? "wss://" : "ws://") +
-  (window.location.hostname || "localhost") +
-  ":8000/ws";
+    (window.location.hostname || "localhost") +
+    ":8000/ws";
 
 const API_BASE =
   window.location.protocol +
