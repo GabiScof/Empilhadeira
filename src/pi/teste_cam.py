@@ -6,16 +6,18 @@ from app.state import SharedState
 
 # Importe a função vision_loop do arquivo onde você a definiu.
 # Substitua 'seu_arquivo_visao' pelo nome do arquivo (sem o .py)
-from app.tasks.vision_loop import vision_loop
+from app.tasks.vision_loop import RealVisionSource, vision_loop
 async def main():
     print("Inicializando estado compartilhado...")
     state = SharedState()
 
     print("Iniciando tarefa de visão. Pressione Ctrl+C no terminal para encerrar.")
-    
+
     try:
+        # vision_loop exige uma fonte de visão; aqui usamos a câmera real.
+        source = RealVisionSource()
         # Cria e aguarda a execução da tarefa assíncrona
-        vision_task = asyncio.create_task(vision_loop(state))
+        vision_task = asyncio.create_task(vision_loop(state, source))
         await vision_task
         
     except asyncio.CancelledError:
