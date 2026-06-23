@@ -30,6 +30,7 @@ class StateMachine:
         self._last_command_time_ms: int = 0
         self._wheels_moving: bool = False
         self._safety_latched: bool = False
+        self._last_safety_reason: str | None = None
 
     @property
     def mode(self) -> Mode:
@@ -40,6 +41,11 @@ class StateMachine:
         """True se a PARADO atual foi disparada por segurança e exige acknowledge."""
         return self._safety_latched
 
+    @property
+    def last_safety_reason(self) -> str | None:
+        """Razão da última parada de segurança (ou None se parada normal)."""
+        return self._last_safety_reason
+
     def acknowledge(self) -> None:
         """Ação explícita do operador: libera o latch de uma parada de segurança.
 
@@ -47,6 +53,7 @@ class StateMachine:
         Sem isso, a PARADO de segurança permanece travada e o robô não reativa.
         """
         self._safety_latched = False
+        self._last_safety_reason = None
 
     def step(
         self,
@@ -85,6 +92,7 @@ class StateMachine:
                 self._mode = Mode.PARADO
                 self._tag_lost_count = 0
                 self._safety_latched = True
+                self._last_safety_reason = "tag_loss"
                 return self._mode, 0.0, 0.0, garfo
 
         if self._mode == Mode.MANUAL:
@@ -111,15 +119,17 @@ class StateMachine:
         if elapsed > config.COMMAND_WATCHDOG_MS:
             self._mode = Mode.PARADO
             self._safety_latched = True
+            self._last_safety_reason = "command_watchdog"
             return True
 
         return False
 
-    def force_stop(self) -> None:
+    def force_stop(self, reason: str = "force_stop") -> None:
         """Força o estado PARADO (chamado por condições de segurança)."""
         self._mode = Mode.PARADO
         self._tag_lost_count = 0
         self._safety_latched = True
+        self._last_safety_reason = reason
 
     def _handle_transition(self, requested: Mode, current_time_ms: int) -> None:
         """Processa transição de estado."""
