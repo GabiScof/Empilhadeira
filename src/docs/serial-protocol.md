@@ -78,8 +78,13 @@ Exemplo (ilustrativo, CRC fictício):
 | `modo`        | enum   | —       | ver acima    | sim    | Estado desejado pelo operador.         |
 | `joystick.x`  | float  | —       | [-1, 1]      | sim    | Giro (ω). Ignorado fora de MANUAL.     |
 | `joystick.y`  | float  | —       | [-1, 1]      | sim    | Avanço (v). Ignorado fora de MANUAL.   |
-| `garfo`       | enum   | —       | subir/descer/parar | sim | Canal independente; vale nos dois modos.|
+| `garfo`       | enum   | —       | subir/descer/parar | sim | Canal independente; vale nos dois modos. **Sempre manual** — ver nota abaixo.|
 | `ts_ms`       | int    | ms      | ≥ 0          | sim    | Usado para watchdog de comando no Pi.  |
+
+> **Garfo:** o campo `garfo` é o **único** canal de comando do garfo em todo o
+> sistema. Não existe variante autônoma no WebSocket nem extensão prevista no
+> protocolo. Em missão pick-and-place, o operador usa este mesmo campo durante
+> AT_PICK / AT_PLACE.
 
 ---
 
@@ -138,6 +143,15 @@ Exemplo (ilustrativo, CRC fictício):
 | `w_esq`  | float | rad/s   | —     | sim    | Setpoint da roda esquerda (alvo PID).|
 | `w_dir`  | float | rad/s   | —     | sim    | Setpoint da roda direita (alvo PID). |
 | `garfo`  | enum  | —       | subir/descer/parar | sim | Repassado direto ao motor do garfo.|
+
+> **Garfo manual — sem atuação autônoma.** O campo `garfo` permanece no canal
+> manual existente (`subir` / `descer` / `parar`), repassado do frontend ao Pi
+> e do Pi ao ESP32 sem transformação. **Não há campo adicional** no protocolo
+> serial para controle autônomo do garfo — nem em missão pick-and-place, nem em
+> modo AUTOMATICO. Nos estados AT_PICK e AT_PLACE da missão, o operador aciona
+> a garra pelo mesmo botão da UI; a missão só retoma via `POST /mission/continue`
+> (WebSocket/API), não por comando serial dedicado. O fim-de-curso é tratado
+> localmente no ESP32 (~100 Hz) e não altera o framing JSON.
 
 > Se o ESP32 não receber setpoint novo, mantém o último válido por um intervalo
 > curto (`SETPOINT_TIMEOUT_MS`, `TODO(equipe)`) e depois entra em estado seguro
