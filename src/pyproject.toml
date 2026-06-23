@@ -9,7 +9,7 @@ description = "App de alto nivel da empilhadeira robotica (Raspberry Pi)"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi",
-    "uvicorn",
+    "uvicorn[standard]",
     "opencv-python",
     "pupil-apriltags",
     "pyserial-asyncio",

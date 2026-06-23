@@ -26,10 +26,10 @@ async def vision_loop(state: SharedState) -> None:
         state: estado compartilhado entre as tarefas.
     """
     detector = AprilTagDetector()
-    capture = cv2.VideoCapture(0)
+    capture = cv2.VideoCapture(1)
 
-    capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
     if not capture.isOpened():
         raise RuntimeError("Camera did not open")

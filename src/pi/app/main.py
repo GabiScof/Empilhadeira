@@ -29,6 +29,11 @@ from app.tasks.websocket_handler import websocket_handler
 
 _log = logging.getLogger(__name__)
 
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+)
+
 # Estado compartilhado único para o processo; as três tarefas asyncio lêem/escrevem aqui.
 _state = SharedState()
 
