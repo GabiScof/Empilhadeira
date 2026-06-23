@@ -1,81 +1,100 @@
 # Empilhadeira Robótica Autônoma
 
-Empilhadeira robótica em escala reduzida que transporta pallets (~15 cm de lado) em
-ambiente controlado, em dois modos:
+Empilhadeira em escala reduzida com navegação autônoma por AprilTag, missão
+pick-and-place e telemetria em tempo real.
 
-- **Manual** — operador comanda o robô por joystick virtual no celular.
-- **Autônomo** — o robô detecta uma AprilTag no pallet, estima a pose e se posiciona
-  em frente ao alvo (apenas **posicionamento**, não manipulação).
-
-O **garfo é sempre manual** nos dois modos, num canal de comando independente.
-
-> ⚠️ **Estado atual: scaffolding.** Estrutura, contratos congelados, documentação e
-> stubs tipados. **Nenhuma lógica de domínio implementada** (PID, Kalman, visão,
-> cinemática, navegação, CRC8, máquina de estados são `NotImplementedError`/`// TODO`).
+> **Estado atual:** lógica implementada e validada em simulação (`SIM=1`).
+> Pronta para bring-up no hardware real — ver
+> [`docs/hardware-deployment.md`](docs/hardware-deployment.md).
 
 ## Arquitetura — 3 camadas
 
 ```
 ┌──────────────────────────────────────────────────────┐
 │  Frontend (celular) — React + Vite                    │
-│  joystick · telemetria · seletor de modo · garfo      │
+│  joystick · telemetria · missão · mapa · garfo        │
 └───────────────▲──────────────────────┬────────────────┘
         (2) telemetria @20Hz    (1) comando
             WebSocket / Wi-Fi          ▼
 ┌───────────────┴────────────────────────────────────────┐
 │  Raspberry Pi — Python (FastAPI + asyncio)              │
-│  WebSocket Handler · Vision Loop · Serial Loop          │
-│  visão (AprilTag) · Kalman · cinemática · navegação     │
+│  WebSocket · Vision · Serial · Control Loop (4 tasks)  │
+│  EKF 2D · planejador · missão · navegação reativa     │
 └───────────────▲──────────────────────┬─────────────────┘
         (4) sensores            (3) setpoint
         UART USB 115200, 20 Hz · JSON+CRC8+\n
                                        ▼
 ┌───────────────┴─────────────────────────────────────────┐
 │  ESP32 — C++ (Arduino, PlatformIO)                       │
-│  PID por roda ~100 Hz · encoders · MPU · PWM(LEDC)→L298n │
-└──────────────────────────────────────────────────────────┘
+│  PID por roda ~100 Hz · encoders · MPU · PWM → L298n    │
+└─────────────────────────────────────────────────────────┘
 ```
 
-Detalhes em [`docs/architecture.md`](docs/architecture.md). Os contratos de dados
-entre as camadas são a fonte de verdade em
-[`docs/serial-protocol.md`](docs/serial-protocol.md).
+Detalhes em [`docs/architecture.md`](docs/architecture.md).
 
 ## Apps
 
-| Pasta | Camada | Stack | README |
-|-------|--------|-------|--------|
-| [`pi/`](pi/) | Alto nível (Raspberry Pi) | Python, FastAPI, asyncio | [pi/README.md](pi/README.md) |
-| [`firmware/`](firmware/) | Baixo nível (ESP32) | C++ / Arduino, PlatformIO | [firmware/README.md](firmware/README.md) |
-| [`frontend/`](frontend/) | Interface (celular) | React + Vite | [frontend/README.md](frontend/README.md) |
+| Pasta | Camada | README |
+|-------|--------|--------|
+| [`pi/`](pi/) | Raspberry Pi (Python) | [pi/README.md](pi/README.md) |
+| [`firmware/`](firmware/) | ESP32 (C++) | [firmware/README.md](firmware/README.md) |
+| [`frontend/`](frontend/) | Celular (React) | [frontend/README.md](frontend/README.md) |
 
-## Como subir cada app (dev)
+## Como rodar
 
 ```bash
-# Pi (backend)
-python -m venv .venv && source .venv/bin/activate
+# Instalar
+python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-./scripts/run_pi.sh
+cp .env.example .env   # ajustar conforme ambiente
 
-# Firmware (ESP32)
-cd firmware && pio run            # compila;  pio run -t upload  para gravar
-# ou: ./scripts/flash_firmware.sh
+# Simulação (sem hardware)
+SIM=1 ./scripts/run_pi.sh
 
-# Frontend (celular)
+# Hardware real
+SIM=0 ./scripts/run_pi.sh
+
+# Frontend
 cd frontend && npm install && npm run dev
+
+# Testes completos
+python3 -m pytest pi/tests/ -v
+bash scripts/verify.sh
 ```
 
-Copie `.env.example` para `.env` e ajuste IP do Pi / porta serial.
+> O pacote `app` vive em `pi/app`. O script `run_pi.sh` já roda de dentro de `pi/`.
+> Alternativa manual: `SIM=1 uvicorn app.main:create_app --factory --app-dir pi`.
 
 ## Documentação
 
-- [`docs/architecture.md`](docs/architecture.md) — arquitetura, decisões fechadas, parâmetros em aberto.
-- [`docs/serial-protocol.md`](docs/serial-protocol.md) — **fonte de verdade** dos 4 contratos.
-- [`docs/camera-calibration.md`](docs/camera-calibration.md) — calibração da câmera.
-- [`AGENTS.md`](AGENTS.md) — contexto e regras desta fase de scaffolding.
+| Documento | Conteúdo |
+|-----------|----------|
+| [**readiness-sim-to-real.md**](docs/readiness-sim-to-real.md) | **Auditoria completa** — Pi, ESP, filtros, interfaces, bloqueantes |
+| [**simulator-to-real.md**](docs/simulator-to-real.md) | **Sim → real** — o que fizemos, o que aproveitamos |
+| [**hardware-deployment.md**](docs/hardware-deployment.md) | **Passo a passo no robô real** — o que fazer, o que falta |
+| [verification-status.md](docs/verification-status.md) | Testes passando, bugs corrigidos, sim_sweep |
+| [hardware-interfaces.md](docs/hardware-interfaces.md) | Encaixes SIM↔real (`VisionSource`, `SerialTransport`) |
+| [hardware-bring-up.md](docs/hardware-bring-up.md) | Pinos, energia, fiação, calibração |
+| [serial-protocol.md](docs/serial-protocol.md) | **Fonte de verdade** dos 4 contratos |
+| [architecture.md](docs/architecture.md) | Decisões, parâmetros em aberto |
+| [navigation.md](docs/navigation.md) | Planejador, executor, APPROACH/FACE/RETREAT |
+| [mission.md](docs/mission.md) | Missão pick-and-place |
+| [maps.md](docs/maps.md) | Formato JSON dos mapas |
+| [simulation.md](docs/simulation.md) | Modo SIM=1, falhas, APIs `/sim/*` |
+| [camera-calibration.md](docs/camera-calibration.md) | Calibração xadrez |
+
+## Verificação (2026-06-23)
+
+| Check | Resultado |
+|-------|-----------|
+| pytest | 162/162 |
+| frontend vitest | 11/11 |
+| sim_sweep | 9/9 convergem |
+| full_trace | 12/13 (1 LOST esperado — FOV) |
 
 ## Parâmetros em aberto
 
-Vários valores ainda **não foram definidos pela equipe** (massa do pallet, `L`/`r`,
-ganhos PID e de navegação, `Zref`, intrínsecos da câmera, tamanho da tag, etc.).
-Cada um existe como constante nomeada com placeholder e comentário `TODO(equipe)`.
-A lista completa está em [`docs/architecture.md`](docs/architecture.md#parâmetros-em-aberto--não-inventar-valor--ref-seção-3).
+Valores provisórios em `pi/app/config.py` e `firmware/src/config.h`, marcados
+`TODO(equipe)`. Lista completa em
+[`docs/architecture.md#parâmetros-em-aberto`](docs/architecture.md#parâmetros-em-aberto--não-inventar-valor--ref-seção-3)
+e checklist de medição em [`docs/hardware-deployment.md`](docs/hardware-deployment.md).
