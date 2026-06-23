@@ -38,6 +38,9 @@ SERIAL_PORT: str = os.getenv("SERIAL_PORT", "/dev/ttyUSB0")
 SERIAL_BAUDRATE: int = int(os.getenv("SERIAL_BAUDRATE", "115200"))  # decisão fechada (Seção 2)
 SERIAL_HZ: float = 20.0  # taxa de troca Pi↔ESP32 (decisão fechada)
 
+# Ciclos consecutivos sem sensor que ativam o watchdog serial → PARADO (~250 ms @20 Hz).
+SERIAL_LOST_FRAMES: int = 5  # [ref: Seção 7]
+
 # ---------------------------------------------------------------------------
 # Cinemática diferencial — [ref: Seção 3 e 7]
 # ---------------------------------------------------------------------------
