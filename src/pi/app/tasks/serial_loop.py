@@ -102,6 +102,7 @@ async def serial_loop_real(state: SharedState, transport=None) -> None:
 
     await transport.open()
     last_time = time.monotonic()
+    lost_frames = 0  # ciclos consecutivos sem sensores (watchdog serial)
 
     try:
         while True:
@@ -114,11 +115,27 @@ async def serial_loop_real(state: SharedState, transport=None) -> None:
 
             await transport.send_setpoint(setpoint)
 
-            for sensors in await transport.read_sensors(interval):
-                await state.update_sensors(sensors)
-                imu = state.kalman.update(sensors.mpu, dt)
-                await state.update_imu(imu)
-                _feed_ekf(state, sensors, dt)
+            frames = await transport.read_sensors(interval)
+            if frames:
+                lost_frames = 0
+                for sensors in frames:
+                    await state.update_sensors(sensors)
+                    imu = state.kalman.update(sensors.mpu, dt)
+                    await state.update_imu(imu)
+                    _feed_ekf(state, sensors, dt)
+            else:
+                # Watchdog serial: se a UART parar de entregar sensores por
+                # SERIAL_LOST_FRAMES ciclos (~250 ms @20 Hz), força PARADO no Pi.
+                # Defesa em profundidade sobre o SETPOINT_TIMEOUT_MS do firmware,
+                # que já zera os motores localmente. [ref: Seção 7]
+                lost_frames += 1
+                if lost_frames >= config.SERIAL_LOST_FRAMES:
+                    if lost_frames == config.SERIAL_LOST_FRAMES:
+                        logger.warning(
+                            "Watchdog serial: %d ciclos sem sensores — forçando PARADO",
+                            lost_frames,
+                        )
+                    state.state_machine.force_stop(reason="serial_loss")
 
             await asyncio.sleep(max(0, interval - (time.monotonic() - now)))
     except asyncio.CancelledError:
