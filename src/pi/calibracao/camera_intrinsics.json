@@ -1,9 +1,16 @@
 {
-  "fx": null,
-  "fy": null,
-  "cx": null,
-  "cy": null,
-  "dist_coeffs": null,
+  "fx": 833.107,
+  "fy": 833.107,
+  "cx": 360.117,
+  "cy": 273.161,
+  "skew": 0,
+  "dist_coeffs": {
+    "k1": -0.164212,
+    "k2": 3.00503,
+    "k3": -7.76401,
+    "p1": 0.00721061,
+    "p2": 2.63399e-05
+  },
   "image_size": null,
   "reprojection_error": null
 }
