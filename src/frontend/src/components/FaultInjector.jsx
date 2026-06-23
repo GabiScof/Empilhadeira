@@ -1,15 +1,25 @@
 import { useState } from "react";
 
-const FAULTS = [
+const TOGGLE_FAULTS = [
   { type: "serial_drop", label: "Queda Serial" },
   { type: "tag_hidden", label: "Tag Oculta" },
   { type: "battery_saturated", label: "Bateria Saturada" },
+];
+
+const RANGE_FAULTS = [
+  { type: "vision_blur", label: "Blur (prob)", min: 0, max: 1, step: 0.05, default: 0 },
+  { type: "vision_drop", label: "Drop (prob)", min: 0, max: 1, step: 0.05, default: 0 },
+  { type: "encoder_noise", label: "Ruído Encoder (rad/s)", min: 0, max: 0.5, step: 0.01, default: 0.05 },
+  { type: "gyro_drift", label: "Drift Gyro (rad/s)", min: 0, max: 0.05, step: 0.001, default: 0.001 },
 ];
 
 export default function FaultInjector({ apiBase }) {
   const [active, setActive] = useState({});
   const [slipEsq, setSlipEsq] = useState(1.0);
   const [slipDir, setSlipDir] = useState(1.0);
+  const [rangeValues, setRangeValues] = useState(
+    Object.fromEntries(RANGE_FAULTS.map((f) => [f.type, f.default]))
+  );
 
   const toggleFault = async (faultType) => {
     const newActive = !active[faultType];
@@ -20,9 +30,18 @@ export default function FaultInjector({ apiBase }) {
         body: JSON.stringify({ fault_type: faultType, active: newActive }),
       });
       setActive((prev) => ({ ...prev, [faultType]: newActive }));
-    } catch {
-      // falha silenciosa
-    }
+    } catch {}
+  };
+
+  const applyRange = async (faultType, value) => {
+    setRangeValues((prev) => ({ ...prev, [faultType]: value }));
+    try {
+      await fetch(`${apiBase}/sim/inject-fault`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fault_type: faultType, active: true, value }),
+      });
+    } catch {}
   };
 
   const applySlip = async () => {
@@ -37,9 +56,7 @@ export default function FaultInjector({ apiBase }) {
           value2: slipDir,
         }),
       });
-    } catch {
-      // falha silenciosa
-    }
+    } catch {}
   };
 
   const clearAll = async () => {
@@ -52,16 +69,15 @@ export default function FaultInjector({ apiBase }) {
       setActive({});
       setSlipEsq(1.0);
       setSlipDir(1.0);
-    } catch {
-      // falha silenciosa
-    }
+      setRangeValues(Object.fromEntries(RANGE_FAULTS.map((f) => [f.type, f.default])));
+    } catch {}
   };
 
   return (
     <div className="rounded-lg bg-slate-800 p-4">
       <h2 className="font-semibold mb-2">Injeção de Falhas</h2>
       <div className="space-y-2">
-        {FAULTS.map((f) => (
+        {TOGGLE_FAULTS.map((f) => (
           <button
             key={f.type}
             onClick={() => toggleFault(f.type)}
@@ -74,6 +90,21 @@ export default function FaultInjector({ apiBase }) {
           >
             {f.label} {active[f.type] ? "(ATIVO)" : ""}
           </button>
+        ))}
+
+        {RANGE_FAULTS.map((f) => (
+          <label key={f.type} className="block text-xs">
+            {f.label}: {rangeValues[f.type]?.toFixed(3)}
+            <input
+              type="range"
+              min={f.min}
+              max={f.max}
+              step={f.step}
+              value={rangeValues[f.type] ?? f.default}
+              onChange={(e) => applyRange(f.type, Number(e.target.value))}
+              className="w-full mt-1 accent-indigo-500"
+            />
+          </label>
         ))}
 
         <div className="flex gap-2 items-end">

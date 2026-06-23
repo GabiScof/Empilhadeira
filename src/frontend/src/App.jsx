@@ -5,6 +5,7 @@ import ModeSelector from "./components/ModeSelector.jsx";
 import Joystick from "./components/Joystick.jsx";
 import ForkControl from "./components/ForkControl.jsx";
 import TelemetryPanel from "./components/TelemetryPanel.jsx";
+import SafetyAlert from "./components/SafetyAlert.jsx";
 import DemoPage from "./pages/DemoPage.jsx";
 
 const WS_URL =
@@ -66,6 +67,7 @@ function OperatorPage() {
           Demo
         </Link>
       </div>
+      <SafetyAlert telemetry={telemetry} />
       <ModeSelector
         currentMode={currentState}
         onModeChange={handleMode}

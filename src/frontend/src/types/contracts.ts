@@ -56,6 +56,93 @@ export interface Telemetry {
   visao: VisionState;
   bateria: Battery;
   ts_ms: number;
+  parado_reason: string | null;
+  nav_phase: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Extensões de telemetria — EKF, missão, navegação
+// ---------------------------------------------------------------------------
+export interface EkfState {
+  x_m: number;
+  y_m: number;
+  theta_rad: number;
+  theta_deg: number;
+  covariance_trace: number;
+  last_correction: string;
+  correction_count: number;
+  ellipse_semi_major_m: number;
+  ellipse_semi_minor_m: number;
+  ellipse_angle_rad: number;
+}
+
+export interface MissionInfo {
+  state: string;
+  pick_position_id: string | null;
+  place_position_id: string | null;
+  fault_reason: string | null;
+  is_navigating: boolean;
+  is_waiting_operator: boolean;
+  elapsed_s: number;
+}
+
+export interface NavigationInfo {
+  executor_state: string;
+  segment_index: number;
+  total_segments: number;
+  progress: number;
+  current_segment_type: string | null;
+}
+
+export interface DetectedTag {
+  tag_id: number;
+  position_id: string | null;
+  x_m: number;
+  y_m: number;
+  quality: number;
+}
+
+export interface TelemetryExtended extends Telemetry {
+  ekf: EkfState | null;
+  mission: MissionInfo | null;
+  navigation: NavigationInfo | null;
+  detected_tags: DetectedTag[];
+  map_name: string | null;
+}
+
+export interface MapInfo {
+  name: string;
+  file: string;
+  arena: { width_m: number; height_m: number };
+  tags: number;
+  has_graph: boolean;
+}
+
+export interface WorldState {
+  world: {
+    robot: { x_m: number; y_m: number; theta_rad: number; theta_deg: number };
+    tags: Array<{ position_id: string; x_m: number; y_m: number; yaw_deg: number; april_tag_id: number }>;
+    arena: { width_m: number; height_m: number };
+    trail: Array<[number, number]>;
+  };
+  ekf?: EkfState;
+  world_model?: {
+    name: string;
+    tags: Array<{ position_id: string; x_m: number; y_m: number; yaw_deg: number }>;
+    has_graph: boolean;
+    waypoints?: Array<{ id: string; x_m: number; y_m: number }>;
+    edges?: Array<[string, string]>;
+    start_pose: { x_m: number; y_m: number; theta_deg: number };
+    home_pose: { x_m: number; y_m: number; theta_deg: number };
+  };
+  mission?: MissionInfo;
+  executor?: { state: string; segment_index: number; total_segments: number; progress: number; current_segment?: { type: string; target_x: number; target_y: number } };
+  planned_path?: Array<{ type: string; value: number; target_x: number; target_y: number; target_heading: number }>;
+  executed_trail?: Array<[number, number]>;
+  fork_height?: number;
+  fork_at_top?: boolean;
+  fork_at_bottom?: boolean;
+  faults?: Record<string, any>;
 }
 
 // (3) Pi -> ESP32 · setpoint (UART) — espelhado aqui por completude do contrato.

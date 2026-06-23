@@ -21,7 +21,53 @@ function Stat({ label, value, unit }) {
   );
 }
 
-export default function TelemetryPanel({ telemetry, connected }) {
+const PHASE_STYLE = {
+  APPROACH: { bg: "bg-blue-900/60", border: "border-blue-500/40", text: "text-blue-300", label: "Aproximando" },
+  FACE:     { bg: "bg-amber-900/60", border: "border-amber-500/40", text: "text-amber-300", label: "Corrigindo heading" },
+  RETREAT:  { bg: "bg-purple-900/60", border: "border-purple-500/40", text: "text-purple-300", label: "Recuando p/ realinhar" },
+};
+
+function NavPhaseBadge({ phase }) {
+  const s = PHASE_STYLE[phase] || { bg: "bg-slate-700", border: "border-slate-500/40", text: "text-slate-300", label: phase };
+  return (
+    <div className={`px-3 py-1.5 rounded-md ${s.bg} border ${s.border} flex items-center justify-between`}>
+      <span className={`text-xs font-medium ${s.text}`}>Nav: {s.label}</span>
+      <span className="text-xs text-slate-500 font-mono">{phase}</span>
+    </div>
+  );
+}
+
+function PidBar({ label, setpoint, error, integral, output }) {
+  const maxVal = 12.25;
+  const pct = Math.min(100, Math.abs(output / maxVal) * 100);
+  const dir = output >= 0 ? "right" : "left";
+  return (
+    <div className="space-y-0.5">
+      <div className="flex justify-between text-xs">
+        <span className="text-slate-400">{label}</span>
+        <span className="font-mono text-slate-300">{output?.toFixed(2)} rad/s</span>
+      </div>
+      <div className="w-full bg-slate-700 rounded-full h-1.5 relative">
+        <div
+          className={`absolute top-0 h-1.5 rounded-full ${output >= 0 ? "bg-emerald-500" : "bg-rose-500"}`}
+          style={{
+            width: `${pct / 2}%`,
+            left: dir === "right" ? "50%" : undefined,
+            right: dir === "left" ? "50%" : undefined,
+          }}
+        />
+        <div className="absolute top-0 left-1/2 w-px h-1.5 bg-slate-500" />
+      </div>
+      <div className="flex justify-between text-[10px] text-slate-500">
+        <span>err={error?.toFixed(3)}</span>
+        <span>I={integral?.toFixed(2)}</span>
+        <span>sp={setpoint?.toFixed(2)}</span>
+      </div>
+    </div>
+  );
+}
+
+export default function TelemetryPanel({ telemetry, connected, worldState }) {
   const [wheelHistory, setWheelHistory] = useState([]);
   const [pitchHistory, setPitchHistory] = useState([]);
 
@@ -68,6 +114,10 @@ export default function TelemetryPanel({ telemetry, connected }) {
           {connected ? "Conectado" : "Desconectado"}
         </span>
       </div>
+
+      {telemetry?.estado === "AUTOMATICO" && telemetry?.nav_phase && (
+        <NavPhaseBadge phase={telemetry.nav_phase} />
+      )}
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-1">
         <Stat label="Estado" value={telemetry?.estado} />
@@ -129,6 +179,97 @@ export default function TelemetryPanel({ telemetry, connected }) {
               />
             </LineChart>
           </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Encoders + Kalman */}
+      <div className="border-t border-slate-700 pt-3 space-y-1">
+        <p className="text-xs font-medium text-cyan-400 mb-1">Sensores</p>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+          <Stat label="Enc esq" value={telemetry?.rodas?.esq} unit="rad/s" />
+          <Stat label="Enc dir" value={telemetry?.rodas?.dir} unit="rad/s" />
+          <Stat label="Kalman roll" value={telemetry?.imu?.roll} unit="°" />
+          <Stat label="Kalman pitch" value={telemetry?.imu?.pitch} unit="°" />
+        </div>
+      </div>
+
+      {/* EKF */}
+      {telemetry?.ekf && (
+        <div className="border-t border-slate-700 pt-3 space-y-1">
+          <p className="text-xs font-medium text-amber-400 mb-1">EKF 2D [x, y, θ]</p>
+          <Stat label="x" value={telemetry.ekf.x_m} unit="m" />
+          <Stat label="y" value={telemetry.ekf.y_m} unit="m" />
+          <Stat label="θ" value={telemetry.ekf.theta_deg} unit="°" />
+          <Stat label="P trace" value={telemetry.ekf.covariance_trace} />
+          <Stat label="Correção" value={telemetry.ekf.last_correction} />
+          <Stat label="Correções" value={telemetry.ekf.correction_count} />
+          {telemetry.ekf.ellipse_semi_major_m != null && (
+            <Stat label="Ellipse a" value={telemetry.ekf.ellipse_semi_major_m * 1000} unit="mm" />
+          )}
+        </div>
+      )}
+
+      {/* PID (from sim world-state) */}
+      {worldState?.pid && (
+        <div className="border-t border-slate-700 pt-3 space-y-2">
+          <p className="text-xs font-medium text-rose-400 mb-1">PID (firmware)</p>
+          <PidBar
+            label="Esquerda"
+            setpoint={worldState.pid.esq.setpoint}
+            error={worldState.pid.esq.error}
+            integral={worldState.pid.esq.integral}
+            output={worldState.pid.esq.output}
+          />
+          <PidBar
+            label="Direita"
+            setpoint={worldState.pid.dir.setpoint}
+            error={worldState.pid.dir.error}
+            integral={worldState.pid.dir.integral}
+            output={worldState.pid.dir.output}
+          />
+        </div>
+      )}
+
+      {telemetry?.mission && (
+        <div className="border-t border-slate-700 pt-3">
+          <p className="text-xs font-medium text-indigo-400 mb-1.5">Missão</p>
+          <div className="px-3 py-1.5 rounded-md bg-indigo-900/60 border border-indigo-500/40 flex items-center justify-between">
+            <span className="text-xs font-mono text-indigo-300">{telemetry.mission.state}</span>
+            {telemetry.mission.elapsed_s > 0 && (
+              <span className="text-xs text-slate-500">{telemetry.mission.elapsed_s.toFixed(0)}s</span>
+            )}
+          </div>
+          {telemetry.mission.pick_position_id && (
+            <p className="text-xs text-slate-400 mt-1">
+              {telemetry.mission.pick_position_id} → {telemetry.mission.place_position_id}
+            </p>
+          )}
+          {telemetry.mission.fault_reason && (
+            <p className="text-xs text-red-400 mt-1">{telemetry.mission.fault_reason}</p>
+          )}
+        </div>
+      )}
+
+      {telemetry?.navigation && (
+        <div className="border-t border-slate-700 pt-3">
+          <p className="text-xs font-medium text-blue-400 mb-1.5">Navegação</p>
+          <div className="flex justify-between text-xs text-slate-400 mb-1">
+            <span className="font-mono">{telemetry.navigation.executor_state}</span>
+            <span>
+              Seg {telemetry.navigation.segment_index + 1}/{telemetry.navigation.total_segments}
+            </span>
+          </div>
+          <div className="w-full bg-slate-700 rounded-full h-2">
+            <div
+              className="bg-blue-500 h-2 rounded-full transition-all"
+              style={{ width: `${Math.round(telemetry.navigation.progress * 100)}%` }}
+            />
+          </div>
+          {telemetry.navigation.current_segment_type && (
+            <p className="text-xs text-slate-500 mt-1 font-mono">
+              {telemetry.navigation.current_segment_type}
+            </p>
+          )}
         </div>
       )}
     </div>
