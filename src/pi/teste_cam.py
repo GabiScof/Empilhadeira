@@ -23,6 +23,36 @@ import numpy as np
 from app import config
 
 
+def _check_cv2_videoio() -> None:
+    """Falha cedo e com mensagem útil se o cv2 não tiver o VideoCapture.
+
+    Numa instalação sã (inclusive headless) o VideoCapture existe. Se sumiu, o
+    pacote está quebrado/parcial ou há dois opencv brigando — não é problema da
+    câmera nem deste script.
+    """
+    if hasattr(cv2, "VideoCapture"):
+        return
+    raise RuntimeError(
+        "cv2 sem VideoCapture — instalação do OpenCV quebrada ou duplicada "
+        f"(cv2 em {getattr(cv2, '__file__', '?')}). Conserte com:\n"
+        "  pip uninstall -y opencv-python opencv-python-headless "
+        "opencv-contrib-python opencv-contrib-python-headless\n"
+        "  pip install --upgrade opencv-python-headless\n"
+        "(ou: sudo apt install python3-opencv). O 'headless' NÃO remove o "
+        "VideoCapture — só a janela (imshow)."
+    )
+
+
+def _gui_available() -> bool:
+    """Testa se a build do OpenCV tem suporte a janela (imshow/highgui)."""
+    try:
+        cv2.namedWindow("__probe__")
+        cv2.destroyWindow("__probe__")
+        return True
+    except cv2.error:
+        return False
+
+
 def _build_detector():
     """Cria o detector de AprilTag, usando a calibração se disponível."""
     from app.vision.calibration import CalibrationError
@@ -73,6 +103,14 @@ def _draw_detection(frame: np.ndarray, det) -> None:
 
 def main() -> None:
     headless = os.getenv("HEADLESS", "0") == "1"
+
+    _check_cv2_videoio()
+
+    # Sem tela (Pi via SSH) ou build sem GUI → cai pra headless automaticamente.
+    if not headless and not _gui_available():
+        print("[AVISO] OpenCV sem suporte a janela (imshow). Rodando em modo "
+              "headless — defina HEADLESS=1 para silenciar este aviso.")
+        headless = True
 
     detector = _build_detector()
     cap = _open_camera()
