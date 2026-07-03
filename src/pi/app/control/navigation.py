@@ -1,7 +1,13 @@
 """Navegação automática: posicionar o robô em frente à AprilTag.
 
 Máquina de estados:
-  APPROACH → FACE → RETREAT → APPROACH (loop até convergir)
+  COARSE_ALIGN → APPROACH → FACE → RETREAT → APPROACH (loop até convergir)
+
+**COARSE_ALIGN**: quando |pitch| > 45°, o robô está quase perpendicular à tag.
+  Nesta condição, recalcular omega a cada frame causa oscilação (ciclo-limite)
+  porque pequenas rotações alteram a leitura da câmera e flipam o sinal do
+  comando. Solução: girar com omega FIXO (direção determinada pelo sinal do
+  pitch na entrada) até |pitch| cair abaixo de 35° (histerese).
 
 **APPROACH**: centering via bearing angle (atan2(x, z)) para omega suave e
   proporcional à distância. Perto do centro, transita para pitch-based alignment.
@@ -26,6 +32,10 @@ from app import config
 
 _HEADING_GUARD_DEG: float = 30.0
 _FOV_GUARD_RATIO: float = 0.70
+
+_COARSE_ALIGN_ENTER_DEG: float = 45.0
+_COARSE_ALIGN_EXIT_DEG: float = 35.0
+_COARSE_ALIGN_OMEGA: float = 2.0
 
 _CENTER_THRESH: float = 1.5
 _CENTER_RANGE: float = 6.0
@@ -52,6 +62,7 @@ _OMEGA_SMOOTH: float = 0.5
 
 
 class _Phase(Enum):
+    COARSE_ALIGN = auto()
     APPROACH = auto()
     FACE = auto()
     RETREAT = auto()
@@ -159,6 +170,7 @@ class NavigationController:
         self._stall_counter: int = 0
         self._face_ticks: int = 0
         self._prev_omega: float = 0.0
+        self._coarse_align_sign: float = 0.0
 
     def should_use_fallback(self, z_cm: float) -> bool:
         if z_cm < config.NAV_MIN_Z_FOR_PRIMARY:
@@ -179,6 +191,22 @@ class NavigationController:
     ) -> tuple[float, float]:
         d_lat = _true_lateral(x_cm, z_cm, pitch_deg)
         z_error = z_cm - config.ZREF_CM
+
+        # ---- COARSE_ALIGN: fixed-omega rotation for large heading error ----
+        if self._phase != _Phase.COARSE_ALIGN and abs(pitch_deg) > _COARSE_ALIGN_ENTER_DEG:
+            self._phase = _Phase.COARSE_ALIGN
+            self._coarse_align_sign = -1.0 if pitch_deg > 0 else 1.0
+
+        if self._phase == _Phase.COARSE_ALIGN:
+            if abs(pitch_deg) < _COARSE_ALIGN_EXIT_DEG:
+                self._phase = _Phase.APPROACH
+                self._stall_counter = 0
+                self._prev_omega = 0.0
+            else:
+                omega = self._coarse_align_sign * _COARSE_ALIGN_OMEGA
+                self._omega_history.append(omega)
+                self._prev_omega = omega
+                return 0.0, omega
 
         # ---- FACE: turn in place until heading is corrected ----
         if self._phase == _Phase.FACE:
@@ -254,6 +282,7 @@ class NavigationController:
         self._stall_counter = 0
         self._face_ticks = 0
         self._prev_omega = 0.0
+        self._coarse_align_sign = 0.0
 
     @property
     def using_fallback(self) -> bool:

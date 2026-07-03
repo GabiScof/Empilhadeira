@@ -1,4 +1,4 @@
-"""Testes da navegação automática: APPROACH/FACE/RETREAT, dead zone com D."""
+"""Testes da navegação automática: COARSE_ALIGN/APPROACH/FACE/RETREAT, dead zone com D."""
 
 import math
 
@@ -7,6 +7,9 @@ from app.control.navigation import (
     _ALPHA_MIN,
     _BEARING_KP,
     _CENTER_THRESH,
+    _COARSE_ALIGN_ENTER_DEG,
+    _COARSE_ALIGN_EXIT_DEG,
+    _COARSE_ALIGN_OMEGA,
     _CONVERGE_D_TOL,
     _CONVERGE_P_TOL,
     _CONVERGE_Z_TOL,
@@ -209,3 +212,62 @@ def test_omega_smoothing():
     ctrl.compute(z_cm=50.0, x_cm=-10.0, pitch_deg=0.0)
     omega2 = ctrl._prev_omega
     assert abs(omega2) < abs(omega1) or omega1 * omega2 > 0
+
+
+def test_coarse_align_enters_on_large_pitch():
+    """Robot perpendicular to tag should enter COARSE_ALIGN."""
+    ctrl = NavigationController()
+    ctrl.compute(z_cm=100.0, x_cm=-30.0, pitch_deg=-90.0)
+    assert ctrl.phase == "COARSE_ALIGN"
+
+
+def test_coarse_align_fixed_omega_positive_pitch():
+    """Positive pitch → rotate negative (clockwise) at fixed speed."""
+    ctrl = NavigationController()
+    v, omega = ctrl.compute(z_cm=80.0, x_cm=0.0, pitch_deg=60.0)
+    assert ctrl.phase == "COARSE_ALIGN"
+    assert v == 0.0
+    assert omega == -_COARSE_ALIGN_OMEGA
+
+
+def test_coarse_align_fixed_omega_negative_pitch():
+    """Negative pitch → rotate positive (counter-clockwise) at fixed speed."""
+    ctrl = NavigationController()
+    v, omega = ctrl.compute(z_cm=80.0, x_cm=0.0, pitch_deg=-60.0)
+    assert ctrl.phase == "COARSE_ALIGN"
+    assert v == 0.0
+    assert omega == _COARSE_ALIGN_OMEGA
+
+
+def test_coarse_align_does_not_oscillate():
+    """Omega stays constant regardless of x/z changes during COARSE_ALIGN."""
+    ctrl = NavigationController()
+    ctrl.compute(z_cm=100.0, x_cm=-30.0, pitch_deg=-80.0)
+    assert ctrl.phase == "COARSE_ALIGN"
+
+    _, omega1 = ctrl.compute(z_cm=100.0, x_cm=-25.0, pitch_deg=-75.0)
+    _, omega2 = ctrl.compute(z_cm=100.0, x_cm=-20.0, pitch_deg=-70.0)
+    _, omega3 = ctrl.compute(z_cm=100.0, x_cm=-15.0, pitch_deg=-50.0)
+    assert omega1 == omega2 == omega3 == _COARSE_ALIGN_OMEGA
+
+
+def test_coarse_align_exits_with_hysteresis():
+    """Exits only below _COARSE_ALIGN_EXIT_DEG, not _COARSE_ALIGN_ENTER_DEG."""
+    ctrl = NavigationController()
+    ctrl.compute(z_cm=80.0, x_cm=0.0, pitch_deg=-60.0)
+    assert ctrl.phase == "COARSE_ALIGN"
+
+    ctrl.compute(z_cm=80.0, x_cm=0.0, pitch_deg=-40.0)
+    assert ctrl.phase == "COARSE_ALIGN"
+
+    ctrl.compute(z_cm=80.0, x_cm=0.0, pitch_deg=-30.0)
+    assert ctrl.phase == "APPROACH"
+
+
+def test_coarse_align_reset():
+    """Reset clears COARSE_ALIGN state."""
+    ctrl = NavigationController()
+    ctrl.compute(z_cm=80.0, x_cm=0.0, pitch_deg=-90.0)
+    assert ctrl.phase == "COARSE_ALIGN"
+    ctrl.reset()
+    assert ctrl.phase == "APPROACH"
