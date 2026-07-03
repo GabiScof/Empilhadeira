@@ -228,13 +228,16 @@ EKF_MAHALANOBIS_GATE: float = 3.0  # TODO(equipe): limiar de Mahalanobis
 # ---------------------------------------------------------------------------
 # IMU / Giroscópio — calibração de bias (zero-rate) e convenção de eixo
 # ---------------------------------------------------------------------------
-# Só gz (eixo Z, apontando para CIMA) é usado para heading. Logo a POSIÇÃO
-# física do IMU no chassi é irrelevante — importam apenas o alinhamento
-# (Z vertical), o sinal do eixo e o bias de taxa-zero abaixo.
-# +1 se yaw+ = anti-horário visto de cima (default, correto com Z p/ cima);
-# use -1 se, no robô real, o heading do EKF girar ao contrário do robô.
+# Na PARTIDA (robô parado) o GyroCalibrator mede a gravidade p/ descobrir o
+# eixo vertical (yaw) e seu sinal, e estima o bias de taxa-zero. Como o
+# MPU-6050 é destro, gravidade + sensor bastam p/ fixar o sinal do yaw — sem
+# teste de giro manual. Logo a POSIÇÃO/ORIENTAÇÃO do IMU no chassi é
+# irrelevante, desde que o eixo vertical não fique deitado.
+IMU_AUTO_ORIENT: bool = os.getenv("IMU_AUTO_ORIENT", "1") not in ("0", "false", "False")
+# Usado só quando IMU_AUTO_ORIENT=0 (modo manual): assume Z vertical c/ este sinal.
 IMU_GYRO_Z_SIGN: float = float(os.getenv("IMU_GYRO_Z_SIGN", "1.0"))
-GYRO_CAL_MIN_SAMPLES: int = 40  # amostras paradas p/ travar o bias (~2s @ 20Hz)
+IMU_TILT_WARN_DEG: float = 10.0  # avisa se a placa estiver inclinada acima disto
+GYRO_CAL_MIN_SAMPLES: int = 40  # amostras paradas p/ travar a calibração (~2s @ 20Hz)
 GYRO_CAL_STATIONARY_EPS_RADS: float = 0.05  # |ω| roda (cmd e medido) < isto = parado
 GYRO_CAL_TRACK_ALPHA: float = 0.01  # EMA p/ rastrear drift térmico após calibrado
 

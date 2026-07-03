@@ -7,8 +7,12 @@ A estimativa de pose da AprilTag (`pupil-apriltags`, família `tag25h9`) exige o
 distorção. Eles são produzidos pela calibração e salvos em
 [`../pi/calibracao/camera_intrinsics.json`](../pi/calibracao/camera_intrinsics.json).
 
-> **Estado atual:** o arquivo nasce com `fx/fy/cx/cy = null` (placeholder).
-> A calibração real é **`TODO(equipe)`** — sem ela, a estimativa de pose não roda.
+> **Estado atual (2026-07-03): CALIBRADO.** O arquivo contém a calibração OpenCV
+> feita com 28 fotos **640×480** de `roboticaMengo/imagens/` (erro de reprojeção
+> 0,144 px). A captura em operação **tem** que rodar em 640×480
+> (`CAMERA_FRAME_WIDTH/HEIGHT` no `.env`). Existe uma calibração alternativa
+> (Zephyr, fx=fy=833) anotada no próprio JSON — o teste de fita métrica a 30 cm
+> (ver `real-robot-test-plan.md` §1.4) decide qual fica.
 
 ## Opção A — Checkerboard (xadrez) com OpenCV
 

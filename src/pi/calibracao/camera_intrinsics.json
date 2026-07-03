@@ -1,16 +1,11 @@
 {
-  "fx": 833.107,
-  "fy": 833.107,
-  "cx": 360.117,
-  "cy": 273.161,
-  "skew": 0,
-  "dist_coeffs": {
-    "k1": -0.164212,
-    "k2": 3.00503,
-    "k3": -7.76401,
-    "p1": 0.00721061,
-    "p2": 2.63399e-05
-  },
-  "image_size": null,
-  "reprojection_error": null
+  "_fonte": "roboticaMengo/calibration.py (OpenCV checkerboard) sobre roboticaMengo/imagens/*.jpg — 28 fotos 640x480, erro de reprojeção 0.144 px",
+  "_alternativa_zephyr": "fx=fy=833.107, cx=360.117, cy=273.161 (sem erro de reprojeção registrado) — se o teste de fita métrica a 30 cm ficar melhor com estes valores, reverter",
+  "fx": 799.3907361857031,
+  "fy": 794.2843064465196,
+  "cx": 399.03967921864864,
+  "cy": 273.1926221127301,
+  "dist_coeffs": [0.1682923535102056, -2.004182809671462, 0.0005851317963246992, 0.014928717086145455, 6.715647634037245],
+  "image_size": [640, 480],
+  "reprojection_error": 0.1437809388291857
 }

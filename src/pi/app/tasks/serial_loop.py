@@ -23,15 +23,18 @@ logger = logging.getLogger(__name__)
 def _feed_ekf(state: SharedState, sensors, dt: float) -> None:
     """Alimenta o EKF com dados de encoder + giroscópio.
 
-    O gz cru passa pelo ``GyroCalibrator``, que remove o bias de taxa-zero
-    (estimado com o robô parado) e aplica a convenção de sinal do eixo antes
-    de virar rad/s. Sem isso o heading deriva com o robô parado.
+    O giroscópio cru (gx, gy, gz) + acelerômetro passam pelo ``GyroCalibrator``,
+    que na partida auto-detecta o eixo de yaw e o sinal pela gravidade, remove
+    o bias de taxa-zero e devolve a taxa de yaw em torno da vertical real.
+    Sem isso o heading deriva com o robô parado / gira ao contrário.
     """
     w_left = sensors.enc.esq
     w_right = sensors.enc.dir
     setpoint = state.current_setpoint
+    mpu = sensors.mpu
     gyro_z_dps = state.gyro_cal.update(
-        sensors.mpu.gz,
+        (mpu.gx, mpu.gy, mpu.gz),
+        (mpu.ax, mpu.ay, mpu.az),
         w_left_cmd=setpoint.w_esq,
         w_right_cmd=setpoint.w_dir,
         w_left_meas=w_left,

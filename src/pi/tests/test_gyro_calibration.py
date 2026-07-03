@@ -1,92 +1,135 @@
-"""Testes do GyroCalibrator (bias de taxa-zero do giroscópio).
+"""Testes do GyroCalibrator (auto-orientação + bias na partida).
 
 Cobre:
 - Não calibra até atingir min_samples parado.
-- Trava o bias como a média das amostras paradas e o subtrai.
-- Amostras com o robô em movimento não entram na estimativa.
-- Movimento (cmd OU encoder acima de eps) conta como não-parado.
-- Sinal inverte a taxa de saída.
-- Drift térmico é rastreado por EMA após calibrado.
+- Z para cima: taxa de yaw = gz (sinal +), bias subtraído.
+- Z para baixo (placa invertida): sinal do yaw auto-invertido pela gravidade.
+- Eixo de yaw auto-detectado quando a placa está deitada (gravidade em X).
+- Bias na componente vertical é subtraído.
+- Amostras em movimento (cmd OU encoder) não entram na calibração.
+- Inclinação da placa é medida (tilt_deg).
+- Modo manual (auto_orient=False) usa Z com sinal fixo.
+- Drift térmico rastreado por EMA.
 - reset() zera tudo.
 """
 
+import math
+
 import pytest
 
+G = 9.81
 
-def _make(min_samples=4, eps=0.05, alpha=0.1, sign=1.0):
+
+def _make(min_samples=4, eps=0.05, alpha=0.1, auto=True, fixed_sign=1.0):
     from app.control.gyro_calibration import GyroCalibrator
 
     return GyroCalibrator(
         min_samples=min_samples,
         stationary_eps_rads=eps,
         track_alpha=alpha,
-        sign=sign,
+        auto_orient=auto,
+        fixed_sign=fixed_sign,
     )
 
 
 STILL = dict(w_left_cmd=0.0, w_right_cmd=0.0, w_left_meas=0.0, w_right_meas=0.0)
+# Girando no lugo: NÃO parado → lê yaw sem disparar o rastreio de bias.
+MOVING = dict(w_left_cmd=1.0, w_right_cmd=-1.0, w_left_meas=1.0, w_right_meas=-1.0)
+
+
+def _feed(cal, gyro, accel, n, **wheels):
+    out = None
+    for _ in range(n):
+        out = cal.update(gyro, accel, **{**STILL, **wheels})
+    return out
 
 
 class TestGyroCalibrator:
     def test_not_calibrated_before_min_samples(self):
         cal = _make(min_samples=5)
-        for _ in range(3):
-            cal.update(2.0, **STILL)
-        assert not cal.calibrated
-        # Antes de calibrar (4ª amostra, ainda < 5), bias=0 → saída é o cru.
-        assert cal.update(2.0, **STILL) == pytest.approx(2.0)
+        _feed(cal, (0, 0, 0), (0, 0, G), 4)
         assert not cal.calibrated
 
-    def test_locks_bias_as_mean(self):
+    def test_z_up_positive_sign(self):
         cal = _make(min_samples=4)
-        for v in (1.0, 2.0, 3.0, 4.0):  # média = 2.5
-            out = cal.update(v, **STILL)
+        # gz=0 durante a calibração (parado), accel Z=+g → Z p/ cima.
+        _feed(cal, (0.0, 0.0, 0.0), (0.0, 0.0, G), 4)
         assert cal.calibrated
-        assert cal.bias_dps == pytest.approx(2.5)
-        # última amostra (4.0) já sai corrigida: 4.0 - 2.5 = 1.5
-        assert out == pytest.approx(1.5)
-        # leitura crua igual ao bias → yaw ~0
-        assert cal.update(2.5, **STILL) == pytest.approx(0.0)
+        assert cal.axis_label == "+Z"
+        assert cal.bias_dps == pytest.approx(0.0, abs=1e-9)
+        # giro CCW (gz=+3) → yaw +3
+        yaw = cal.update((0.0, 0.0, 3.0), (0.0, 0.0, G), **MOVING)
+        assert yaw == pytest.approx(3.0)
+
+    def test_z_down_auto_inverts_sign(self):
+        cal = _make(min_samples=4)
+        # placa invertida: accel Z = -g → +Z aponta p/ baixo.
+        _feed(cal, (0.0, 0.0, 0.0), (0.0, 0.0, -G), 4)
+        assert cal.calibrated
+        assert cal.axis_label == "-Z"
+        # mesma leitura crua gz=+3 agora vira yaw -3 (auto-invertido!)
+        yaw = cal.update((0.0, 0.0, 3.0), (0.0, 0.0, -G), **MOVING)
+        assert yaw == pytest.approx(-3.0)
+
+    def test_detects_yaw_axis_when_board_on_side(self):
+        # placa deitada: gravidade em +X → eixo de yaw = X.
+        cal = _make(min_samples=4)
+        _feed(cal, (0.0, 0.0, 0.0), (G, 0.0, 0.0), 4)
+        assert cal.axis_label == "+X"
+        # rotação sobre X (gx=+2) é o yaw
+        yaw = cal.update((2.0, 0.0, 0.0), (G, 0.0, 0.0), **MOVING)
+        assert yaw == pytest.approx(2.0)
+
+    def test_bias_subtracted_on_vertical_axis(self):
+        cal = _make(min_samples=4)
+        # parado com gz=1.5 constante e Z p/ cima → bias=1.5
+        _feed(cal, (0.0, 0.0, 1.5), (0.0, 0.0, G), 4)
+        assert cal.bias_dps == pytest.approx(1.5)
+        yaw = cal.update((0.0, 0.0, 1.5), (0.0, 0.0, G), **STILL)
+        assert yaw == pytest.approx(0.0)
 
     def test_moving_samples_ignored(self):
         cal = _make(min_samples=4)
         moving = dict(w_left_cmd=1.0, w_right_cmd=1.0, w_left_meas=1.0, w_right_meas=1.0)
-        for _ in range(10):
-            cal.update(9.9, **moving)  # não deve acumular
+        _feed(cal, (0, 0, 9.9), (0, 0, G), 10, **moving)
         assert not cal.calibrated
-        for v in (1.0, 1.0, 1.0, 1.0):
-            cal.update(v, **STILL)
+        _feed(cal, (0.0, 0.0, 0.0), (0.0, 0.0, G), 4)
         assert cal.calibrated
-        assert cal.bias_dps == pytest.approx(1.0)
+        assert cal.bias_dps == pytest.approx(0.0, abs=1e-9)
 
     def test_measured_motion_blocks_calibration(self):
-        cal = _make(min_samples=2, eps=0.05)
-        # comando zero mas encoder acima de eps (robô empurrado / inércia)
+        cal = _make(min_samples=2)
         pushed = dict(w_left_cmd=0.0, w_right_cmd=0.0, w_left_meas=0.2, w_right_meas=0.0)
-        cal.update(5.0, **pushed)
-        cal.update(5.0, **pushed)
+        _feed(cal, (0, 0, 5.0), (0, 0, G), 5, **pushed)
         assert not cal.calibrated
 
-    def test_sign_inverts_output(self):
-        # alpha=0 desliga o rastreio p/ isolar o efeito do sinal.
-        cal = _make(min_samples=2, sign=-1.0, alpha=0.0)
-        cal.update(0.0, **STILL)
-        cal.update(0.0, **STILL)  # bias=0, calibrado
-        assert cal.update(3.0, **STILL) == pytest.approx(-3.0)
+    def test_tilt_measured(self):
+        cal = _make(min_samples=4)
+        # 20° de inclinação: gravidade repartida entre X e Z.
+        ax, az = G * math.sin(math.radians(20)), G * math.cos(math.radians(20))
+        _feed(cal, (0.0, 0.0, 0.0), (ax, 0.0, az), 4)
+        assert cal.axis_label == "+Z"  # Z ainda domina
+        assert cal.tilt_deg == pytest.approx(20.0, abs=0.5)
+
+    def test_manual_mode_fixed_sign(self):
+        cal = _make(min_samples=2, auto=False, fixed_sign=-1.0)
+        # accel irrelevante no modo manual; assume Z com sinal -1.
+        _feed(cal, (0.0, 0.0, 0.0), (0.0, 0.0, G), 2)
+        assert cal.axis_label == "-Z"
+        yaw = cal.update((0.0, 0.0, 3.0), (0.0, 0.0, G), **MOVING)
+        assert yaw == pytest.approx(-3.0)
 
     def test_thermal_drift_tracking(self):
         cal = _make(min_samples=2, alpha=0.5)
-        cal.update(0.0, **STILL)
-        cal.update(0.0, **STILL)  # bias=0
-        # parado mas lendo 4.0 → EMA puxa o bias na direção de 4.0
-        cal.update(4.0, **STILL)  # bias += 0.5*(4-0) = 2.0
+        _feed(cal, (0.0, 0.0, 0.0), (0.0, 0.0, G), 2)  # bias=0, Z up
+        cal.update((0.0, 0.0, 4.0), (0.0, 0.0, G), **STILL)  # bias += 0.5*(4-0)=2
         assert cal.bias_dps == pytest.approx(2.0)
 
     def test_reset(self):
         cal = _make(min_samples=2)
-        cal.update(3.0, **STILL)
-        cal.update(3.0, **STILL)
+        _feed(cal, (0.0, 0.0, 0.0), (0.0, 0.0, G), 2)
         assert cal.calibrated
         cal.reset()
         assert not cal.calibrated
         assert cal.bias_dps == 0.0
+        assert cal.axis_label == "?"

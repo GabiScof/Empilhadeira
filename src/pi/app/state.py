@@ -64,7 +64,9 @@ class SharedState:
             min_samples=config.GYRO_CAL_MIN_SAMPLES,
             stationary_eps_rads=config.GYRO_CAL_STATIONARY_EPS_RADS,
             track_alpha=config.GYRO_CAL_TRACK_ALPHA,
-            sign=config.IMU_GYRO_Z_SIGN,
+            auto_orient=config.IMU_AUTO_ORIENT,
+            fixed_sign=config.IMU_GYRO_Z_SIGN,
+            tilt_warn_deg=config.IMU_TILT_WARN_DEG,
         )
         self.mission = MissionSM()
         self.segment_executor = SegmentExecutor(
