@@ -226,6 +226,19 @@ EKF_R_THETA: float = 0.05  # TODO(equipe): ruído de observação tag heading (r
 EKF_MAHALANOBIS_GATE: float = 3.0  # TODO(equipe): limiar de Mahalanobis
 
 # ---------------------------------------------------------------------------
+# IMU / Giroscópio — calibração de bias (zero-rate) e convenção de eixo
+# ---------------------------------------------------------------------------
+# Só gz (eixo Z, apontando para CIMA) é usado para heading. Logo a POSIÇÃO
+# física do IMU no chassi é irrelevante — importam apenas o alinhamento
+# (Z vertical), o sinal do eixo e o bias de taxa-zero abaixo.
+# +1 se yaw+ = anti-horário visto de cima (default, correto com Z p/ cima);
+# use -1 se, no robô real, o heading do EKF girar ao contrário do robô.
+IMU_GYRO_Z_SIGN: float = float(os.getenv("IMU_GYRO_Z_SIGN", "1.0"))
+GYRO_CAL_MIN_SAMPLES: int = 40  # amostras paradas p/ travar o bias (~2s @ 20Hz)
+GYRO_CAL_STATIONARY_EPS_RADS: float = 0.05  # |ω| roda (cmd e medido) < isto = parado
+GYRO_CAL_TRACK_ALPHA: float = 0.01  # EMA p/ rastrear drift térmico após calibrado
+
+# ---------------------------------------------------------------------------
 # Navegação genérica — [ref: Seção 4 do mega-prompt]
 # ---------------------------------------------------------------------------
 NAV_K_DIST: float = 1.5     # ganho proporcional distância → v (1/s); cap em MAX_LINEAR_SPEED_MS

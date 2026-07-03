@@ -13,6 +13,7 @@ import time
 
 from app import config
 from app.control.ekf import PoseEKF
+from app.control.gyro_calibration import GyroCalibrator
 from app.control.kalman import AttitudeKalman
 from app.control.path_planner import Segment
 from app.control.segment_executor import SegmentExecutor
@@ -59,6 +60,12 @@ class SharedState:
             max_angular_speed_rads=config.MAX_ANGULAR_SPEED_RADS,
         )
         self.ekf = PoseEKF()
+        self.gyro_cal = GyroCalibrator(
+            min_samples=config.GYRO_CAL_MIN_SAMPLES,
+            stationary_eps_rads=config.GYRO_CAL_STATIONARY_EPS_RADS,
+            track_alpha=config.GYRO_CAL_TRACK_ALPHA,
+            sign=config.IMU_GYRO_Z_SIGN,
+        )
         self.mission = MissionSM()
         self.segment_executor = SegmentExecutor(
             wheel_radius_m=config.WHEEL_RADIUS_M,
