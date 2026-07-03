@@ -128,8 +128,10 @@ constexpr int PIN_FORK_LIMIT_TOP    = -1;  // Fim-de-curso superior — sem chav
 constexpr int PIN_FORK_LIMIT_BOTTOM = -1;  // Fim-de-curso inferior — sem chave montada
 
 // Nivel logico quando o fim-de-curso esta ACIONADO.
-// LOW = switch NO com INPUT_PULLUP (fiacao: ESP32_PIN --- [switch NO] --- GND).
-constexpr int FORK_LIMIT_ACTIVE_LEVEL = LOW;
+// 0 (= LOW) para switch NO com INPUT_PULLUP (ESP32_PIN --- [switch NO] --- GND).
+// Valor literal em vez do macro LOW: config.h e incluido por arquivos que nao
+// puxam Arduino.h (ex.: pid.cpp), onde LOW/HIGH nao existem.
+constexpr int FORK_LIMIT_ACTIVE_LEVEL = 0;  // 0 = LOW; usar 1 (HIGH) p/ switch NC
 
 // ---------------------------------------------------------------------------
 // Pinos — Encoders de quadratura (Lego NXT 53787)
