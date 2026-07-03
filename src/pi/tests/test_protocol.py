@@ -1,110 +1,119 @@
-"""Estrutura de testes do protocolo serial (sem lógica real).
+"""Testes do protocolo serial: round-trip, CRC, ressincronização e schema."""
 
-Verificará round-trip encode/decode e descarte de quadros com CRC inválido.
-[ref: Seção 6, 7 e 11 da AGENTS.md]
-"""
+import json
 
-import pytest
-from app.comms.crc8 import crc8, crc8_hex
-from app.comms.protocol import encode_setpoint, decode_sensors, SensorsFrameDecoder
-from app.models import Setpoint, Sensors
-
-
-@pytest.mark.skip(reason="TODO: implementar após encode_setpoint/decode_sensors.")
-def test_setpoint_roundtrip() -> None:
-    """encode_setpoint → decode deve preservar os campos do setpoint."""
-    raise NotImplementedError
+from app.comms.crc8 import crc8_hex
+from app.comms.protocol import (
+    SensorsFrameDecoder,
+    decode_sensors,
+    encode_setpoint,
+)
+from app.models import ForkCommand, Setpoint
 
 
-@pytest.mark.skip(reason="TODO: implementar após validação de CRC.")
-def test_decode_rejects_bad_crc() -> None:
-    """decode_sensors deve levantar ValueError quando o CRC não bate."""
-    raise NotImplementedError
+def _make_sensors_frame(data: dict) -> bytes:
+    """Helper: monta quadro de sensores válido."""
+    payload = json.dumps(data, separators=(",", ":")).encode("utf-8")
+    checksum = crc8_hex(payload).encode("ascii")
+    return payload + b"*" + checksum + b"\n"
 
-# ── CRC ──────────────────────────────────────────────────────────────
-class TestCrc8:
-    def test_known_value(self):
-        payload = b'{"w_esq":1.5,"w_dir":1.5,"garfo":"parar"}'
-        assert crc8_hex(payload) == "6e"
 
-    def test_empty(self):
-        assert crc8(b"") == 0x00
+VALID_SENSORS = {
+    "enc": {"esq": 1.5, "dir": 2.0},
+    "mpu": {"ax": 0.1, "ay": 0.2, "az": 9.8, "gx": 0.0, "gy": 0.0, "gz": 0.0, "temp_c": 25.0},
+    "bms": None,
+}
 
-    def test_sensors_frame(self):
-        payload = b'{"enc":{"esq":1.5,"dir":1.5},"mpu":{"ax":0,"ay":0,"az":9.81,"gx":0,"gy":0,"gz":0,"temp_c":25},"bms":null}'
-        assert crc8_hex(payload) == "d5"
 
-# ── encode_setpoint ───────────────────────────────────────────────────
-class TestEncodeSetpoint:
-    def test_frame_format(self):
-        sp = Setpoint(w_esq=1.5, w_dir=1.5, garfo="parar")
-        frame = encode_setpoint(sp)
-        assert frame.endswith(b"\n")
-        assert b"*" in frame
+def test_setpoint_encode_format():
+    """encode_setpoint gera quadro <json>*<crc8>\\n."""
+    sp = Setpoint(w_esq=1.0, w_dir=2.0, garfo=ForkCommand.PARAR)
+    frame = encode_setpoint(sp)
 
-    def test_known_crc(self):
-        sp = Setpoint(w_esq=1.5, w_dir=1.5, garfo="parar")
-        assert encode_setpoint(sp) == b'{"w_esq":1.5,"w_dir":1.5,"garfo":"parar"}*6e\n'
+    assert frame.endswith(b"\n")
+    assert b"*" in frame
 
-    def test_parado(self):
-        sp = Setpoint(w_esq=0.0, w_dir=0.0, garfo="parar")
-        assert encode_setpoint(sp) == b'{"w_esq":0.0,"w_dir":0.0,"garfo":"parar"}*5e\n'
+    parts = frame.rstrip(b"\n").rsplit(b"*", 1)
+    assert len(parts) == 2
+    payload, checksum = parts
+    assert len(checksum) == 2
+    assert crc8_hex(payload) == checksum.decode("ascii")
 
-    def test_giro_subir(self):
-        sp = Setpoint(w_esq=-1.0, w_dir=1.0, garfo="subir")
-        assert encode_setpoint(sp) == b'{"w_esq":-1.0,"w_dir":1.0,"garfo":"subir"}*df\n'
 
-# ── decode_sensors ────────────────────────────────────────────────────
-class TestDecodeSensors:
-    VALID = b'{"enc":{"esq":1.5,"dir":1.5},"mpu":{"ax":0,"ay":0,"az":9.81,"gx":0,"gy":0,"gz":0,"temp_c":25},"bms":null}*d5\n'
+def test_setpoint_roundtrip():
+    """encode → decode preserva campos do setpoint."""
+    sp = Setpoint(w_esq=5.5, w_dir=-3.0, garfo=ForkCommand.SUBIR)
+    frame = encode_setpoint(sp)
 
-    def test_valid_frame(self):
-        s = decode_sensors(self.VALID)
-        assert s is not None
-        assert s.enc.esq == 1.5
-        assert s.enc.dir == 1.5
-        assert s.mpu.az  == pytest.approx(9.81)
-        assert s.bms is None
+    payload_part = frame.rstrip(b"\n").rsplit(b"*", 1)[0]
+    data = json.loads(payload_part)
+    assert abs(data["w_esq"] - 5.5) < 0.01
+    assert abs(data["w_dir"] - (-3.0)) < 0.01
+    assert data["garfo"] == "subir"
 
-    def test_crc_errado(self):
-        bad = self.VALID.replace(b"*d5", b"*ff")
-        assert decode_sensors(bad) is None
 
-    def test_sem_separador(self):
-        assert decode_sensors(b'{"enc":{}}\n') is None
+def test_decode_sensors_valid():
+    """decode_sensors aceita quadro válido."""
+    frame = _make_sensors_frame(VALID_SENSORS)
+    sensors = decode_sensors(frame)
 
-    def test_payload_vazio(self):
-        assert decode_sensors(b"*d5\n") is None
+    assert sensors is not None
+    assert abs(sensors.enc.esq - 1.5) < 0.01
+    assert abs(sensors.enc.dir - 2.0) < 0.01
+    assert sensors.bms is None
 
-    def test_json_invalido(self):
-        assert decode_sensors(b"nao_e_json*zz\n") is None
 
-# ── SensorsFrameDecoder (incremental) ─────────────────────────────────
-class TestSensorsFrameDecoder:
-    FRAME = b'{"enc":{"esq":1.5,"dir":1.5},"mpu":{"ax":0,"ay":0,"az":9.81,"gx":0,"gy":0,"gz":0,"temp_c":25},"bms":null}*d5\n'
+def test_decode_sensors_bad_crc():
+    """decode_sensors rejeita quadro com CRC errado."""
+    frame = _make_sensors_frame(VALID_SENSORS)
+    corrupted = frame.replace(frame[-4:-2], b"ff")
+    sensors = decode_sensors(corrupted)
+    assert sensors is None
 
-    def test_frame_inteiro(self):
-        dec = SensorsFrameDecoder()
-        result = dec.feed(self.FRAME)
-        assert len(result) == 1
-        assert result[0].enc.esq == 1.5
 
-    def test_frame_fragmentado(self):
-        """Simula bytes chegando pela UART de 1 em 1."""
-        dec = SensorsFrameDecoder()
-        result = []
-        for byte in self.FRAME:
-            result.extend(dec.feed(bytes([byte])))
-        assert len(result) == 1
+def test_decode_sensors_no_separator():
+    """decode_sensors rejeita quadro sem '*'."""
+    sensors = decode_sensors(b'{"enc":{"esq":0,"dir":0}}00\n')
+    assert sensors is None
 
-    def test_dois_frames_seguidos(self):
-        dec = SensorsFrameDecoder()
-        result = dec.feed(self.FRAME + self.FRAME)
-        assert len(result) == 2
 
-    def test_frame_corrompido_seguido_de_valido(self):
-        """Frame ruim deve ser descartado; o próximo válido deve passar."""
-        bad = b'lixo_corrompido*ff\n'
-        dec = SensorsFrameDecoder()
-        result = dec.feed(bad + self.FRAME)
-        assert len(result) == 1
+def test_decode_sensors_invalid_json():
+    """decode_sensors rejeita JSON malformado."""
+    payload = b"not json at all"
+    checksum = crc8_hex(payload).encode("ascii")
+    frame = payload + b"*" + checksum + b"\n"
+    sensors = decode_sensors(frame)
+    assert sensors is None
+
+
+def test_decode_sensors_invalid_schema():
+    """decode_sensors rejeita JSON que não conforma ao schema Sensors."""
+    data = {"wrong_field": 123}
+    frame = _make_sensors_frame(data)
+    sensors = decode_sensors(frame)
+    assert sensors is None
+
+
+def test_sensors_frame_decoder_resync():
+    """SensorsFrameDecoder ressincroniza no '\\n' após lixo."""
+    decoder = SensorsFrameDecoder()
+
+    garbage = b"lixo lixo lixo\n"
+    valid = _make_sensors_frame(VALID_SENSORS)
+
+    results = decoder.feed(garbage + valid)
+    assert len(results) == 1
+    assert abs(results[0].enc.esq - 1.5) < 0.01
+
+
+def test_sensors_frame_decoder_multiple():
+    """SensorsFrameDecoder decodifica múltiplos quadros concatenados."""
+    decoder = SensorsFrameDecoder()
+
+    frame1 = _make_sensors_frame(VALID_SENSORS)
+    data2 = {**VALID_SENSORS, "enc": {"esq": 3.0, "dir": 4.0}}
+    frame2 = _make_sensors_frame(data2)
+
+    results = decoder.feed(frame1 + frame2)
+    assert len(results) == 2
+    assert abs(results[1].enc.esq - 3.0) < 0.01

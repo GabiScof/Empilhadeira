@@ -30,8 +30,8 @@
  *     - Garfo na base (switch inferior acionado) + comando DESCER -> bloqueado
  *     - Sentido oposto -> liberado normalmente
  *     - PARAR -> sempre permitido (motor para, worm gear segura)
- *   Com pinos placeholder (-1), os fim-de-curso ficam desabilitados
- *   (o motor obedece apenas ao comando do operador, sem protecao mecanica).
+ *   Os fim-de-curso estao configurados em GPIO 5 (topo) e GPIO 15 (base).
+ *   Para desabilitar, setar o pino como -1 em config.h.
  *
  * API LEDC usada: ESP32 Arduino Core 2.x (ledcSetup + ledcAttachPin + ledcWrite).
  * Se o projeto migrar para Arduino Core 3.x (IDF 5), usar ledcAttach(pin, freq, bits)

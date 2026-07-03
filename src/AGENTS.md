@@ -3,8 +3,9 @@
 > Arquivo de contexto base do projeto. Lido automaticamente pelo Cursor / Claude Code
 > na raiz do monorepo.
 >
-> **Esta fase é a BASE.** O agente cria estrutura de pastas, contratos de interface,
-> documentação e *stubs* tipados. **A lógica ainda não é implementada.**
+> **Fase atual:** lógica implementada e validada em simulação. Interfaces de hardware
+> (`VisionSource`, `SerialTransport`) prontas. Bring-up no robô real pendente — ver
+> `docs/hardware-deployment.md`.
 
 ---
 

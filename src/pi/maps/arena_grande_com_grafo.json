@@ -1,0 +1,32 @@
+{
+  "name": "arena_grande_com_grafo",
+  "arena": { "width_m": 3.00, "height_m": 2.00, "origin": "bottom_left" },
+  "start_pose": { "x_m": 0.20, "y_m": 0.20, "theta_deg": 90 },
+  "home_pose":  { "x_m": 0.20, "y_m": 0.20, "theta_deg": 90 },
+  "tags": [
+    { "position_id": "P1", "x_m": 0.05, "y_m": 1.00, "wall": "left",  "yaw_deg": 0 },
+    { "position_id": "P2", "x_m": 1.50, "y_m": 1.95, "wall": "top",   "yaw_deg": 270 },
+    { "position_id": "P3", "x_m": 2.95, "y_m": 1.00, "wall": "right", "yaw_deg": 180 },
+    { "position_id": "P4", "x_m": 1.50, "y_m": 0.05, "wall": "bottom","yaw_deg": 90 },
+    { "position_id": "P5", "x_m": 0.50, "y_m": 1.80, "wall": "top",   "yaw_deg": 270 },
+    { "position_id": "P6", "x_m": 2.50, "y_m": 0.20, "wall": "bottom","yaw_deg": 90 }
+  ],
+  "waypoints": [
+    { "id": "w0", "x_m": 0.20, "y_m": 0.20 },
+    { "id": "w1", "x_m": 0.20, "y_m": 1.00 },
+    { "id": "w2", "x_m": 0.20, "y_m": 1.80 },
+    { "id": "w3", "x_m": 1.50, "y_m": 1.80 },
+    { "id": "w4", "x_m": 1.50, "y_m": 1.00 },
+    { "id": "w5", "x_m": 1.50, "y_m": 0.20 },
+    { "id": "w6", "x_m": 2.80, "y_m": 0.20 },
+    { "id": "w7", "x_m": 2.80, "y_m": 1.00 },
+    { "id": "w8", "x_m": 2.80, "y_m": 1.80 }
+  ],
+  "edges": [
+    ["w0", "w1"], ["w1", "w2"], ["w2", "w3"], ["w3", "w4"],
+    ["w4", "w5"], ["w5", "w0"], ["w3", "w8"], ["w8", "w7"],
+    ["w7", "w6"], ["w6", "w5"], ["w1", "w4"], ["w4", "w7"]
+  ],
+  "tag_size_m": 0.05,
+  "tag_family": "tag25h9"
+}

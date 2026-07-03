@@ -1,14 +1,9 @@
-"""Tarefa WebSocket: recebe comandos do frontend e envia telemetria @20 Hz.
+"""Tarefa WebSocket: recebe comandos (1) e envia telemetria (2).
 
-Responsabilidades:
-- Aceitar a conexão WebSocket e rodar dois sub-loops concorrentes:
-  · _receive: lê frames do cliente, valida como Command (contrato 1) e atualiza
-    o SharedState. Atualiza também o instante do último comando recebido.
-  · _send: a cada 1/TELEMETRY_HZ s, lê um snapshot de telemetria do SharedState
-    e envia ao cliente (contrato 2). Verifica o watchdog de comando.
-- Watchdog: se COMMAND_TIMEOUT_MS ms se passarem sem nenhum comando, força PARADO
-  independentemente do modo atual (conservador em qualquer modo). [ref: Seção 7]
-- Na desconexão (normal ou por queda de rede): força PARADO no finally.
+Endpoint /ws do FastAPI. O handler **não** calcula setpoint — isso é
+responsabilidade do `control_loop` (malha fechada a 20 Hz, independente da cadência
+do operador). Aqui só registramos a intenção do operador (modo/joystick/garfo) no
+estado e reconhecemos (`acknowledge`) a saída de uma parada de segurança.
 
 [ref: Seção 2 da AGENTS.md]
 """
@@ -17,73 +12,75 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 
 from fastapi import WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
-from app.config import COMMAND_TIMEOUT_MS, TELEMETRY_HZ
+from app import config
 from app.models import Command, Mode
 from app.state import SharedState
 
-_log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
-async def websocket_handler(ws: WebSocket, state: SharedState) -> None:
-    """Loop de comando/telemetria para uma conexão WebSocket.
-
-    Aceita a conexão, lança _receive e _send como subtarefas asyncio e aguarda
-    a primeira encerrar (desconexão ou erro). Garante PARADO ao sair.
+async def websocket_endpoint(websocket: WebSocket, state: SharedState) -> None:
+    """Handler de uma conexão WebSocket de operador.
 
     Args:
-        ws: WebSocket da conexão FastAPI.
-        state: estado compartilhado entre as tarefas.
+        websocket: conexão WebSocket do FastAPI.
+        state: estado compartilhado.
     """
-    await ws.accept()
-    _log.info("[WS] cliente conectado: %s", ws.client)
+    await websocket.accept()
+    logger.info("WebSocket conectado: %s", websocket.client)
 
-    loop = asyncio.get_running_loop()
-    last_cmd_time: float = loop.time()
-    interval: float = 1.0 / TELEMETRY_HZ
-
-    async def _receive() -> None:
-        nonlocal last_cmd_time
-        async for text in ws.iter_text():
-            try:
-                cmd = Command.model_validate_json(text)
-                _log.info("[WS] comando recebido: %s", cmd.model_dump())
-                print("Comando recebido:", cmd.model_dump())
-                state.update_command(cmd)
-                last_cmd_time = loop.time()
-            except ValidationError as exc:
-                _log.warning("[WS] comando inválido ignorado: %s", exc)
-
-    async def _send() -> None:
-        while True:
-            elapsed_ms = (loop.time() - last_cmd_time) * 1000
-            if elapsed_ms > COMMAND_TIMEOUT_MS:
-                state.set_mode(Mode.PARADO)
-            payload = state.snapshot_telemetry()
-            await ws.send_text(payload.model_dump_json())
-            await asyncio.sleep(interval)
-
-    receive_task = asyncio.create_task(_receive(), name="ws-receive")
-    send_task = asyncio.create_task(_send(), name="ws-send")
+    send_task = asyncio.create_task(_telemetry_sender(websocket, state))
 
     try:
-        done, pending = await asyncio.wait(
-            [receive_task, send_task],
-            return_when=asyncio.FIRST_COMPLETED,
-        )
-        for t in pending:
-            t.cancel()
+        while True:
+            raw = await websocket.receive_text()
+
             try:
-                await t
-            except (asyncio.CancelledError, Exception):
-                pass
-        for t in done:
-            exc = t.exception()
-            if exc is not None and not isinstance(exc, WebSocketDisconnect):
-                _log.error("[WS] exceção na tarefa: %s", exc)
+                command = Command.model_validate_json(raw)
+            except ValidationError:
+                logger.warning("Comando inválido descartado")
+                continue
+
+            await state.update_command(command)
+            current_time_ms = int(time.time() * 1000)
+            state.state_machine.update_command_time(current_time_ms)
+
+            # Comando de modo do operador é a ação explícita que libera o latch de
+            # uma parada de segurança (o frontend só envia comando ao interagir).
+            if command.modo in (Mode.MANUAL, Mode.AUTOMATICO):
+                state.state_machine.acknowledge()
+
+    except WebSocketDisconnect:
+        logger.info("WebSocket desconectado: %s", websocket.client)
+    except asyncio.CancelledError:
+        pass
     finally:
-        state.set_mode(Mode.PARADO)
-        _log.info("[WS] cliente desconectado; modo → PARADO")
+        send_task.cancel()
+        try:
+            await send_task
+        except asyncio.CancelledError:
+            pass
+
+        # Conexão caiu: estado seguro. Limpa a intenção do operador para o
+        # control_loop não continuar dirigindo com um comando obsoleto.
+        state.state_machine.force_stop(reason="ws_disconnect")
+        await state.clear_command()
+        logger.info("WS desconectado → PARADO (intenção do operador limpa)")
+
+
+async def _telemetry_sender(websocket: WebSocket, state: SharedState) -> None:
+    """Envia telemetria ao frontend @20 Hz."""
+    interval = 1.0 / config.TELEMETRY_HZ
+
+    try:
+        while True:
+            telemetry = await state.snapshot_telemetry()
+            await websocket.send_text(telemetry.model_dump_json())
+            await asyncio.sleep(interval)
+    except (asyncio.CancelledError, WebSocketDisconnect):
+        pass

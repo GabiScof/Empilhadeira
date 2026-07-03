@@ -1,0 +1,14 @@
+{
+  "name": "arena_media",
+  "arena": { "width_m": 1.50, "height_m": 1.50, "origin": "bottom_left" },
+  "start_pose": { "x_m": 0.20, "y_m": 0.20, "theta_deg": 90 },
+  "home_pose":  { "x_m": 0.20, "y_m": 0.20, "theta_deg": 90 },
+  "tags": [
+    { "position_id": "P1", "x_m": 0.05, "y_m": 0.75, "wall": "left",  "yaw_deg": 0 },
+    { "position_id": "P2", "x_m": 1.45, "y_m": 0.75, "wall": "right", "yaw_deg": 180 },
+    { "position_id": "P3", "x_m": 0.75, "y_m": 1.45, "wall": "top",   "yaw_deg": 270 },
+    { "position_id": "P4", "x_m": 0.75, "y_m": 0.05, "wall": "bottom","yaw_deg": 90 }
+  ],
+  "tag_size_m": 0.05,
+  "tag_family": "tag25h9"
+}

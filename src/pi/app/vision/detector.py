@@ -8,32 +8,54 @@ A estimativa de pose (translação/rotação) fica em `pose.py`.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from pupil_apriltags import Detector
 
 from app import config
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from app.vision.calibration import CameraIntrinsics
+
 
 class AprilTagDetector:
     """Detector de AprilTag configurado para a família `tag25h9`."""
 
-    def __init__(self) -> None:
-        """Cria o detector com a família e parâmetros de `config`.
+    def __init__(
+        self,
+        camera_params: tuple[float, float, float, float] | None = None,
+        tag_size_m: float | None = None,
+        *,
+        intrinsics: "CameraIntrinsics | None" = None,
+    ) -> None:
+        """Cria o detector com a família e parâmetros de calibração.
 
-        [ref: APRILTAG_FAMILY em app/config.py]
+        Args:
+            camera_params: (fx, fy, cx, cy) em px. Se ``None``, usa ``intrinsics``
+                ou, em último caso, ``config.CAMERA_PARAMS`` (placeholder).
+            tag_size_m: tamanho físico da tag (m). Default: ``APRILTAG_SIZE_CM``.
+            intrinsics: calibração carregada (tem prioridade sobre ``camera_params``).
+
+        [ref: APRILTAG_FAMILY em app/config.py; AprilTagDetector.from_calibration]
         """
         self.tag_family: str = config.APRILTAG_FAMILY
 
         # Valor de fallback até a equipe fechar APRILTAG_SIZE_CM.
         self.tag_size_m: float = (
-            (config.APRILTAG_SIZE_CM / 100.0)
-            if config.APRILTAG_SIZE_CM is not None
-            else 0.05
+            tag_size_m
+            if tag_size_m is not None
+            else ((config.APRILTAG_SIZE_CM / 100.0) if config.APRILTAG_SIZE_CM is not None else 0.05)
         )
 
-        self.camera_params: tuple[float, float, float, float] = config.CAMERA_PARAMS
+        if intrinsics is not None:
+            self.camera_params = intrinsics.camera_params
+        elif camera_params is not None:
+            self.camera_params = camera_params
+        else:
+            self.camera_params = config.CAMERA_PARAMS
 
         # Parâmetros de detecção mantidos do script-base.
         self.nthreads: int = 1
@@ -52,6 +74,25 @@ class AprilTagDetector:
             decode_sharpening=self.decode_sharpening,
             debug=self.debug,
         )
+
+    @classmethod
+    def from_calibration(
+        cls,
+        path: "Path | None" = None,
+        tag_size_m: float | None = None,
+    ) -> "AprilTagDetector":
+        """Cria o detector a partir do JSON de calibração da câmera.
+
+        Args:
+            path: caminho do `camera_intrinsics.json`. Default: config.
+            tag_size_m: tamanho físico da tag (m). Default: ``APRILTAG_SIZE_CM``.
+
+        Raises:
+            CalibrationError: se a câmera ainda não estiver calibrada.
+        """
+        from app.vision.calibration import load_intrinsics
+
+        return cls(intrinsics=load_intrinsics(path), tag_size_m=tag_size_m)
 
     def detect(self, gray: np.ndarray) -> list[Any]:
         """Detecta tags num frame em tons de cinza.

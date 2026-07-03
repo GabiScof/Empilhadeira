@@ -15,9 +15,9 @@
  * O acesso ao contador e feito em secao critica (noInterrupts/interrupts)
  * para atomicidade na leitura + reset do acumulador.
  *
- * ENCODER_PPR (config.h) e o numero de pulsos por revolucao completa do eixo
- * de saida (ja considerando a reducao interna do motor). Valor placeholder
- * ate a equipe confirmar com o motor real.
+ * ENCODER_PPR (config.h) = 360 pulsos por revolucao completa do eixo de saida
+ * do Lego NXT 53787 (ja considerando a reducao interna). Confirmar com o
+ * motor real — se o valor medido for diferente, ajustar em config.h.
  *
  * Nota de engenharia [ref: Secao 4 da AGENTS.md]:
  *   A cinematica diferencial assume rodas sem escorregamento. Se a roda

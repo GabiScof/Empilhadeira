@@ -1,0 +1,13 @@
+{
+  "name": "corredor_pequeno",
+  "arena": { "width_m": 0.80, "height_m": 2.00, "origin": "bottom_left" },
+  "start_pose": { "x_m": 0.40, "y_m": 0.10, "theta_deg": 90 },
+  "home_pose":  { "x_m": 0.40, "y_m": 0.10, "theta_deg": 90 },
+  "tags": [
+    { "position_id": "P1", "x_m": 0.05, "y_m": 0.60, "wall": "left",  "yaw_deg": 0 },
+    { "position_id": "P2", "x_m": 0.75, "y_m": 1.20, "wall": "right", "yaw_deg": 180 },
+    { "position_id": "P3", "x_m": 0.05, "y_m": 1.80, "wall": "left",  "yaw_deg": 0 }
+  ],
+  "tag_size_m": 0.05,
+  "tag_family": "tag25h9"
+}

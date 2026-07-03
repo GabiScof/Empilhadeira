@@ -1,9 +1,52 @@
-"""Agregador de telemetria — módulo reservado para uso futuro.
-
-A montagem do contrato (2) vive em `SharedState.snapshot_telemetry` (state.py),
-que é o único ponto lido pelo WebSocket Handler. Este módulo pode receber funções
-auxiliares de pré-processamento de telemetria quando a lógica crescer, mas por
-enquanto não exporta nada utilizável.
+"""Agregador de telemetria: monta o contrato (2) a partir do estado do robô.
 
 [ref: Seção 6 da AGENTS.md]
 """
+
+from __future__ import annotations
+
+from app.models import (
+    Battery,
+    DetectedTag,
+    EkfState,
+    ImuAngles,
+    MissionInfo,
+    Mode,
+    NavigationInfo,
+    Telemetry,
+    VisionState,
+    WheelSpeeds,
+)
+
+
+def build_telemetry(
+    estado: Mode,
+    rodas: WheelSpeeds,
+    imu: ImuAngles,
+    visao: VisionState,
+    bateria: Battery,
+    ts_ms: int,
+    parado_reason: str | None = None,
+    nav_phase: str | None = None,
+    ekf: EkfState | None = None,
+    mission: MissionInfo | None = None,
+    navigation: NavigationInfo | None = None,
+    detected_tags: list[DetectedTag] | None = None,
+    map_name: str | None = None,
+) -> Telemetry:
+    """Monta o pacote de telemetria (contrato 2 estendido)."""
+    return Telemetry(
+        estado=estado,
+        rodas=rodas,
+        imu=imu,
+        visao=visao,
+        bateria=bateria,
+        ts_ms=ts_ms,
+        parado_reason=parado_reason,
+        nav_phase=nav_phase,
+        ekf=ekf,
+        mission=mission,
+        navigation=navigation,
+        detected_tags=detected_tags or [],
+        map_name=map_name,
+    )

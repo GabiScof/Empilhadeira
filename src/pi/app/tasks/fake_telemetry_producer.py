@@ -41,10 +41,10 @@ async def fake_telemetry_producer(state: SharedState) -> None:  # SCAFFOLDING
         )
         # MPU cru: apenas gravidade em az; Kalman real calcularia roll/pitch disso.
         mpu = MpuRaw(ax=0.0, ay=0.0, az=9.81, gx=0.0, gy=0.0, gz=0.0, temp_c=25.0)
-        state.update_sensors(Sensors(enc=enc, mpu=mpu, bms=None))
+        await state.update_sensors(Sensors(enc=enc, mpu=mpu, bms=None))
 
         # roll/pitch filtrados que o Kalman produziria (aqui é apenas senóide lenta)
-        state.update_imu(
+        await state.update_imu(
             ImuAngles(
                 roll=round(math.sin(t * 0.3) * 5.0, 2),
                 pitch=round(math.cos(t * 0.2) * 3.0, 2),

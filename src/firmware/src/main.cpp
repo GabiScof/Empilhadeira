@@ -21,10 +21,10 @@
  *     setpoint e armazenado e o timestamp e atualizado.
  *
  * Watchdog de setpoint [ref: Secao 4 e 7 da AGENTS.md]:
- *   - Se nenhum setpoint novo chegar em SETPOINT_TIMEOUT_MS, o ESP32 entra
- *     em estado seguro: motores zerados, PID resetado.
- *   - SETPOINT_TIMEOUT_MS e placeholder (0 = desabilitado) ate a equipe
- *     definir o valor. Com 0, o watchdog nao dispara.
+ *   - Se nenhum setpoint novo chegar em SETPOINT_TIMEOUT_MS (200 ms), o ESP32
+ *     entra em estado seguro: motores zerados, PID resetado.
+ *   - 200 ms = 4 mensagens perdidas a 20 Hz — margem suficiente para jitter
+ *     sem falso positivo, rapido o bastante para parar se o Pi desconectar.
  *
  * MPU-6050 [ref: Secao 2.5 e 5.4 do relatorio]:
  *   - Lido via Wire (I2C) a cada ciclo serial (20 Hz).
@@ -178,8 +178,7 @@ void loop() {
   }
 
   // ── 2. Watchdog do setpoint ────────────────────────────────────────────
-  // Se nenhum setpoint novo chegar dentro do timeout, entra em estado seguro.
-  // Com SETPOINT_TIMEOUT_MS == 0 (placeholder), o watchdog fica desabilitado.
+  // Se nenhum setpoint novo chegar dentro de 200 ms, entra em estado seguro.
   if (setpointValid && SETPOINT_TIMEOUT_MS > 0 &&
       (now - lastSetpointMs) > SETPOINT_TIMEOUT_MS) {
     motorsStop();

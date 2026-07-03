@@ -1,65 +1,95 @@
-# App do Raspberry Pi (alto nível)
+# Empilhadeira — Backend Pi (Python)
 
-Backend assíncrono único em **Python** (FastAPI + asyncio) que roda no Raspberry Pi.
-É a camada de **alto nível**: visão, fusão de sensores, controle, máquina de estados
-e ponte entre o frontend (WebSocket) e o ESP32 (UART).
+Backend assíncrono (FastAPI + asyncio) no Raspberry Pi. Recebe comandos via WebSocket,
+detecta AprilTag, controla o ESP32 via UART e envia telemetria @20 Hz.
 
-> ⚠️ **Fase de scaffolding.** Toda a lógica está como stub (`NotImplementedError`).
-> Nada de PID/Kalman/cinemática/navegação/CRC implementado ainda.
+## Arquitetura — 4 tarefas asyncio
 
-## Três tarefas concorrentes (asyncio)
+Todas compartilham `SharedState` (`app/state.py`):
 
-- **WebSocket Handler** — recebe comando (contrato 1), envia telemetria @20 Hz
-  (contrato 2), watchdog de comando.
-- **Vision Loop** — captura, detecta AprilTag (`tag25h9`), estima pose.
-- **Serial Loop** — troca setpoint (contrato 3) / sensores (contrato 4) com o ESP32,
-  aplica Kalman, watchdog serial.
+| Tarefa | Arquivo | Taxa | Função |
+|--------|---------|------|--------|
+| WebSocket Handler | `tasks/websocket_handler.py` | evento | Comandos do operador, telemetria |
+| Vision Loop | `tasks/vision_loop.py` | ~20 Hz | AprilTag → EKF |
+| Serial Loop | `tasks/serial_loop.py` | 20 Hz | Setpoint ↔ sensores (ESP32 ou emulador) |
+| Control Loop | `tasks/control_loop.py` | 20 Hz | Missão/navegação → setpoint |
+
+O **Control Loop** roda independente do frontend (que envia comandos por evento,
+não em stream contínuo). Um único clique em AUTOMATICO basta para navegar.
 
 ## Estrutura
 
 ```
 app/
-├── main.py            # cria as 3 tarefas asyncio
-├── config.py          # TODAS as constantes/placeholders (Seção 3)
-├── state.py           # estado compartilhado entre tarefas
-├── models.py          # schemas Pydantic dos 4 contratos
-├── tasks/             # websocket_handler, vision_loop, serial_loop
-├── vision/            # detector, calibration, pose
-├── control/           # state_machine, kinematics, navigation, kalman
-├── comms/             # protocol (JSON+CRC8+\n), crc8
-└── telemetry/         # aggregator
-calibracao/
-└── camera_intrinsics.json   # placeholder (fx/fy/cx/cy = null)
-tests/                 # test_crc8, test_kinematics, test_protocol (casos marcados)
+├── main.py              # FastAPI + lifespan (troca SIM↔real)
+├── config.py            # Parâmetros (provisórios marcados TODO(equipe))
+├── state.py             # Estado compartilhado
+├── models.py            # 4 contratos Pydantic
+├── hardware/
+│   └── interfaces.py    # VisionSource + SerialTransport (encaixes)
+├── comms/
+│   ├── protocol.py      # JSON + CRC8
+│   └── serial_transport.py  # PySerialTransport (UART real)
+├── control/             # EKF, navegação, planejador, missão
+├── tasks/               # 4 loops asyncio
+├── vision/              # Detector, pose, calibração
+├── world/               # Mapas JSON, robot model
+└── sim/                 # Emulador (SIM=1 only)
 ```
 
-## Dependências
-
-Python 3.11+. Principais libs (ver `pyproject.toml` na raiz):
-`fastapi`, `uvicorn`, `opencv-python`, `pupil-apriltags`, `pyserial-asyncio`,
-`numpy`, `filterpy`, `pydantic`.
-
-## Como rodar (dev)
+## Como rodar
 
 ```bash
-# a partir da raiz do monorepo (src/)
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+cd src && pip install -e ".[dev]"
 
-# verificação de import (deve passar mesmo sem lógica)
-cd pi && python -c "import app.main, app.models, app.config"
+# Simulação
+SIM=1 ./scripts/run_pi.sh
 
-# servidor (quando implementado)
-uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
-# ou: ../scripts/run_pi.sh
+# Hardware real (câmera + serial)
+SIM=0 ./scripts/run_pi.sh
+
+# Testes
+python3 -m pytest pi/tests/ -v
 ```
 
-## Qualidade
+## Modo SIM=1 vs SIM=0
 
-```bash
-ruff check pi
-black --check pi
-pytest pi   # testes ainda marcados como skip
-```
+| Componente | SIM=1 | SIM=0 |
+|------------|-------|-------|
+| Visão | `SimVisionSource` | `RealVisionSource` (OpenCV) |
+| Serial | `FirmwareEmulator` | `PySerialTransport` (UART) |
+| Control loop, EKF, missão | idêntico | idêntico |
 
-Configuração de porta/baudrate via `.env` (ver `.env.example` na raiz).
+Troca em `app/main.py` → `lifespan()`. Detalhes:
+[`docs/hardware-interfaces.md`](../docs/hardware-interfaces.md).
+
+APIs extras em SIM=1: `/sim/reset-pose`, `/sim/inject-fault`, `/sim/world-state`,
+`/sim/debug-dump`. Ver [`docs/simulation.md`](../docs/simulation.md).
+
+## Deploy no hardware
+
+Passo a passo completo: [`docs/hardware-deployment.md`](../docs/hardware-deployment.md).
+
+Resumo mínimo:
+
+1. Gravar firmware ESP32 (`firmware/`)
+2. Calibrar câmera → `calibracao/camera_intrinsics.json`
+3. Medir L, r, PPR → `config.py` + `config.h`
+4. Criar mapa JSON da arena → `maps/`
+5. `.env` com `SIM=0`, `SERIAL_PORT`, `MAP`
+6. Smoke tests (joystick → AUTOMATICO → missão)
+
+## Parâmetros provisórios (confirmar no robô)
+
+| Parâmetro | Valor atual | Unidade |
+|-----------|-------------|---------|
+| `WHEEL_BASE_L_CM` | 15.0 | cm |
+| `WHEEL_RADIUS_R_CM` | 2.8 | cm |
+| `ZREF_CM` | 15.0 | cm |
+| `NAV_KZ` / `NAV_KX` / `NAV_KP_PITCH` | 0.5 / 0.80 / 0.1 | — |
+| `NAV_MAX_APPROACH_SPEED` | 15.0 | cm/s |
+| `APRILTAG_SIZE_CM` | 5.0 | cm |
+| `CAMERA_TO_FORK_OFFSET_CM` | (0,0,0) | cm |
+| `PALLET_MASS_KG` | 0.1 | kg |
+
+Lista completa em `config.py` (grep `TODO(equipe)`).
