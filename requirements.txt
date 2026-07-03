@@ -1,14 +1,37 @@
-# Dependências de produção
-fastapi
-uvicorn
-pyserial-asyncio
-numpy
-filterpy
-pydantic>=2
-pupil-apriltags==1.0.4.post11
+# =============================================================================
+# Empilhadeira Robótica - App de alto nível (Raspberry Pi)
+# Versões fixadas a partir de src/uv.lock para reprodução na vida real.
+# Instalação:  pip install -r requirements.txt
+# Python >= 3.11
+# =============================================================================
+
+# --- API / servidor web ---
+fastapi==0.137.1
+uvicorn[standard]==0.49.0
+# uvicorn[standard] traz automaticamente: uvloop, httptools, watchfiles,
+# websockets, python-dotenv, h11 (listados abaixo apenas para referência/pin)
+starlette==1.3.1
+anyio==4.14.0
+h11==0.16.0
+httptools==0.8.0
+uvloop==0.22.1
+watchfiles==1.2.0
+websockets==16.0
+python-dotenv==1.2.2
+
+# --- Modelos / validação ---
+pydantic==2.13.4
+pydantic-core==2.46.4
+
+# --- Visão computacional / AprilTags ---
 opencv-python==4.13.0.92
- 
-# Dependências de desenvolvimento
-ruff
-black
-pytest
+pupil-apriltags==1.0.4.post11
+numpy==2.4.6
+
+# --- Comunicação serial com o firmware (Arduino/microcontrolador) ---
+pyserial-asyncio==0.6
+pyserial==3.5
+
+# --- Filtro de Kalman / estimativa de pose ---
+filterpy==1.4.5
+scipy==1.17.1
