@@ -234,15 +234,20 @@ loop() @ ~loop rate
 
 Documentado em [`hardware-bring-up.md`](./hardware-bring-up.md). Resumo:
 
+Alinhado com `Testes_eletronica.ino` (fonte da verdade da placa real):
+
 | Função | GPIO |
 |--------|------|
-| Motor esq IN1/IN2/PWM | 16, 17, 4 |
-| Motor dir IN1/IN2/PWM | 18, 19, 13 |
-| Garfo IN1/IN2/PWM | 25, 26, 27 |
-| Encoder esq A/B | 32, 33 |
-| Encoder dir A/B | 14, 23 |
-| Fim-curso garfo top/bottom | 5, 15 |
+| Motor esq IN1/IN2/PWM | 12, 14, 13 (M2) |
+| Motor dir IN1/IN2/PWM | 27, 26, 25 (M3) |
+| Garfo IN1/IN2/PWM | 18, 19, 5 (M1) |
+| Encoder esq A/B | 32, 33 (ENC1) |
+| Encoder dir A/B | 34, 35 (ENC2 — input-only, pull-up externo obrigatório) |
+| Fim-curso garfo top/bottom | -1, -1 (desabilitado — chaves não montadas) |
 | I2C SDA/SCL | 21, 22 |
+
+⚠️ GPIO 12 é strapping pin (LOW no boot obrigatório — sem pull-up externo);
+GPIO 34/35 não têm pull-up interno (usar 10 kΩ → 3V3 externo).
 
 ### 3.4 Compilação
 

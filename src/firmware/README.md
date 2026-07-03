@@ -61,37 +61,41 @@ encoders por interrupção, MPU-6050, garfo com fim-de-curso e protocolo serial 
 
 ### Tabela completa
 
+Alinhado 1:1 com `Testes_eletronica.ino` (fonte da verdade da placa real).
+Os nomes entre colchetes são os defines equivalentes naquele firmware de teste.
+
 | Função              | GPIO | Dir     | Destino no Hardware          | Observação                     |
 |---------------------|------|---------|------------------------------|--------------------------------|
-| Motor Esq IN1       | 16   | OUTPUT  | L298n #1 IN1 (canal A)      | Sentido roda esquerda          |
-| Motor Esq IN2       | 17   | OUTPUT  | L298n #1 IN2 (canal A)      | Sentido roda esquerda          |
-| Motor Esq PWM       | 4    | OUTPUT  | L298n #1 ENA (canal A)      | LEDC ch0, 20 kHz, 8 bits      |
-| Motor Dir IN1       | 18   | OUTPUT  | L298n #1 IN3 (canal B)      | Sentido roda direita           |
-| Motor Dir IN2       | 19   | OUTPUT  | L298n #1 IN4 (canal B)      | Sentido roda direita           |
-| Motor Dir PWM       | 13   | OUTPUT  | L298n #1 ENB (canal B)      | LEDC ch1, 20 kHz, 8 bits      |
-| Fork IN1            | 25   | OUTPUT  | L298n #2 IN1               | Sentido garfo                  |
-| Fork IN2            | 26   | OUTPUT  | L298n #2 IN2               | Sentido garfo                  |
-| Fork PWM            | 27   | OUTPUT  | L298n #2 ENA               | LEDC ch2, 20 kHz, 8 bits      |
-| Encoder Esq A       | 32   | INPUT↑  | NXT 53787 encoder fase A    | Interrupção RISING             |
-| Encoder Esq B       | 33   | INPUT↑  | NXT 53787 encoder fase B    | Leitura de sentido na ISR      |
-| Encoder Dir A       | 14   | INPUT↑  | NXT 53787 encoder fase A    | Interrupção RISING             |
-| Encoder Dir B       | 23   | INPUT↑  | NXT 53787 encoder fase B    | Leitura de sentido na ISR      |
-| Fork Limit Top      | 5    | INPUT↑  | Micro switch NO (topo)      | HIGH=livre, LOW=acionado       |
-| Fork Limit Bottom   | 15   | INPUT↑  | Micro switch NO (base)      | HIGH=livre, LOW=acionado       |
+| Motor Esq IN1       | 12   | OUTPUT  | L298n #1 IN1 (canal A)      | [M2_IN1] ⚠️ strapping — LOW no boot, sem pull-up externo |
+| Motor Esq IN2       | 14   | OUTPUT  | L298n #1 IN2 (canal A)      | [M2_IN2]                       |
+| Motor Esq PWM       | 13   | OUTPUT  | L298n #1 ENA (canal A)      | [M2_EN] LEDC ch0, 20 kHz, 8 bits |
+| Motor Dir IN1       | 27   | OUTPUT  | L298n #1 IN3 (canal B)      | [M3_IN1]                       |
+| Motor Dir IN2       | 26   | OUTPUT  | L298n #1 IN4 (canal B)      | [M3_IN2]                       |
+| Motor Dir PWM       | 25   | OUTPUT  | L298n #1 ENB (canal B)      | [M3_EN] LEDC ch1, 20 kHz, 8 bits |
+| Fork IN1            | 18   | OUTPUT  | L298n #2 IN1               | [M1_IN1]                       |
+| Fork IN2            | 19   | OUTPUT  | L298n #2 IN2               | [M1_IN2]                       |
+| Fork PWM            | 5    | OUTPUT  | L298n #2 ENA               | [M1_EN] LEDC ch2, 20 kHz, 8 bits |
+| Encoder Esq A       | 32   | INPUT↑  | NXT 53787 encoder fase A    | [ENC1_A] Interrupção RISING    |
+| Encoder Esq B       | 33   | INPUT↑  | NXT 53787 encoder fase B    | [ENC1_B] Leitura de sentido na ISR |
+| Encoder Dir A       | 34   | INPUT   | NXT 53787 encoder fase A    | [ENC2_A] ⚠️ input-only — pull-up EXTERNO 10k→3V3 |
+| Encoder Dir B       | 35   | INPUT   | NXT 53787 encoder fase B    | [ENC2_B] ⚠️ input-only — pull-up EXTERNO 10k→3V3 |
+| Fork Limit Top      | -1   | —       | (chave não montada)         | **Desabilitado** — nunca bloqueia |
+| Fork Limit Bottom   | -1   | —       | (chave não montada)         | **Desabilitado** — nunca bloqueia |
 | I2C SDA             | 21   | I2C     | MPU-6050 SDA               | Padrão ESP32                   |
 | I2C SCL             | 22   | I2C     | MPU-6050 SCL               | Padrão ESP32                   |
 
-`INPUT↑` = INPUT_PULLUP (resistor interno de ~45 kΩ).
+`INPUT↑` = INPUT_PULLUP (resistor interno de ~45 kΩ). Em GPIO 34/35 o
+`pinMode(INPUT_PULLUP)` é ignorado pelo hardware — pull-up externo obrigatório.
 
-### GPIOs evitados
+### GPIOs com cuidado especial
 
 | GPIO     | Motivo                                                   |
 |----------|----------------------------------------------------------|
-| 0        | Strapping pin (flash mode se LOW no boot)                |
-| 2        | Strapping pin (pode entrar em flash mode)                |
+| 0        | Strapping pin (flash mode se LOW no boot) — não usado    |
+| 2        | Strapping pin (pode entrar em flash mode) — não usado    |
 | 6-11     | Conectados ao flash SPI interno — **nunca usar**         |
-| 12       | Strapping pin (altera tensão do flash — pode brickar)    |
-| 34-39    | Input-only **sem pullup interno** — requerem pullup ext. |
+| 12       | Strapping (tensão do flash). **Usado como ESQ IN1** — funciona porque IN1 idle=LOW; **não** adicionar pull-up externo |
+| 34-39    | Input-only **sem pullup interno**. **34/35 usados no ENC2** — pull-up externo obrigatório |
 
 ---
 
@@ -100,12 +104,12 @@ encoders por interrupção, MPU-6050, garfo com fim-de-curso e protocolo serial 
 ### 3.1 L298n #1 (rodas)
 
 ```
-ESP32 GPIO 16 ──── L298n IN1 (canal A)
-ESP32 GPIO 17 ──── L298n IN2 (canal A)
-ESP32 GPIO  4 ──── L298n ENA (canal A)   ← Remover jumper ENA!
-ESP32 GPIO 18 ──── L298n IN3 (canal B)
-ESP32 GPIO 19 ──── L298n IN4 (canal B)
-ESP32 GPIO 13 ──── L298n ENB (canal B)   ← Remover jumper ENB!
+ESP32 GPIO 12 ──── L298n IN1 (canal A)   ← strapping: sem pull-up externo!
+ESP32 GPIO 14 ──── L298n IN2 (canal A)
+ESP32 GPIO 13 ──── L298n ENA (canal A)   ← Remover jumper ENA!
+ESP32 GPIO 27 ──── L298n IN3 (canal B)
+ESP32 GPIO 26 ──── L298n IN4 (canal B)
+ESP32 GPIO 25 ──── L298n ENB (canal B)   ← Remover jumper ENB!
 
 L298n VCC (12V)  ── Fonte 12V
 L298n GND        ── GND comum (ESP32 + fonte)
@@ -122,9 +126,9 @@ removido, o pino ENA/ENB fica livre para receber o sinal PWM do ESP32.
 ### 3.2 L298n #2 (garfo)
 
 ```
-ESP32 GPIO 25 ──── L298n #2 IN1
-ESP32 GPIO 26 ──── L298n #2 IN2
-ESP32 GPIO 27 ──── L298n #2 ENA          ← Remover jumper ENA!
+ESP32 GPIO 18 ──── L298n #2 IN1
+ESP32 GPIO 19 ──── L298n #2 IN2
+ESP32 GPIO  5 ──── L298n #2 ENA          ← Remover jumper ENA!
 
 Motor Garfo (+/-) ── L298n #2 OUT1/OUT2
 ```
@@ -137,9 +141,13 @@ Alternativa: driver menor (L9110S, TB6612) se o garfo precisar de menos corrente
 Motor NXT (conector 6 pinos):
   Pin 1 (branco) ─── 5V (ou 3.3V — verificar)
   Pin 2 (preto)  ─── GND
-  Pin 5 (amarelo)─── ESP32 GPIO 32 (Esq A) / GPIO 14 (Dir A)
-  Pin 6 (azul)   ─── ESP32 GPIO 33 (Esq B) / GPIO 23 (Dir B)
+  Pin 5 (amarelo)─── ESP32 GPIO 32 (Esq A) / GPIO 34 (Dir A)
+  Pin 6 (azul)   ─── ESP32 GPIO 33 (Esq B) / GPIO 35 (Dir B)
 ```
+
+> **Encoder direito (GPIO 34/35)**: pinos input-only sem pull-up interno —
+> instalar pull-up externo 10 kΩ → 3V3 em cada fase, senão a leitura fica
+> sempre zero.
 
 > **Nota**: o encoder do NXT opera a 5V pela especificação original. Se o sinal
 > de saída for 5V (push-pull), pode ser necessário um divisor resistivo
@@ -158,15 +166,26 @@ MPU AD0 ─── GND (endereço 0x68)
 
 ### 3.5 Fim-de-curso do garfo
 
+**Estado atual: DESABILITADO** (`PIN_FORK_LIMIT_TOP/BOTTOM = -1` em `config.h`).
+As chaves não estão montadas no robô. `motors.cpp` pula o `pinMode` e
+`forkAtTopLimit()`/`forkAtBottomLimit()` retornam sempre `false` — o motor do
+garfo nunca é bloqueado por limite. **O operador deve soltar o botão antes do
+fim do curso mecânico** (o worm gear segura a posição).
+
+Quando as chaves forem instaladas (fiação de referência):
+
 ```
 Micro switch NO (topo):
   Terminal C (comum)  ─── GND
-  Terminal NO         ─── ESP32 GPIO 5
+  Terminal NO         ─── ESP32 GPIO livre (ex.: 15)
 
 Micro switch NO (base):
   Terminal C (comum)  ─── GND
-  Terminal NO         ─── ESP32 GPIO 15
+  Terminal NO         ─── ESP32 GPIO livre (ex.: 4)
 ```
+
+> GPIO 5 **não está mais disponível** para fim-de-curso — é o PWM do garfo.
+> Definir os novos GPIOs em `config.h` e regravar.
 
 Funcionamento: INPUT_PULLUP mantém o pino HIGH. Quando o garfo atinge o limite,
 o switch fecha e puxa o pino para LOW. O firmware detecta LOW = acionado e bloqueia

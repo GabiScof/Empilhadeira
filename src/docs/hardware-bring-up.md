@@ -12,8 +12,10 @@ pode danificar GPIOs ou drivers.
 - [ ] GND comum entre fonte, L298n, ESP32 e Pi
 - [ ] Jumpers ENA/ENB **removidos** nos dois L298n
 - [ ] Level shifter nos encoders NXT (se saída 5 V)
+- [ ] Pull-up externo 10 kΩ → 3V3 nas fases do encoder direito (GPIO 34/35)
+- [ ] Sem pull-up externo no GPIO 12 (strapping — ESQ IN1)
 - [ ] MPU-6050 em 3.3 V (I2C)
-- [ ] Fim-de-curso do garfo testados manualmente
+- [ ] Fim-de-curso: desabilitados (-1) — operador solta o botão do garfo antes do fim do curso
 - [ ] Firmware gravado e frames de sensor a 20 Hz no monitor serial
 - [ ] Backend Pi com `SIM=0` recebendo telemetria
 - [ ] Mapa JSON medido na arena real
@@ -24,40 +26,46 @@ pode danificar GPIOs ou drivers.
 
 Fonte: `firmware/src/config.h` (ESP32 DevKit V1, 30 pinos).
 
+> **Alinhado 1:1 com `Testes_eletronica.ino` (fonte da verdade da placa real).**
+> Os nomes entre colchetes são os defines equivalentes naquele firmware de teste.
+
 ### Motores de Tração — L298n #1
 
 | Função | GPIO | Destino |
 |--------|------|---------|
-| Motor Esq IN1 | 16 | L298n IN1 (canal A) |
-| Motor Esq IN2 | 17 | L298n IN2 (canal A) |
-| Motor Esq PWM | 4 | L298n ENA (canal A) — LEDC ch0 |
-| Motor Dir IN1 | 18 | L298n IN3 (canal B) |
-| Motor Dir IN2 | 19 | L298n IN4 (canal B) |
-| Motor Dir PWM | 13 | L298n ENB (canal B) — LEDC ch1 |
+| Motor Esq IN1 | 12 | L298n IN1 (canal A) [M2_IN1] |
+| Motor Esq IN2 | 14 | L298n IN2 (canal A) [M2_IN2] |
+| Motor Esq PWM | 13 | L298n ENA (canal A) — LEDC ch0 [M2_EN] |
+| Motor Dir IN1 | 27 | L298n IN3 (canal B) [M3_IN1] |
+| Motor Dir IN2 | 26 | L298n IN4 (canal B) [M3_IN2] |
+| Motor Dir PWM | 25 | L298n ENB (canal B) — LEDC ch1 [M3_EN] |
 
 ### Motor do Garfo — L298n #2
 
 | Função | GPIO | Destino |
 |--------|------|---------|
-| Fork IN1 | 25 | L298n #2 IN1 |
-| Fork IN2 | 26 | L298n #2 IN2 |
-| Fork PWM | 27 | L298n #2 ENA — LEDC ch2 |
+| Fork IN1 | 18 | L298n #2 IN1 [M1_IN1] |
+| Fork IN2 | 19 | L298n #2 IN2 [M1_IN2] |
+| Fork PWM | 5 | L298n #2 ENA — LEDC ch2 [M1_EN] |
 
 ### Encoders (Lego NXT 53787)
 
 | Função | GPIO | Observação |
 |--------|------|------------|
-| Encoder Esq A | 32 | Interrupção RISING |
-| Encoder Esq B | 33 | Leitura de sentido |
-| Encoder Dir A | 14 | Interrupção RISING |
-| Encoder Dir B | 23 | Leitura de sentido |
+| Encoder Esq A | 32 | Interrupção RISING [ENC1_A] |
+| Encoder Esq B | 33 | Leitura de sentido [ENC1_B] |
+| Encoder Dir A | 34 | Interrupção RISING — **input-only, pull-up externo obrigatório** [ENC2_A] |
+| Encoder Dir B | 35 | Leitura de sentido — **input-only, pull-up externo obrigatório** [ENC2_B] |
 
 ### Fim-de-Curso do Garfo
 
 | Função | GPIO | Observação |
 |--------|------|------------|
-| Limite superior | 5 | INPUT_PULLUP, LOW = acionado |
-| Limite inferior | 15 | INPUT_PULLUP, LOW = acionado |
+| Limite superior | -1 | **Desabilitado** — chave não montada; `forkAtTopLimit()` retorna sempre `false` |
+| Limite inferior | -1 | **Desabilitado** — chave não montada; `forkAtBottomLimit()` retorna sempre `false` |
+
+Quando as chaves forem instaladas, definir os GPIOs em `config.h` — **GPIO 5
+agora é o PWM do garfo**, então escolher outros pinos livres (ex.: 15, 4, 16, 17).
 
 ### I2C — MPU-6050
 
@@ -79,17 +87,20 @@ GPIOs que **não devem ser usados** ou exigem cuidado especial:
 | **0** | Strapping — LOW no boot entra em flash mode |
 | **2** | Strapping — pode afetar boot |
 | **6–11** | Flash SPI interno — **nunca usar** |
-| **12** | Strapping — altera tensão do flash (risco de brick) |
-| **34–39** | Input-only, **sem pullup interno** |
-| **5** | Strapping, mas seguro com INPUT_PULLUP (HIGH no boot) |
-| **15** | MTDO — pode imprimir debug na UART no boot (~100 bytes descartados) |
+| **12** | Strapping — altera tensão do flash. **USADO como ESQ IN1 [M2_IN1]**: precisa estar LOW no boot. Como IN1 fica LOW em repouso, funciona — mas **não colocar pull-up externo** nele |
+| **34–39** | Input-only, **sem pullup interno**. **34/35 usados no encoder direito** → pull-up externo 10 kΩ → 3V3 obrigatório |
+| **5** | Strapping (HIGH no boot). **USADO como PWM do garfo [M1_EN]** — LEDC só ativa depois do boot, ok |
 
-O mapa de pinos atual evita GPIO 0, 2, 6–11 e 12. GPIO 5 e 15 são usados
-para fim-de-curso com pullup interno — comportamento validado no firmware.
+Herdamos esses dois cuidados da placa real (`Testes_eletronica.ino`):
 
-> **Gravação do firmware:** se GPIO 5 estiver LOW durante boot (switch
-> acionado), pode interferir no modo de gravação. Desconectar temporariamente
-> o switch do topo ao gravar via USB.
+1. **GPIO 12 (roda ESQ IN1)** é strapping pin — precisa estar LOW no boot ou a
+   seleção de tensão da flash falha. IN1 idle = LOW, então funciona; apenas
+   **nunca** adicionar pull-up externo nesse fio.
+2. **GPIO 34/35 (encoder direito)** são input-only sem pull-up interno. O
+   `pinMode(INPUT_PULLUP)` neles é silenciosamente ignorado pelo hardware —
+   **sem pull-up externo (10 kΩ → 3V3) o encoder direito não lê nada**. O
+   `Testes_eletronica.ino` usa `INPUT` puro nesses pinos, confirmando que a
+   placa depende de pull-up externo.
 
 ---
 
@@ -110,11 +121,15 @@ do conector NXT com o motor girando.
 Fiação encoder (conector 6 pinos NXT):
 
 ```
-Pin 5 (amarelo) → fase A → GPIO 32/14 (via level shifter se necessário)
-Pin 6 (azul)    → fase B → GPIO 33/23
+Pin 5 (amarelo) → fase A → GPIO 32 (esq) / GPIO 34 (dir) (via level shifter se necessário)
+Pin 6 (azul)    → fase B → GPIO 33 (esq) / GPIO 35 (dir)
 Pin 1 (branco)  → 5 V ou 3,3 V (conforme motor)
 Pin 2 (preto)   → GND
 ```
+
+> **Encoder direito (GPIO 34/35):** além do level shifter, esses pinos são
+> input-only sem pull-up interno — instalar pull-up externo 10 kΩ → 3V3 em
+> cada fase, senão a leitura fica sempre zero.
 
 ---
 
@@ -177,7 +192,7 @@ próximo à fonte.
 | L298n #2 | A | Garfo (JGY-370 worm gear) |
 
 **Obrigatório:** remover jumpers ENA/ENB em ambos os módulos para habilitar
-controle PWM pelos GPIOs 4, 13 e 27.
+controle PWM pelos GPIOs 13 (esq), 25 (dir) e 5 (garfo).
 
 PWM: 20 kHz, 8 bits (0–255 duty). Ver `LEDC_FREQ_HZ` e `LEDC_RESOLUTION_BITS`
 em `config.h`.
@@ -192,17 +207,29 @@ subir/descer/parar`), repassado ao ESP32 no campo `garfo` do setpoint.
 ### Comportamento no Firmware
 
 - Duty fixo `FORK_DUTY = 180` (~70%) enquanto o comando estiver ativo
-- Fim-de-curso corta o motor **localmente** em ~10 ms (próximo ciclo PID)
+- Fim-de-curso (quando instalado) corta o motor **localmente** em ~10 ms
+  (próximo ciclo PID) — **hoje desabilitado com -1 em `config.h`**
 - Worm gear retém carga sem PWM de manutenção
 - Nenhum campo extra no protocolo serial para garfo autônomo
 
 ### Fiação dos Switches
 
+**Estado atual: fim-de-curso DESABILITADO** (`PIN_FORK_LIMIT_TOP/BOTTOM = -1`
+em `config.h`). O robô ainda não tem as chaves montadas; `motors.cpp` pula o
+`pinMode` e `forkAt*Limit()` retorna sempre `false` — o garfo nunca é
+bloqueado por limite. **O operador é o fim-de-curso**: soltar o botão antes
+do fim do curso mecânico.
+
+Quando as chaves forem instaladas:
+
 ```
-Switch NO (topo):   COM → GND,  NO → GPIO 5
-Switch NO (base):   COM → GND,  NO → GPIO 15
+Switch NO (topo):   COM → GND,  NO → GPIO livre (ex.: 15)
+Switch NO (base):   COM → GND,  NO → GPIO livre (ex.: 4)
 INPUT_PULLUP: HIGH = livre, LOW = no limite
 ```
+
+> GPIO 5 **não está mais disponível** (é o PWM do garfo). Definir os novos
+> GPIOs em `config.h` e regravar o firmware.
 
 Se os switches forem NC, alterar `FORK_LIMIT_ACTIVE_LEVEL` para `HIGH` em
 `config.h`.
@@ -267,7 +294,8 @@ python -m app.main
 | Parâmetro | Onde | Como validar |
 |-----------|------|--------------|
 | `ENCODER_PPR = 360` | `firmware/config.h` | 1 volta manual → ~360 pulsos no monitor |
-| Sentido de rotação | `config.h` (trocar IN1↔IN2) | Setpoint positivo → roda gira para frente |
+| Sentido dos motores | `config.h` (`MOTOR_ESQ_INV=true`, `MOTOR_DIR_INV`, `FORK_INV`) | Setpoint positivo → as DUAS rodas para frente; "subir" sobe o garfo. ESQ já vem invertida (herdado de `M2_INV` no Testes_eletronica.ino) |
+| Sinal dos encoders | `config.h` (`ENC_ESQ_INV`, `ENC_DIR_INV`) | Roda para frente → ω positivo no monitor. Se negativo, inverter o flag (crítico: sinal errado faz o PID divergir) |
 | Level shifter | Fiação | Osciloscópio/multímetro ≤ 3,3 V nos GPIOs |
 
 ### PID (Malha Interna)
@@ -311,8 +339,9 @@ python -m app.main
 
 | Sintoma | Causa provável | Ação |
 |---------|----------------|------|
-| ESP32 não grava | GPIO 5 LOW no boot | Desconectar switch do topo |
+| ESP32 não grava / boot falha | GPIO 12 (ESQ IN1) puxado HIGH no boot | Remover pull-up externo do fio IN1 esq; desconectar driver ao gravar se preciso |
 | Encoder sempre zero | Sem level shifter / fiação | Verificar tensão e ISR |
+| Encoder **direito** sempre zero | GPIO 34/35 sem pull-up externo | Instalar 10 kΩ → 3V3 em cada fase (pull-up interno não existe nesses pinos) |
 | Motor oscila | Kp alto ou PPR errado | Ziegler-Nichols; validar PPR |
 | Garfo não segura carga | Duty baixo ou motor errado | Aumentar `FORK_DUTY`; confirmar worm gear |
 | Pi reinicia ao acionar motor | Fonte subdimensionada | Buck MP2307 com margem; capacitor na saída |

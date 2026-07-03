@@ -57,11 +57,17 @@ static const int MAX_DUTY = (1 << LEDC_RESOLUTION_BITS) - 1;
  * @param pin_in2   Pino IN2 do L298n (sentido B)
  * @param ledc_ch   Canal LEDC associado ao pino ENA/PWM
  * @param u         Esforco de controle: sinal = sentido, |u| = duty
+ * @param inv       Motor montado invertido (M*_INV do Testes_eletronica.ino):
+ *                  troca a logica IN1/IN2 para que u>0 seja "frente" fisica.
  */
-static void applyMotor(int pin_in1, int pin_in2, int ledc_ch, float u) {
+static void applyMotor(int pin_in1, int pin_in2, int ledc_ch, float u, bool inv) {
   int duty = static_cast<int>(fabsf(u));
   if (duty > MAX_DUTY) {
     duty = MAX_DUTY;
+  }
+
+  if (inv) {
+    u = -u;
   }
 
   if (u > 0.0f) {
@@ -120,11 +126,11 @@ void motorsBegin() {
 }
 
 void motorSetWheelEsq(float u) {
-  applyMotor(PIN_MOTOR_ESQ_IN1, PIN_MOTOR_ESQ_IN2, LEDC_CH_ESQ, u);
+  applyMotor(PIN_MOTOR_ESQ_IN1, PIN_MOTOR_ESQ_IN2, LEDC_CH_ESQ, u, MOTOR_ESQ_INV);
 }
 
 void motorSetWheelDir(float u) {
-  applyMotor(PIN_MOTOR_DIR_IN1, PIN_MOTOR_DIR_IN2, LEDC_CH_DIR, u);
+  applyMotor(PIN_MOTOR_DIR_IN1, PIN_MOTOR_DIR_IN2, LEDC_CH_DIR, u, MOTOR_DIR_INV);
 }
 
 bool forkAtTopLimit() {
@@ -147,8 +153,8 @@ void motorSetFork(ForkCommand cmd) {
       if (forkAtTopLimit()) {
         forkStop();
       } else {
-        digitalWrite(PIN_FORK_IN1, HIGH);
-        digitalWrite(PIN_FORK_IN2, LOW);
+        digitalWrite(PIN_FORK_IN1, FORK_INV ? LOW : HIGH);
+        digitalWrite(PIN_FORK_IN2, FORK_INV ? HIGH : LOW);
         ledcWrite(LEDC_CH_FORK, FORK_DUTY);
       }
       break;
@@ -157,8 +163,8 @@ void motorSetFork(ForkCommand cmd) {
       if (forkAtBottomLimit()) {
         forkStop();
       } else {
-        digitalWrite(PIN_FORK_IN1, LOW);
-        digitalWrite(PIN_FORK_IN2, HIGH);
+        digitalWrite(PIN_FORK_IN1, FORK_INV ? HIGH : LOW);
+        digitalWrite(PIN_FORK_IN2, FORK_INV ? LOW : HIGH);
         ledcWrite(LEDC_CH_FORK, FORK_DUTY);
       }
       break;

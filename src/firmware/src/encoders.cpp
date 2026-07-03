@@ -85,7 +85,8 @@ float encoderReadEsq(float dt_s) {
   interrupts();
 
   const float revolutions = static_cast<float>(captured) / static_cast<float>(ENCODER_PPR);
-  return (revolutions * 2.0f * PI) / dt_s;
+  const float omega = (revolutions * 2.0f * PI) / dt_s;
+  return ENC_ESQ_INV ? -omega : omega;
 }
 
 float encoderReadDir(float dt_s) {
@@ -99,5 +100,6 @@ float encoderReadDir(float dt_s) {
   interrupts();
 
   const float revolutions = static_cast<float>(captured) / static_cast<float>(ENCODER_PPR);
-  return (revolutions * 2.0f * PI) / dt_s;
+  const float omega = (revolutions * 2.0f * PI) / dt_s;
+  return ENC_DIR_INV ? -omega : omega;
 }

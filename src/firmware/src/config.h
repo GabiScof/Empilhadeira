@@ -11,6 +11,7 @@
  * Este config.h foi realinhado para coincidir 1:1 com aquele firmware de teste:
  *   - Rodas:  ESQ(M2)=IN1 12 / IN2 14 / PWM 13   DIR(M3)=IN1 27 / IN2 26 / PWM 25
  *   - Garfo (M1): IN1 18 / IN2 19 / PWM 5
+ *   - Inversao:   M2_INV=true (roda ESQ montada invertida) → MOTOR_ESQ_INV
  *   - Encoders:   ENC1(esq)=32/33   ENC2(dir)=34/35
  *   - I2C MPU-6050: SDA 21 / SCL 22
  *   - Fim-de-curso: DESABILITADOS por enquanto (sem chaves montadas → -1)
@@ -87,6 +88,13 @@ constexpr int PIN_MOTOR_DIR_IN1 = 27;  // L298n IN3 (canal B)  [M3_IN1]
 constexpr int PIN_MOTOR_DIR_IN2 = 26;  // L298n IN4 (canal B)  [M3_IN2]
 constexpr int PIN_MOTOR_DIR_PWM = 25;  // L298n ENB (canal B) — PWM  [M3_EN]
 
+// Inversao de sentido por motor — herdada do Testes_eletronica.ino (fonte da
+// verdade): na placa real o motor da roda ESQ (M2) e montado invertido, entao
+// "frente" fisica = IN1 LOW / IN2 HIGH. true = inverte a logica de sentido.
+// Validar na bancada: setpoint positivo deve mover as DUAS rodas para frente.
+constexpr bool MOTOR_ESQ_INV = true;   // [M2_INV true]
+constexpr bool MOTOR_DIR_INV = false;  // [M3_INV false]
+
 // ---------------------------------------------------------------------------
 // Pinos — Motor do garfo via L298n #2 (ou driver separado)
 // ---------------------------------------------------------------------------
@@ -95,6 +103,10 @@ constexpr int PIN_MOTOR_DIR_PWM = 25;  // L298n ENB (canal B) — PWM  [M3_EN]
 constexpr int PIN_FORK_IN1 = 18;  // L298n #2 IN1  [M1_IN1]
 constexpr int PIN_FORK_IN2 = 19;  // L298n #2 IN2  [M1_IN2]
 constexpr int PIN_FORK_PWM = 5;   // L298n #2 ENA — PWM  [M1_EN]
+
+// Inversao do garfo — [M1_INV false] no Testes_eletronica.ino. Se na bancada
+// "subir" descer o garfo, trocar para true (ou inverter os fios OUT1/OUT2).
+constexpr bool FORK_INV = false;
 
 // Duty fixo do garfo (0-255 para resolucao 8 bits).
 // 180 ≈ 70% duty. Suficiente para o worm gear JGY-370-12V subir o garfo
@@ -130,6 +142,13 @@ constexpr int PIN_ENC_ESQ_A = 32;  // Encoder esquerdo, fase A (interrupcao)  [E
 constexpr int PIN_ENC_ESQ_B = 33;  // Encoder esquerdo, fase B (leitura sentido)  [ENC1_B]
 constexpr int PIN_ENC_DIR_A = 34;  // Encoder direito, fase A (interrupcao)  [ENC2_A]
 constexpr int PIN_ENC_DIR_B = 35;  // Encoder direito, fase B (leitura sentido)  [ENC2_B]
+
+// Inversao de sinal dos encoders — [ENC1_INV/ENC2_INV false] no
+// Testes_eletronica.ino (que so conta pulsos, sem sentido). Validar na
+// bancada: roda girando para FRENTE deve reportar omega POSITIVO. Se vier
+// negativo (motor montado espelhado), trocar para true aqui.
+constexpr bool ENC_ESQ_INV = false;
+constexpr bool ENC_DIR_INV = false;
 
 // Pulsos por revolucao do eixo de saida do Lego NXT 53787.
 // O motor NXT reporta 360 ticks/rev na saida (apos reducao interna).

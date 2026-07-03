@@ -135,12 +135,18 @@ Implementado em `RealVisionSource` (`tasks/vision_loop.py`).
 
 ### Fase A — Montagem elétrica (sem energizar motores)
 
-1. Conferir mapa de pinos em [`hardware-bring-up.md`](./hardware-bring-up.md).
+1. Conferir mapa de pinos em [`hardware-bring-up.md`](./hardware-bring-up.md)
+   (alinhado com `Testes_eletronica.ino`: ESQ=12/14/13, DIR=27/26/25, garfo=18/19/5,
+   ENC1=32/33, ENC2=34/35).
 2. GND comum: fonte 12 V, L298n ×2, ESP32, Pi, MPU-6050.
 3. Remover jumpers ENA/ENB dos dois L298n.
 4. Level shifter nos encoders NXT se saída > 3,3 V (medir com multímetro).
-5. Fim-de-curso garfo: GPIO 5 (topo), GPIO 15 (base), NO + INPUT_PULLUP.
-6. MPU-6050: SDA=21, SCL=22, endereço 0x68.
+5. Pull-up externo 10 kΩ → 3V3 nas fases do encoder direito (GPIO 34/35 são
+   input-only, sem pull-up interno). **Não** colocar pull-up no GPIO 12 (strapping).
+6. Fim-de-curso garfo: **desabilitados** (-1 em `config.h` — chaves não montadas;
+   garfo nunca bloqueia por limite). Ao instalar, usar GPIOs livres — GPIO 5 agora
+   é o PWM do garfo.
+7. MPU-6050: SDA=21, SCL=22, endereço 0x68.
 
 ### Fase B — Firmware ESP32 (isolado)
 
@@ -222,7 +228,7 @@ pip install -e ".[dev]"
 | 3 | Log "Detector criado com calibração" | Câmera OK |
 | 4 | Telemetria WebSocket @20 Hz | `rodas`, `imu`, `visao` fluem |
 | 5 | Joystick manual | Rodas giram na direção correta |
-| 6 | Garfo subir/descer | Motor garfo responde; fim-de-curso corta |
+| 6 | Garfo subir/descer | Motor garfo responde. ⚠️ Fim-de-curso desabilitado (-1): operador solta o botão antes do fim do curso |
 | 7 | Desconectar USB serial | Motores param < 200 ms |
 | 8 | Modo AUTOMATICO (1 clique) | Robô navega sem streaming de comando |
 | 9 | Ocultar tag | PARADO + latch; só novo comando reativa |
@@ -328,7 +334,7 @@ Teste sem hardware: `tests/test_hardware_interfaces.py::TestSerialLoopReal`.
 [ ] Firmware gravado e frames @ 20 Hz no monitor serial
 [ ] Encoders respondem; sentido de rotação correto
 [ ] MPU retorna dados não-zero
-[ ] Garfo sobe/desce; fim-de-curso funciona
+[ ] Garfo sobe/desce (fim-de-curso desabilitado — operador controla o curso)
 [ ] camera_intrinsics.json preenchido
 [ ] Mapa JSON da arena validado
 [ ] SIM=0 sobe sem erro fatal
