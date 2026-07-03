@@ -7,12 +7,19 @@
  * ║  PRONTO PARA GRAVAR NO ESP32 e testar no hardware.                  ║
  * ╚═══════════════════════════════════════════════════════════════════════╝
  *
- * Mapa de GPIOs escolhido para ESP32 DevKit V1 (30 pinos):
- *   - Evita strapping pins perigosos (GPIO 0, 12)
- *   - Evita flash SPI (GPIO 6-11)
- *   - Usa GPIO 21/22 para I2C (padrao do ESP32)
- *   - Pinos de entrada-only (34-39) nao sao usados (sem pullup interno)
- *   - GPIO 5 e 15 usados para fim-de-curso (seguros com INPUT_PULLUP)
+ * Mapa de GPIOs — FONTE DA VERDADE: Testes_eletronica.ino (bate com a placa real).
+ * Este config.h foi realinhado para coincidir 1:1 com aquele firmware de teste:
+ *   - Rodas:  ESQ(M2)=IN1 12 / IN2 14 / PWM 13   DIR(M3)=IN1 27 / IN2 26 / PWM 25
+ *   - Garfo (M1): IN1 18 / IN2 19 / PWM 5
+ *   - Encoders:   ENC1(esq)=32/33   ENC2(dir)=34/35
+ *   - I2C MPU-6050: SDA 21 / SCL 22
+ *   - Fim-de-curso: DESABILITADOS por enquanto (sem chaves montadas → -1)
+ *
+ * Cuidados de hardware herdados desse mapa (nao sao "boas praticas", sao a placa real):
+ *   - GPIO 12 (ESQ IN1) e strapping pin: PRECISA estar em LOW no boot, senao a
+ *     seleccao de tensao da flash falha. Como IN1 idle = LOW, ok — mas nao ligar
+ *     pull-up externo nele.
+ *   - GPIO 34/35 (ENC2) sao input-only: exigem pull-up EXTERNO (ver secao encoders).
  *
  * Ganhos PID: valores iniciais conservadores para Lego NXT 53787.
  * Ajustar empiricamente com o procedimento Ziegler-Nichols (ver README).
@@ -73,21 +80,21 @@ constexpr float PID_INTEGRAL_LIMIT = 500.0f;
 // ---------------------------------------------------------------------------
 // L298n modulo #1: canal A = roda esquerda, canal B = roda direita.
 // Remover os jumpers de ENA/ENB do L298n e conectar os fios PWM do ESP32.
-constexpr int PIN_MOTOR_ESQ_IN1 = 16;  // L298n IN1 (canal A)
-constexpr int PIN_MOTOR_ESQ_IN2 = 17;  // L298n IN2 (canal A)
-constexpr int PIN_MOTOR_ESQ_PWM = 4;   // L298n ENA (canal A) — PWM
-constexpr int PIN_MOTOR_DIR_IN1 = 18;  // L298n IN3 (canal B)
-constexpr int PIN_MOTOR_DIR_IN2 = 19;  // L298n IN4 (canal B)
-constexpr int PIN_MOTOR_DIR_PWM = 13;  // L298n ENB (canal B) — PWM
+constexpr int PIN_MOTOR_ESQ_IN1 = 12;  // L298n IN1 (canal A)  [M2_IN1]
+constexpr int PIN_MOTOR_ESQ_IN2 = 14;  // L298n IN2 (canal A)  [M2_IN2]
+constexpr int PIN_MOTOR_ESQ_PWM = 13;  // L298n ENA (canal A) — PWM  [M2_EN]
+constexpr int PIN_MOTOR_DIR_IN1 = 27;  // L298n IN3 (canal B)  [M3_IN1]
+constexpr int PIN_MOTOR_DIR_IN2 = 26;  // L298n IN4 (canal B)  [M3_IN2]
+constexpr int PIN_MOTOR_DIR_PWM = 25;  // L298n ENB (canal B) — PWM  [M3_EN]
 
 // ---------------------------------------------------------------------------
 // Pinos — Motor do garfo via L298n #2 (ou driver separado)
 // ---------------------------------------------------------------------------
 // O garfo usa um segundo L298n (ou driver menor tipo L9110S / TB6612),
 // pois o primeiro L298n ja usa os 2 canais para as rodas.
-constexpr int PIN_FORK_IN1 = 25;  // L298n #2 IN1
-constexpr int PIN_FORK_IN2 = 26;  // L298n #2 IN2
-constexpr int PIN_FORK_PWM = 27;  // L298n #2 ENA — PWM
+constexpr int PIN_FORK_IN1 = 18;  // L298n #2 IN1  [M1_IN1]
+constexpr int PIN_FORK_IN2 = 19;  // L298n #2 IN2  [M1_IN2]
+constexpr int PIN_FORK_PWM = 5;   // L298n #2 ENA — PWM  [M1_EN]
 
 // Duty fixo do garfo (0-255 para resolucao 8 bits).
 // 180 ≈ 70% duty. Suficiente para o worm gear JGY-370-12V subir o garfo
@@ -100,11 +107,13 @@ constexpr int FORK_DUTY = 180;
 // Micro switches NO (Normally Open) entre o pino e GND.
 // INPUT_PULLUP: HIGH = garfo livre, LOW = garfo no limite.
 //
-// GPIO 5: strapping pin, mas seguro com INPUT_PULLUP (HIGH no boot = boot normal).
-// GPIO 15: MTDO, com pullup HIGH no boot pode imprimir debug na UART — inofensivo,
-//   o SetpointFrameDecoder descarta os bytes invalidos do boot automaticamente.
-constexpr int PIN_FORK_LIMIT_TOP    = 5;   // Fim-de-curso superior (garfo no topo)
-constexpr int PIN_FORK_LIMIT_BOTTOM = 15;  // Fim-de-curso inferior (garfo embaixo)
+// DESABILITADOS por enquanto: o robo ainda nao tem as chaves de fim-de-curso
+// montadas. Setar -1 faz motors.cpp pular o pinMode e nunca acusar limite
+// (isFork*LimitReached() retorna sempre false). Quando as chaves forem
+// instaladas, definir os GPIOs aqui — lembrando que GPIO 5 agora e o PWM do
+// garfo, entao escolher outros pinos livres.
+constexpr int PIN_FORK_LIMIT_TOP    = -1;  // Fim-de-curso superior — sem chave montada
+constexpr int PIN_FORK_LIMIT_BOTTOM = -1;  // Fim-de-curso inferior — sem chave montada
 
 // Nivel logico quando o fim-de-curso esta ACIONADO.
 // LOW = switch NO com INPUT_PULLUP (fiacao: ESP32_PIN --- [switch NO] --- GND).
@@ -113,11 +122,14 @@ constexpr int FORK_LIMIT_ACTIVE_LEVEL = LOW;
 // ---------------------------------------------------------------------------
 // Pinos — Encoders de quadratura (Lego NXT 53787)
 // ---------------------------------------------------------------------------
-// GPIO 32/33 e 14/23: todos suportam interrupcao e INPUT_PULLUP.
-constexpr int PIN_ENC_ESQ_A = 32;  // Encoder esquerdo, fase A (interrupcao)
-constexpr int PIN_ENC_ESQ_B = 33;  // Encoder esquerdo, fase B (leitura sentido)
-constexpr int PIN_ENC_DIR_A = 14;  // Encoder direito, fase A (interrupcao)
-constexpr int PIN_ENC_DIR_B = 23;  // Encoder direito, fase B (leitura sentido)
+// GPIO 32/33: suportam interrupcao e INPUT_PULLUP interno.
+// GPIO 34/35: input-only, SEM pull-up interno — exigem pull-up EXTERNO (10k para
+//   3V3) para o encoder funcionar. O pinMode(INPUT_PULLUP) em 34/35 nao dá erro,
+//   mas e ignorado pelo hardware. (Mapa alinhado ao Testes_eletronica.ino: ENC2 = 34/35.)
+constexpr int PIN_ENC_ESQ_A = 32;  // Encoder esquerdo, fase A (interrupcao)  [ENC1_A]
+constexpr int PIN_ENC_ESQ_B = 33;  // Encoder esquerdo, fase B (leitura sentido)  [ENC1_B]
+constexpr int PIN_ENC_DIR_A = 34;  // Encoder direito, fase A (interrupcao)  [ENC2_A]
+constexpr int PIN_ENC_DIR_B = 35;  // Encoder direito, fase B (leitura sentido)  [ENC2_B]
 
 // Pulsos por revolucao do eixo de saida do Lego NXT 53787.
 // O motor NXT reporta 360 ticks/rev na saida (apos reducao interna).

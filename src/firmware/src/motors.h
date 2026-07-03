@@ -11,7 +11,8 @@
  *   Se o garfo esta no topo e o comando e SUBIR, o motor nao liga.
  *   Se o garfo esta na base e o comando e DESCER, o motor nao liga.
  *   O sentido oposto continua liberado normalmente.
- *   Pinos configurados: GPIO 5 (topo), GPIO 15 (base). Setar -1 para desabilitar.
+ *   Pinos configurados em config.h. Atualmente DESABILITADOS (-1): o robo ainda
+ *   nao tem as chaves montadas, entao nenhum limite e acusado (motor sempre liberado).
  */
 #pragma once
 
