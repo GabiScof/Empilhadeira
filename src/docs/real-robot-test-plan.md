@@ -20,11 +20,52 @@ Estado consolidado (2026-07-03):
 
 ---
 
-## FASE 0 — Setup único do Raspberry Pi (TUDO roda no Pi)
+## FASE 0 — Setup e topologia
 
-> **Topologia adotada:** não há laptop no meio. O Pi grava o firmware do ESP32
-> (USB), roda o backend, roda a câmera e serve o frontend para o celular.
-> Você opera o Pi por SSH; o celular só abre o navegador.
+### As duas topologias (não misturar)
+
+**MODO DEV — enquanto estamos programando (Mac + Pi):**
+
+```
+Mac (você)                         Raspberry Pi (no robô)
+├── edita o código                 ├── backend SIM=0 (./scripts/run_pi.sh)
+├── serve o frontend               ├── câmera USB
+│   (npm run dev, porta 5173)      └── UART ↔ ESP32
+└── git push ──────► git pull no Pi + reiniciar backend
+Celular/navegador → http://<IP_DO_MAC>:5173  ──WebSocket──► ws://<IP_DO_PI>:8000/ws
+```
+
+- No `.env` **do Mac**: `VITE_PI_WS_URL=ws://<IP_DO_PI>:8000/ws` (obrigatório
+  neste modo — a página vem do Mac, então o fallback de mesmo-host apontaria
+  para o Mac, errado).
+- O dev server já expõe na rede (`host: true` no vite.config) e recarrega a
+  cada edição — ideal para iterar.
+- Sincronizar código com o Pi: `git push` no Mac → `git pull` no Pi → reiniciar
+  o backend. (Alternativa rápida sem commit:
+  `rsync -av --exclude .venv --exclude node_modules src/ pi@<IP>:~/Empilhadeira/src/`)
+- Todos os passos de firmware/bancada/câmera (1.2–1.4) rodam **no Pi via SSH**
+  — o ESP32 e a câmera estão plugados nele.
+
+**MODO OPERAÇÃO — demo/desafio (só Pi, Mac desligado, SEM Node no Pi):**
+
+```
+Mac (antes):  cd src/frontend && npm run build
+              rsync -av dist/ pi@<IP>:~/Empilhadeira/src/frontend/dist/
+Pi (sozinho): ./scripts/run_pi.sh   ← o backend serve o frontend buildado
+Celular     → http://<IP_DO_PI>:8000/   (tudo numa porta; WebSocket resolve sozinho)
+```
+
+O backend detecta `frontend/dist/` no boot e serve o app na própria porta 8000
+(log: `Frontend estático montado de ...`). **Não precisa de Node/npm no Pi** —
+o build é feito no Mac e só os arquivos estáticos são copiados.
+
+Use DEV para os testes das Fases 1–3 enquanto itera; valide o modo OPERAÇÃO
+inteiro pelo menos uma vez antes do dia do desafio (item 3.6).
+
+### Setup único do Raspberry Pi
+
+O Pi grava o firmware do ESP32 (USB), roda o backend e a câmera. Você opera
+o Pi por SSH.
 
 ```bash
 # 1. Código
@@ -39,15 +80,11 @@ pip install platformio
 # A PRIMEIRA compilação baixa o toolchain ESP32 inteiro (centenas de MB).
 # Precisa de internet e demora vários minutos no Pi — é uma vez só.
 
-# 4. Node/npm (para servir o frontend do Pi)
-sudo apt install -y nodejs npm
-cd frontend && npm install && cd ..
-
-# 5. Permissões de serial e câmera
+# 4. Permissões de serial e câmera
 sudo usermod -aG dialout,video $USER
 # DESLOGAR e logar de novo (grupo só vale em sessão nova de SSH)
 
-# 6. Descobrir porta do ESP32 e IP do Pi (anote os dois)
+# 5. Descobrir porta do ESP32 e IP do Pi (anote os dois)
 ls /dev/ttyUSB* /dev/ttyACM*
 hostname -I
 ```
@@ -132,9 +169,9 @@ Validações com fita métrica:
 4. Medir a tag impressa com paquímetro — mapa declara `tag_size_m: 0.05`;
    se diferente, corrigir no mapa E em `APRILTAG_SIZE_CM`.
 
-### 1.5 Backend + frontend no Pi, celular só abre o navegador
+### 1.5 Backend no Pi + frontend (conforme a topologia da Fase 0)
 
-`.env` no Pi (base no `.env.example`):
+`.env` **no Pi** (base no `.env.example`):
 
 ```bash
 SIM=0
@@ -143,27 +180,12 @@ CAMERA_FRAME_WIDTH=640
 CAMERA_FRAME_HEIGHT=480
 MAP=corredor_6tags_80x200
 SERIAL_PORT=/dev/ttyUSB0        # a porta anotada na Fase 0
-# VITE_PI_WS_URL: NÃO precisa no setup tudo-no-Pi (ver abaixo)
 ```
 
-**Terminal 1 (SSH) — backend:**
+**No Pi (SSH) — backend:**
 ```bash
 cd ~/Empilhadeira/src && ./scripts/run_pi.sh
 ```
-
-**Terminal 2 (SSH) — frontend servido pelo próprio Pi:**
-```bash
-cd ~/Empilhadeira/src/frontend
-npm run build && npm run preview -- --host    # sobe em http://0.0.0.0:4173
-```
-
-> `preview` (build estático) em vez de `npm run dev`: gasta muito menos CPU/RAM
-> do Pi, que já roda visão @20 Hz + backend. Use `dev -- --host` só se estiver
-> iterando no código do frontend.
-
-**Celular** (mesma rede Wi-Fi): abrir `http://<IP_DO_PI>:4173`.
-Não precisa configurar `VITE_PI_WS_URL`: sem essa env o frontend conecta em
-`ws://<host da página>:8000/ws` — e o host da página **é** o IP do Pi.
 
 | Log esperado (ordem) | Se não aparecer |
 |---|---|
@@ -171,10 +193,30 @@ Não precisa configurar `VITE_PI_WS_URL`: sem essa env o frontend conecta em
 | `Serial loop (REAL) iniciado` | porta errada/ocupada (fechou o monitor? bench?), ou grupo dialout sem relogar |
 | `Detector criado com calibração` | JSON de calibração quebrado → refazer 1.4 |
 
-No celular: telemetria ~20 Hz; girar roda na mão move `rodas`; inclinar move `imu`;
-tag na frente da câmera → `visao.detectado=true`.
-Celular não conecta → confirmar mesma rede, `hostname -I`, e porta 4173/8000
-livres no firewall do Pi (`sudo ufw status`, se houver ufw).
+**Frontend — MODO DEV (Mac, o nosso caso agora):**
+```bash
+# no .env DO MAC:  VITE_PI_WS_URL=ws://<IP_DO_PI>:8000/ws
+cd src/frontend && npm run dev        # já expõe na rede (host: true), porta 5173
+```
+Abrir no navegador do Mac ou do celular: `http://<IP_DO_MAC>:5173`.
+Mudou o `VITE_PI_WS_URL`? Reiniciar o `npm run dev` (a env é lida na partida).
+
+**Frontend — MODO OPERAÇÃO (servido pelo backend do Pi, sem Node no Pi):**
+```bash
+# No Mac: buildar e copiar os estáticos
+cd src/frontend && npm run build
+rsync -av dist/ pi@<IP_DO_PI>:~/Empilhadeira/src/frontend/dist/
+# No Pi: reiniciar o backend — log deve mostrar "Frontend estático montado"
+```
+Celular abre `http://<IP_DO_PI>:8000/` — uma porta só; sem `VITE_PI_WS_URL`
+o frontend conecta em `ws://<host da página>:8000/ws`, que já é o Pi.
+
+**Validação (igual nos dois modos):** telemetria ~20 Hz na tela; girar roda na
+mão move `rodas`; inclinar move `imu`; tag na frente da câmera →
+`visao.detectado=true`.
+Não conecta → mesma rede Wi-Fi?, IPs certos (`hostname -I` no Pi, `ipconfig
+getifaddr en0` no Mac), porta 8000 acessível (`curl http://<IP_DO_PI>:8000/maps/current`
+de outra máquina).
 
 ### ✅ PORTÃO 1
 Frames 20 Hz · encoders positivos p/ frente · motores no sentido certo ·
@@ -263,9 +305,11 @@ correspondente (3.2 navegação, 3.4 localização).
 
 ### 3.6 Checklist do dia do desafio
 - [ ] Bateria cheia; tensão sob carga ok (Pi reiniciando ao acelerar = fonte/buck)
-- [ ] Wi-Fi do local testado; IP do Pi fixo (anotar!); celular abre `http://<IP>:4173`
-- [ ] Backend (`run_pi.sh`) e frontend (`npm run preview -- --host`) sobem nos dois
-      terminais SSH — ou configurar systemd/tmux para subirem no boot do Pi
+- [ ] Wi-Fi do local testado; IP do Pi fixo (anotar!); celular abre `http://<IP>:8000/`
+- [ ] `frontend/dist/` atualizado no Pi (build do Mac + rsync) — log do backend
+      mostra `Frontend estático montado`
+- [ ] Backend (`run_pi.sh`) sobe por SSH — ou configurar systemd/tmux para
+      subir sozinho no boot do Pi
 - [ ] `GET /maps/current` = `corredor_6tags_80x200`
 - [ ] Tags fixadas nas posições do mapa (L* a x=0,05 m; R* a x=0,75 m;
       y = 0,40/1,00/1,60 m) — **remedir com fita no local**

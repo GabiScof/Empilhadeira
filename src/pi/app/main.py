@@ -200,8 +200,47 @@ def create_app() -> FastAPI:
 
     _register_mission_routes(app)
     _register_map_routes(app)
+    _mount_frontend(app)
 
     return app
+
+
+def _mount_frontend(app: FastAPI) -> None:
+    """Serve o build do frontend (frontend/dist) direto do backend, se existir.
+
+    Permite operar só com o Pi (sem Node/npm nele): a equipe roda `npm run
+    build` no computador de dev, copia `frontend/dist/` para o Pi, e o celular
+    abre http://<IP_DO_PI>:8000/ — mesma origem do WebSocket, então o fallback
+    ws://<host>:8000/ws do frontend resolve sozinho, sem VITE_PI_WS_URL.
+
+    Montado por último: as rotas da API e o /ws têm precedência; o mount só
+    recebe o que sobrar. Sem dist/ (modo dev com Vite no Mac), nada muda.
+    """
+    dist_dir = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+    if not dist_dir.is_dir():
+        return
+
+    from fastapi.staticfiles import StaticFiles
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    class _SpaStaticFiles(StaticFiles):
+        """StaticFiles com fallback SPA: caminho desconhecido → index.html.
+
+        O frontend usa BrowserRouter (/, /map, /demo); sem o fallback, um
+        refresh do celular em /map devolveria 404. StaticFiles sinaliza 404
+        levantando HTTPException (Starlette moderno), por isso o try/except.
+        """
+
+        async def get_response(self, path: str, scope):  # type: ignore[override]
+            try:
+                return await super().get_response(path, scope)
+            except StarletteHTTPException as exc:
+                if exc.status_code == 404:
+                    return await super().get_response("index.html", scope)
+                raise
+
+    app.mount("/", _SpaStaticFiles(directory=dist_dir, html=True), name="frontend")
+    logger.info("Frontend estático montado de %s", dist_dir)
 
 
 def _register_map_routes(app: FastAPI) -> None:
