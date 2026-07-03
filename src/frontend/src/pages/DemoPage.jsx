@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { useWebSocket } from "../ws/useWebSocket.js";
 import Arena from "../components/Arena.jsx";
 import ForkSideView from "../components/ForkSideView.jsx";
@@ -90,6 +91,18 @@ export default function DemoPage() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">Empilhadeira — Demo + Controle</h1>
         <div className="flex items-center gap-3">
+          <Link
+            to="/"
+            className="text-xs px-2 py-0.5 rounded bg-slate-700 hover:bg-slate-600 transition-colors"
+          >
+            Operador
+          </Link>
+          <Link
+            to="/map"
+            className="text-xs px-2 py-0.5 rounded bg-slate-700 hover:bg-slate-600 transition-colors"
+          >
+            Mapa
+          </Link>
           {telemetry?.map_name && (
             <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300">
               {telemetry.map_name}

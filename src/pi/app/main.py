@@ -249,6 +249,18 @@ def _register_map_routes(app: FastAPI) -> None:
             return {"ok": False, "map": None}
         return {"ok": True, "map": _state.world_model.to_dict()}
 
+    @app.get("/maps/{map_name}")
+    async def get_map_detail(map_name: str):
+        try:
+            path = _resolve_map_path(map_name)
+            arena_map = load_map(path)
+            wm = WorldModel(arena_map)
+            return {"ok": True, "map": wm.to_dict()}
+        except FileNotFoundError as e:
+            return {"ok": False, "error": str(e)}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
 
 def _register_mission_routes(app: FastAPI) -> None:
     """Rotas para controle da missão."""

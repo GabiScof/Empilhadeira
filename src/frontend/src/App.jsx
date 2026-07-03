@@ -7,6 +7,7 @@ import ForkControl from "./components/ForkControl.jsx";
 import TelemetryPanel from "./components/TelemetryPanel.jsx";
 import SafetyAlert from "./components/SafetyAlert.jsx";
 import DemoPage from "./pages/DemoPage.jsx";
+import MapPage from "./pages/MapPage.jsx";
 
 // Contrato de comunicação vindo de main: o alvo do WebSocket é configurável via
 // VITE_PI_WS_URL (ex.: ws://192.168.0.10:8000/ws) para apontar o frontend ao IP do
@@ -64,12 +65,20 @@ function OperatorPage() {
     <div className="min-h-screen bg-slate-900 text-slate-100 p-4 flex flex-col gap-4 max-w-lg mx-auto">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Empilhadeira</h1>
-        <Link
-          to="/demo"
-          className="text-xs px-3 py-1 rounded bg-slate-700 hover:bg-slate-600"
-        >
-          Demo
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/map"
+            className="text-xs px-3 py-1 rounded bg-slate-700 hover:bg-slate-600"
+          >
+            Mapa
+          </Link>
+          <Link
+            to="/demo"
+            className="text-xs px-3 py-1 rounded bg-slate-700 hover:bg-slate-600"
+          >
+            Demo
+          </Link>
+        </div>
       </div>
       <SafetyAlert telemetry={telemetry} />
       <ModeSelector
@@ -92,6 +101,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<OperatorPage />} />
+        <Route path="/map" element={<MapPage />} />
         <Route path="/demo" element={<DemoPage />} />
       </Routes>
     </BrowserRouter>
