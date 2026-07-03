@@ -117,7 +117,14 @@ def load_intrinsics(path: Path | None = None) -> CameraIntrinsics:
         image_size = (int(raw_image_size[0]), int(raw_image_size[1]))
 
     dist = data.get("dist_coeffs")
-    dist_coeffs = [float(c) for c in dist] if dist else [0.0, 0.0, 0.0, 0.0, 0.0]
+    if isinstance(dist, dict):
+        # Formato dict: {"k1":..,"k2":..,"k3":..,"p1":..,"p2":..}. OpenCV espera
+        # a ordem [k1, k2, p1, p2, k3].
+        dist_coeffs = [float(dist.get(k, 0.0)) for k in ("k1", "k2", "p1", "p2", "k3")]
+    elif dist:
+        dist_coeffs = [float(c) for c in dist]
+    else:
+        dist_coeffs = [0.0, 0.0, 0.0, 0.0, 0.0]
 
     return CameraIntrinsics(
         fx=float(data["fx"]),
