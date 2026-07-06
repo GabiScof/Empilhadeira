@@ -1,0 +1,41 @@
+# Copie para .env e ajuste. [ref: docs/hardware-deployment.md, docs/real-robot-test-plan.md]
+
+# --- Modo de operação ---
+SIM=1                          # 1=simulação, 0=hardware real (robô físico)
+MAP=corredor_6tags_80x200      # mapa medido da arena real (pi/maps/<nome>.json)
+
+# --- Raspberry Pi: servidor WebSocket ---
+PI_HOST=0.0.0.0
+PI_PORT=8000
+
+# Depende de ONDE o frontend é servido (ver docs/real-robot-test-plan.md, Fase 0):
+# - MODO DEV (npm run dev no Mac, backend no Pi): OBRIGATÓRIO — aponte p/ o Pi:
+#   VITE_PI_WS_URL=ws://<IP_DO_PI>:8000/ws
+# - MODO OPERAÇÃO (backend do Pi serve o frontend/dist na porta 8000): deixe
+#   SEM definir — o fallback ws://<host da página>:8000/ws já resolve p/ o Pi.
+# VITE_PI_WS_URL=ws://192.168.0.10:8000/ws
+
+# --- Serial Pi ↔ ESP32 (só SIM=0) ---
+# Descobrir a porta com o ESP32 plugado: ls /dev/ttyUSB* /dev/ttyACM*
+SERIAL_PORT=/dev/ttyUSB0
+SERIAL_BAUDRATE=115200
+
+# --- Câmera (só SIM=0) ---
+CAMERA_INDEX=0
+# IMPORTANTE: a resolução de captura TEM que casar com a da calibração
+# (pi/calibracao/camera_intrinsics.json → image_size). Calibração atual: 640x480.
+CAMERA_FRAME_WIDTH=640
+CAMERA_FRAME_HEIGHT=480
+REQUIRE_CAMERA_CALIBRATION=1   # 0 = aceita intrínsecos placeholder (pose IMPRECISA — só debug)
+
+# --- IMU / Giroscópio ---
+# Auto-orientação pela gravidade no boot (default 1). Deixar o robô PARADO ~3 s
+# após subir o backend para a calibração de bias/eixo travar.
+# IMU_AUTO_ORIENT=1
+# Só usado com IMU_AUTO_ORIENT=0: sinal do yaw assumindo Z para cima.
+# IMU_GYRO_Z_SIGN=1.0
+
+# --- Missão ---
+MISSION_SEED=42
+MISSION_RESUME_TRIGGER=button  # button | limit_switch (TODO equipe)
+TAG_STANDOFF_M=0.15            # distância de parada em frente à tag (m)
