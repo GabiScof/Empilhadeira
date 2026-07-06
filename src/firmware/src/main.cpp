@@ -96,6 +96,19 @@ static inline int16_t readRaw16() {
 }
 
 /**
+ * Acorda o MPU-6050: limpa o bit SLEEP no registrador PWR_MGMT_1.
+ * Chamado no setup() e re-chamado pelo loop() se o sensor aparentar morto
+ * (auto-recuperacao: um write de wake que falha por mau contato no boot
+ * deixaria o MPU dormindo e reportando zeros para sempre).
+ */
+static void mpuWake() {
+  Wire.beginTransmission(MPU6050_ADDR);
+  Wire.write(REG_PWR_MGMT_1);
+  Wire.write(0x00);
+  Wire.endTransmission();
+}
+
+/**
  * Le todos os sensores do MPU-6050 (burst read de 14 bytes a partir de 0x3B)
  * e preenche os campos correspondentes na struct Sensors.
  *
@@ -103,15 +116,19 @@ static inline int16_t readRaw16() {
  *   ACCEL_XOUT_H/L, ACCEL_YOUT_H/L, ACCEL_ZOUT_H/L,
  *   TEMP_OUT_H/L,
  *   GYRO_XOUT_H/L, GYRO_YOUT_H/L, GYRO_ZOUT_H/L
+ *
+ * @return true se a leitura veio completa e com dados vivos; false se o I2C
+ *         falhou ou o sensor esta dormindo (tudo zero — fisicamente impossivel
+ *         com o acelerometro ligado, que sempre mostra gravidade + ruido).
  */
-static void readMpu(Sensors& s) {
+static bool readMpu(Sensors& s) {
   Wire.beginTransmission(MPU6050_ADDR);
   Wire.write(REG_ACCEL_XOUT_H);
   Wire.endTransmission(false);
   Wire.requestFrom(MPU6050_ADDR, MPU_READ_LEN, static_cast<uint8_t>(true));
 
   if (Wire.available() < MPU_READ_LEN) {
-    return;
+    return false;
   }
 
   const int16_t raw_ax   = readRaw16();
@@ -129,6 +146,11 @@ static void readMpu(Sensors& s) {
   s.gy = static_cast<float>(raw_gy) * GYRO_SCALE;
   s.gz = static_cast<float>(raw_gz) * GYRO_SCALE;
   s.mpu_temp_c = static_cast<float>(raw_temp) * TEMP_SCALE + TEMP_OFFSET;
+
+  const bool all_zero = raw_ax == 0 && raw_ay == 0 && raw_az == 0 &&
+                        raw_gx == 0 && raw_gy == 0 && raw_gz == 0 &&
+                        raw_temp == 0;
+  return !all_zero;
 }
 
 // ─── Setup ─────────────────────────────────────────────────────────────────
@@ -141,12 +163,8 @@ void setup() {
 
   Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
 
-  // Acorda o MPU-6050: limpa o bit SLEEP no registrador PWR_MGMT_1.
-  // Configuracao padrao apos reset: acelerometro +-2g, giroscopio +-250 graus/s.
-  Wire.beginTransmission(MPU6050_ADDR);
-  Wire.write(REG_PWR_MGMT_1);
-  Wire.write(0x00);
-  Wire.endTransmission();
+  // Acorda o MPU-6050 (config padrao: acelerometro +-2g, giroscopio +-250 o/s).
+  mpuWake();
 
   // O datasheet do MPU-6050 (RM-MPU-6000A, secao 4.1) especifica que o
   // giroscopio precisa de ate 30 ms para estabilizar apos sair do modo SLEEP.
@@ -218,7 +236,15 @@ void loop() {
     sensors.enc_esq = measuredEsq;
     sensors.enc_dir = measuredDir;
 
-    readMpu(sensors);
+    // Auto-recuperacao do MPU: se ~1 s de leituras mortas (I2C falhou ou
+    // sensor dormindo apos wake perdido no boot), re-envia o comando de wake.
+    static uint8_t mpuDeadReads = 0;
+    if (readMpu(sensors)) {
+      mpuDeadReads = 0;
+    } else if (++mpuDeadReads >= 20) {  // 20 ciclos @ 20 Hz = 1 s
+      mpuWake();
+      mpuDeadReads = 0;
+    }
 
     // TODO(equipe): integrar BMS se a versao escolhida suportar leitura digital.
     // Caso contrario, has_bms permanece false e o campo "bms" sera null no JSON.

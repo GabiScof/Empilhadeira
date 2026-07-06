@@ -31,6 +31,59 @@
 
 #include <stdint.h>
 
+// ═══════════════════════════════════════════════════════════════════════════
+// MEDIÇÕES PENDENTES NO ROBÔ REAL — calibrar antes de confiar na navegação
+// ═══════════════════════════════════════════════════════════════════════════
+// O firmware GRAVA e RODA com os valores atuais, mas os de baixo ainda são
+// estimativas/ganhos iniciais. Cada item diz O QUE medir, COMO medir, a UNIDADE
+// e ONDE gravar.  [F] = aqui no config.h (firmware).  [P] = no lado Pi, em
+// app/config.py (geometria/óptica não moram no firmware).
+//
+// ── Firmware (este arquivo) ────────────────────────────────────────────────
+//  1. [F] ENCODER_PPR .......... (atual 360)
+//         COMO: gire a roda à mão EXATAMENTE 10 voltas completas e leia o total
+//         de pulsos contados; PPR = pulsos / 10. Confirma a leitura RISING-only
+//         da fase A. Atualizar aqui E o EMU_ENCODER_PPR no config.py.
+//
+//  2. [F] MOTOR_ESQ_INV / MOTOR_DIR_INV ... (sentido dos motores)
+//         COMO: enviar setpoint linear POSITIVO. As DUAS rodas devem girar para
+//         FRENTE. Se uma girar ao contrário, inverter o *_INV dela.
+//
+//  3. [F] ENC_ESQ_INV / ENC_DIR_INV ....... (sentido dos encoders)
+//         COMO: empurrar a roda para FRENTE; o omega reportado deve ser
+//         POSITIVO. Se vier negativo, inverter o *_INV dela.
+//
+//  4. [F] FORK_INV ............. (sentido do garfo)
+//         COMO: comando "subir" deve SUBIR o garfo. Se descer, trocar para true.
+//
+//  5. [F] FORK_DUTY ............ (atual 180, escala 0-255)
+//         COMO: com a carga MÁXIMA prevista, achar o menor duty que ainda
+//         levanta o garfo com folga. Subir se patinar; descer se for brusco.
+//
+//  6. [F] PID_K{P,I,D}_{ESQ,DIR} .. (atuais 20 / 5 / 1)
+//         COMO: Ziegler-Nichols. Zerar Ki e Kd; subir Kp até oscilação
+//         sustentada → Ku; medir o período dessa oscilação → Tu (s). Então
+//         Kp=0.6*Ku, Ki=2*Kp/Tu, Kd=Kp*Tu/8. Repetir por roda.
+//
+//  7. [F] PIN_FORK_LIMIT_TOP / _BOTTOM ... (atuais -1 = sem chave)
+//         COMO: quando as chaves de fim-de-curso forem montadas, definir os
+//         GPIOs livres reais (lembrar que o GPIO 5 agora é o PWM do garfo).
+//
+// ── Lado Pi (app/config.py) — geometria/óptica ─────────────────────────────
+//  8. [P] WHEEL_BASE_L_CM ...... (atual 15.0 cm) — BITOLA: distância entre os
+//         pontos de contato das DUAS rodas no chão. Paquímetro/régua, em cm.
+//  9. [P] WHEEL_RADIUS_R_CM .... (atual 2.8 cm) — meça o DIÂMETRO externo da
+//         roda (com o peso do robô sobre ela) e divida por 2, em cm.
+// 10. [P] MAX_LINEAR_SPEED / MAX_ANGULAR_SPEED — v (cm/s) e ω (rad/s) MÁXIMOS
+//         reais: cronometre o robô a duty máximo por distância/ângulo conhecidos.
+// 11. [P] APRILTAG_SIZE_CM ..... (atual 5.0 cm) — meça o lado do quadrado PRETO
+//         da tag impressa (sem a borda branca), em cm.
+// 12. [P] CAMERA_TO_FORK_OFFSET_CM ... (atual 0,0,0) — (x, y, z) em cm do centro
+//         óptico da câmera até o ponto de referência do garfo.
+//         (Intrínsecos fx/fy/cx/cy da câmera: JÁ calibrados em
+//          calibracao/camera_intrinsics.json.)
+// ═══════════════════════════════════════════════════════════════════════════
+
 // ---------------------------------------------------------------------------
 // Serial (UART Pi <-> ESP32)
 // ---------------------------------------------------------------------------
