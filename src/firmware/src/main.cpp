@@ -215,11 +215,21 @@ void loop() {
     measuredDir = encoderReadDir(dt_s);
 
     if (setpointValid) {
-      pidEsq.setSetpoint(lastSetpoint.w_esq);
-      pidDir.setSetpoint(lastSetpoint.w_dir);
+      float uEsq;
+      float uDir;
 
-      const float uEsq = pidEsq.update(measuredEsq, dt_s);
-      const float uDir = pidDir.update(measuredDir, dt_s);
+      if (OPEN_LOOP) {
+        // Malha aberta: setpoint de velocidade (rad/s) -> duty direto, sem
+        // encoder. applyMotor() faz o clamp em MAX_DUTY e resolve sentido/inv.
+        uEsq = lastSetpoint.w_esq * OPEN_LOOP_DUTY_PER_RADS;
+        uDir = lastSetpoint.w_dir * OPEN_LOOP_DUTY_PER_RADS;
+      } else {
+        pidEsq.setSetpoint(lastSetpoint.w_esq);
+        pidDir.setSetpoint(lastSetpoint.w_dir);
+
+        uEsq = pidEsq.update(measuredEsq, dt_s);
+        uDir = pidDir.update(measuredDir, dt_s);
+      }
 
       motorSetWheelEsq(uEsq);
       motorSetWheelDir(uDir);

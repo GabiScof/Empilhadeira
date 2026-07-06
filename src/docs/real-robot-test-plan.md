@@ -17,6 +17,10 @@ Estado consolidado (2026-07-03):
 - Captura deve rodar em **640×480** (`CAMERA_FRAME_WIDTH/HEIGHT` no `.env`)
 - Pinagem firmware alinhada ao `Testes_eletronica.ino`; fim-de-curso desabilitado (-1)
 - Inversões: `MOTOR_ESQ_INV=true` já compensa a roda esquerda invertida da placa
+- **Encoder instável?** Há uma **Trilha sem encoder (malha aberta)** logo após a
+  FASE 0 (`OPEN_LOOP=true`): valida comunicação, motores, garfo, watchdogs e
+  MANUAL sem esperar o encoder; a odometria/autonomia ficam para o **Retorno ao
+  encoder** na mesma seção.
 
 ---
 
@@ -92,6 +96,71 @@ hostname -I
 **Regra de ouro da porta serial:** só UM programa pode usar a UART por vez.
 `pio device monitor`, `bench_setpoint.py` e o backend brigam pela mesma porta —
 **sempre feche um antes de abrir o outro** (erro típico: `Device or resource busy`).
+
+---
+
+## TRILHA SEM ENCODER — malha aberta (`OPEN_LOOP`)
+
+> **Quando usar:** encoder morto/instável e você precisa validar comunicação,
+> motores, garfo, watchdogs e teleoperação MANUAL **sem esperar o encoder**.
+> Ative a malha aberta, rode as Fases 1–2 pulando só os checks de odometria, e
+> quando o encoder voltar feche o robô inteiro pela sub-seção **Retorno ao
+> encoder** — sem repetir o que já ficou verde.
+
+### Por que o encoder trava a teleoperação
+A malha PID do firmware faz `erro = setpoint − velocidade_medida`. Com encoder
+morto, `medido ≈ 0`: o erro fica preso no setpoint, o integral (Ki=5) satura e
+**as duas rodas vão a duty máximo com qualquer comando** — impossível dirigir.
+A malha aberta mapeia o setpoint (rad/s) **direto para duty**, sem PID → joystick
+proporcional e dirigível.
+
+### Ligar a malha aberta
+```bash
+# firmware/src/config.h:  constexpr bool OPEN_LOOP = true;   (já é o default agora)
+cd ~/Empilhadeira/src/firmware && source ../.venv/bin/activate
+pio run -t upload
+```
+Talo do joystick rápido/lento demais → ajustar `OPEN_LOOP_DUTY_PER_RADS` (atual
+24; maior = mais rápido). Nada mais muda: garfo, watchdog e serial são idênticos
+ao modo com encoder.
+
+### O que VALE nesta trilha (rode normalmente)
+| Item do plano | Observação |
+|---|---|
+| 1.2 compilar/gravar/monitor, MPU @20 Hz (`az≈9.8`) | **pule** os checks 1–2 (sinal/PPR do encoder) |
+| 1.3 motores na bancada, **watchdog < 200 ms** | **pule** o check 2 (`enc.*≈+2.0` — é a malha fechando) |
+| 1.4 câmera | igual |
+| 1.5 backend + frontend + WebSocket | telemetria mostra `enc=0` honestamente |
+| 2.1 joystick MANUAL | dirige — mas **só julgue sentido** (frente/ré/giro), não retidão |
+| 2.2 garfo com carga | igual |
+| 2.3 os dois watchdogs (USB / Wi-Fi) | igual |
+| 3.6 modo OPERAÇÃO (build/rsync/serve) | igual |
+
+### O que NÃO vale sem encoder (fica para o Retorno)
+- **2.1 "anda reto"** — sem correção por roda, o robô deriva/curva se os motores
+  não casam. É justamente o que a malha fechada corrige; **não reprove por isso.**
+- **2.4 odometria** (1 m → pose, 360° → heading) — velocidade de roda não observável.
+- **Toda a FASE 3 (autonomia/EKF)** — a pose depende da odometria de roda.
+  Mantenha **MANUAL** nesta trilha.
+
+### ✅ PORTÃO SEM ENCODER
+Comunicação Pi↔ESP32 · motores no sentido certo · garfo com carga · os dois
+watchdogs · câmera com z na fita · telemetria no celular · teleoperação MANUAL
+dirigível · modo OPERAÇÃO servido pelo Pi.
+
+### 🔁 Retorno ao encoder — fechar o robô COMPLETO
+Encoder confiável? Reative a malha fechada e rode **só** os gates que foram
+pulados — o resto já está verde e não precisa repetir.
+
+1. `config.h`: `constexpr bool OPEN_LOOP = false;` → `pio run -t upload`.
+2. **1.2 checks 1–2:** girar cada roda p/ frente → `enc.esq`/`enc.dir` **positivos**
+   (senão `ENC_*_INV`); 1 volta → ~360 pulsos (senão `ENCODER_PPR` nos dois configs).
+3. **1.3 check 2:** setpoint 2 rad/s → `enc.*` impresso ≈ +2.0 (fecha comando→motor→encoder).
+4. **1.3 check 4 (revalidar):** watchdog Ctrl-C < 200 ms **com o PID ativo**.
+5. **2.1 retidão:** frente devagar → **anda reto**; ré reto; giro sem transladar.
+   Curva suave = PPR/raio desigual; vira no lugar = inversão (voltar ao 1.3).
+6. **2.4 odometria/visão:** 1 m reto → pose ~1 m; 360° → heading volta ~igual.
+7. **Só então** liberar a **FASE 3** (autonomia) — ela depende destes gates.
 
 ---
 
