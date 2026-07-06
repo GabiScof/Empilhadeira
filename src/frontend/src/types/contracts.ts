@@ -94,6 +94,13 @@ export interface NavigationInfo {
   current_segment_type: string | null;
 }
 
+export interface DockInfo {
+  enabled: boolean;
+  state: string; // SEEKING | DOCKING | DONE | FAULT
+  mode: string; // line_of_sight | tag_normal
+  segments: number;
+}
+
 export interface DetectedTag {
   tag_id: number;
   position_id: string | null;
@@ -106,6 +113,7 @@ export interface TelemetryExtended extends Telemetry {
   ekf: EkfState | null;
   mission: MissionInfo | null;
   navigation: NavigationInfo | null;
+  dock: DockInfo | null;
   detected_tags: DetectedTag[];
   map_name: string | null;
 }

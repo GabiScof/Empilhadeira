@@ -22,6 +22,7 @@ from app.models import (
     Battery,
     Command,
     DetectedTag,
+    DockInfo,
     EkfState,
     ImuAngles,
     MissionInfo,
@@ -75,6 +76,13 @@ class SharedState:
             max_v_ms=config.MAX_LINEAR_SPEED_MS,
             max_omega_rads=config.MAX_ANGULAR_SPEED_RADS,
         )
+        # Dock-to-tag: modo opt-in que estaciona o robô em frente a UMA tag por
+        # segmentos discretos. Isolado da missão (executor próprio). O flag é
+        # ligável em runtime pelo frontend (POST /dock/enable); o env var
+        # DOCK_TO_TAG só define o default inicial. [ref: app/control/dock_to_tag.py]
+        from app.control.dock_to_tag import TagDocker
+        self.docker = TagDocker()
+        self.dock_enabled: bool = config.DOCK_TO_TAG_ENABLED
         self.world_model: WorldModel | None = None
 
         # Dados recentes
@@ -113,6 +121,7 @@ class SharedState:
         self.planned_path = []
         self.executed_trail = [(sx, sy)]
         self.mission.reset()
+        self.docker.reset()
 
     async def update_command(self, command: Command) -> None:
         async with self.lock:
@@ -184,6 +193,15 @@ class SharedState:
             m_dict = self.mission.to_dict()
             mission_info = MissionInfo(**m_dict)
 
+            # Dock-to-tag info
+            dock_dict = self.docker.to_dict()
+            dock_info = DockInfo(
+                enabled=self.dock_enabled,
+                state=dock_dict["state"],
+                mode=dock_dict["mode"],
+                segments=dock_dict["segments"],
+            )
+
             # Navigation info
             exec_dict = self.segment_executor.to_dict()
             nav_info = NavigationInfo(
@@ -210,6 +228,7 @@ class SharedState:
                 ekf=ekf_state,
                 mission=mission_info,
                 navigation=nav_info,
+                dock=dock_info,
                 detected_tags=list(self.detected_tags_cache),
                 map_name=self.map_name,
             )

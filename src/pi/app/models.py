@@ -130,6 +130,7 @@ class Telemetry(BaseModel):
     ekf: EkfState | None = Field(None, description="Estado do EKF 2D.")
     mission: MissionInfo | None = Field(None, description="Estado da missão.")
     navigation: NavigationInfo | None = Field(None, description="Estado da navegação.")
+    dock: DockInfo | None = Field(None, description="Estado do dock-to-tag (opt-in).")
     detected_tags: list[DetectedTag] = Field(default_factory=list, description="Tags detectadas.")
     map_name: str | None = Field(None, description="Nome do mapa carregado.")
 
@@ -172,6 +173,15 @@ class NavigationInfo(BaseModel):
     total_segments: int = 0
     progress: float = 0.0
     current_segment_type: str | None = None
+
+
+class DockInfo(BaseModel):
+    """Estado do dock-to-tag (aproximação por segmentos a 1 tag) para telemetria."""
+
+    enabled: bool = Field(False, description="Se o dock está ligado (opt-in do operador).")
+    state: str = Field("SEEKING", description="SEEKING / DOCKING / DONE / FAULT.")
+    mode: str = Field("line_of_sight", description="Estratégia de alvo.")
+    segments: int = Field(0, description="Segmentos na rota planejada.")
 
 
 class DetectedTag(BaseModel):

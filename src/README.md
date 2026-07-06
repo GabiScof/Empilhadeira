@@ -79,6 +79,7 @@ bash scripts/verify.sh
 | [architecture.md](docs/architecture.md) | Decisões, parâmetros em aberto |
 | [navigation.md](docs/navigation.md) | Planejador, executor, APPROACH/FACE/RETREAT |
 | [mission.md](docs/mission.md) | Missão pick-and-place |
+| [dock-to-tag.md](docs/dock-to-tag.md) | Aproximação por segmentos a 1 tag (opt-in `DOCK_TO_TAG=1`) |
 | [maps.md](docs/maps.md) | Formato JSON dos mapas |
 | [simulation.md](docs/simulation.md) | Modo SIM=1, falhas, APIs `/sim/*` |
 | [camera-calibration.md](docs/camera-calibration.md) | Calibração xadrez |

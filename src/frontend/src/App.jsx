@@ -6,6 +6,7 @@ import Joystick from "./components/Joystick.jsx";
 import ForkControl from "./components/ForkControl.jsx";
 import TelemetryPanel from "./components/TelemetryPanel.jsx";
 import SafetyAlert from "./components/SafetyAlert.jsx";
+import DockPanel from "./components/DockPanel.jsx";
 import DemoPage from "./pages/DemoPage.jsx";
 import MapPage from "./pages/MapPage.jsx";
 
@@ -17,6 +18,12 @@ const WS_URL =
   (window.location.protocol === "https:" ? "wss://" : "ws://") +
     (window.location.hostname || "localhost") +
     ":8000/ws";
+
+const API_BASE =
+  window.location.protocol +
+  "//" +
+  (window.location.hostname || "localhost") +
+  ":8000";
 
 function OperatorPage() {
   const { telemetry, connected, sendCommand } = useWebSocket(WS_URL);
@@ -86,6 +93,7 @@ function OperatorPage() {
         onModeChange={handleMode}
         disabled={!connected}
       />
+      <DockPanel apiBase={API_BASE} telemetry={telemetry} />
       <Joystick
         onMove={handleJoystick}
         disabled={currentState !== "MANUAL" || !connected}

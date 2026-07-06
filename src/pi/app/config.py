@@ -267,6 +267,51 @@ SIM_SLIP_FRICTION: float = 1.0  # multiplicador de atrito desigual
 TAG_APPROACH_STANDOFF_M: float = float(os.getenv("TAG_STANDOFF_M", "0.15"))
 
 # ---------------------------------------------------------------------------
+# Dock-to-tag — aproximação por segmentos (FORWARD/TURN) a UMA tag avulsa.
+#
+# Modo de teste independente da missão: o robô vê uma tag, planeja uma rota
+# de segmentos discretos (avança / gira 90°) até parar PELA FRENTE dela e
+# executa via SegmentExecutor (mesma malha externa da missão). Diferente do
+# navegador legado (`NavigationController`), que servo-controla continuamente
+# sobre a leitura da tag.
+#
+# ALVO: ROBÔ REAL. Consome as mesmas leituras (z_cm/x_cm/pitch_deg) que o
+# navegador legado já usa no hardware.
+#
+# OPT-IN: desligado por padrão. Ligado, substitui o navegador legado no ramo
+# AUTOMATICO-sem-missão. Com DOCK_TO_TAG=0 o comportamento é idêntico ao atual.
+# [ref: docs/dock-to-tag.md]
+# ---------------------------------------------------------------------------
+DOCK_TO_TAG_ENABLED: bool = os.getenv("DOCK_TO_TAG", "0") == "1"
+
+# Estratégia de alvo:
+#   "line_of_sight" (DEFAULT, real) — para no standoff em cima da linha de visão
+#       até a tag, de frente para ela. Usa SÓ z_cm/x_cm (bem definidos, iguais
+#       ao navegador legado). NÃO depende de convenção de yaw → seguro no real.
+#   "tag_normal" — quadra com a FACE da tag (aproxima pela normal). Mais preciso
+#       para pallet/garfo, mas depende do yaw da tag (ver offset abaixo). Use só
+#       depois de validar a convenção com uma tag física.
+DOCK_MODE: str = os.getenv("DOCK_MODE", "line_of_sight")
+
+# Distância em frente à tag onde o robô estaciona (m). Reusa o standoff da missão.
+DOCK_STANDOFF_M: float = float(os.getenv("DOCK_STANDOFF_M", str(TAG_APPROACH_STANDOFF_M)))
+
+# Detecções consecutivas exigidas antes de planejar (debounce anti-ruído).
+DOCK_MIN_DETECTIONS: int = int(os.getenv("DOCK_MIN_DETECTIONS", "3"))
+
+# Offset da convenção de yaw (SÓ usado por DOCK_MODE="tag_normal"):
+#   tag_yaw_mundo = theta_robô + radianos(pitch_deg) + DOCK_PITCH_TO_TAG_YAW_OFFSET_RAD
+#
+# Default 0.0 = convenção da visão REAL (pose.py: yaw_tag_mundo = theta_robô +
+# radianos(pitch_deg)). ATENÇÃO: pose.py tem `TODO(equipe): validar convenção de
+# yaw` em aberto — meça com UMA tag de yaw conhecido antes de confiar. Se a
+# aproximação chegar espelhada, use π. (A visão sintética do SIM precisa de π.)
+# O modo default "line_of_sight" IGNORA este valor.
+DOCK_PITCH_TO_TAG_YAW_OFFSET_RAD: float = float(
+    os.getenv("DOCK_PITCH_TO_TAG_YAW_OFFSET_RAD", "0.0")
+)
+
+# ---------------------------------------------------------------------------
 # Missão — [ref: Seção 5 do mega-prompt]
 # ---------------------------------------------------------------------------
 MISSION_SEED: int = int(os.getenv("MISSION_SEED", "42"))

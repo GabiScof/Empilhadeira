@@ -28,8 +28,8 @@ from pydantic import BaseModel
 
 from app import config
 from app.state import SharedState
-from app.world.world_model import WorldModel
 from app.world.map_schema import load_map
+from app.world.world_model import WorldModel
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +56,12 @@ class FaultRequest(BaseModel):
 class MissionStartRequest(BaseModel):
     pick_id: str | None = None
     place_id: str | None = None
+
+
+class DockEnableRequest(BaseModel):
+    """Corpo opcional de POST /dock/enable."""
+    mode: str | None = None       # "line_of_sight" (default real) | "tag_normal"
+    standoff_m: float | None = None
 
 
 def _resolve_map_path(map_name: str) -> Path:
@@ -119,10 +125,10 @@ async def lifespan(app: FastAPI):
             logger.info("Mapa carregado: %s", config.DEFAULT_MAP)
         except FileNotFoundError as e:
             logger.warning("Mapa padrão não encontrado: %s — usando fallback", e)
+            from app.sim.fault_injector import FaultInjector
             from app.sim.firmware_emulator import FirmwareEmulator
             from app.sim.synthetic_vision import SyntheticVision
             from app.sim.world import SimWorld
-            from app.sim.fault_injector import FaultInjector
             global _world, _emulator, _synthetic_vision, _fault_injector
             _world = SimWorld()
             _emulator = FirmwareEmulator(world=_world)
@@ -199,10 +205,60 @@ def create_app() -> FastAPI:
         _register_sim_routes(app)
 
     _register_mission_routes(app)
+    _register_dock_routes(app)
+    _register_world_state_route(app)
     _register_map_routes(app)
     _mount_frontend(app)
 
     return app
+
+
+def _real_world_state(state: SharedState) -> dict:
+    """Monta o world-state (vista de cima) do robô REAL a partir do EKF + mapa.
+
+    Mesma forma consumida pelo componente Arena do frontend, mas a pose do robô
+    vem da estimativa do EKF (não há verdade-terreno de simulador no hardware).
+    Sem mapa carregado, `world` fica ausente e o Arena não desenha (precisa das
+    dimensões da arena) — carregue um mapa para ter a vista de cima.
+    """
+    ekf = state.ekf.to_dict()
+    result: dict = {
+        "ekf": ekf,
+        "mission": state.mission.to_dict(),
+        "executor": state.segment_executor.to_dict(),
+        "dock": state.docker.to_dict(),
+        "planned_path": [s.to_dict() for s in state.planned_path],
+        "executed_trail": state.executed_trail[-200:],
+    }
+    if state.world_model is not None:
+        wm = state.world_model.to_dict()
+        result["world_model"] = wm
+        result["world"] = {
+            "robot": {
+                "x_m": ekf["x_m"],
+                "y_m": ekf["y_m"],
+                "theta_rad": ekf["theta_rad"],
+                "theta_deg": ekf["theta_deg"],
+            },
+            "tags": wm["tags"],
+            "arena": wm["arena"],
+            "trail": state.executed_trail[-200:],
+        }
+    return result
+
+
+def _register_world_state_route(app: FastAPI) -> None:
+    """Rota /world-state (real + sim): vista de cima derivada do EKF + mapa.
+
+    O Arena no frontend prefere /sim/world-state (verdade-terreno do simulador)
+    e cai para esta quando roda no robô real, onde /sim/* não existe.
+    """
+
+    @app.get("/world-state")
+    async def world_state_real():
+        if _state is None:
+            return {}
+        return _real_world_state(_state)
 
 
 def _mount_frontend(app: FastAPI) -> None:
@@ -338,6 +394,40 @@ def _register_mission_routes(app: FastAPI) -> None:
         if _state is None:
             return {"ok": False}
         return {"ok": True, "mission": _state.mission.to_dict()}
+
+
+def _register_dock_routes(app: FastAPI) -> None:
+    """Rotas para ligar/desligar o dock-to-tag (aproximação por segmentos a 1 tag).
+
+    Fluxo do operador: POST /dock/enable → selecionar AUTOMATICO (sem missão) →
+    mostrar uma tag. O robô planeja segmentos discretos e estaciona em frente.
+    """
+
+    @app.post("/dock/enable")
+    async def dock_enable(req: DockEnableRequest):
+        if _state is None:
+            return {"ok": False, "error": "server not ready"}
+        _state.docker.configure(mode=req.mode, standoff_m=req.standoff_m)
+        _state.dock_enabled = True
+        return {"ok": True, "enabled": True, "dock": _state.docker.to_dict()}
+
+    @app.post("/dock/disable")
+    async def dock_disable():
+        if _state is None:
+            return {"ok": False}
+        _state.dock_enabled = False
+        _state.docker.reset()
+        return {"ok": True, "enabled": False, "dock": _state.docker.to_dict()}
+
+    @app.get("/dock/state")
+    async def dock_state():
+        if _state is None:
+            return {"ok": False}
+        return {
+            "ok": True,
+            "enabled": _state.dock_enabled,
+            "dock": _state.docker.to_dict(),
+        }
 
 
 def _register_sim_routes(app: FastAPI) -> None:

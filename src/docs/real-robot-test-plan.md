@@ -10,8 +10,12 @@
 Docs relacionados: [`hardware-bring-up.md`](./hardware-bring-up.md) (fiação/pinos),
 [`hardware-deployment.md`](./hardware-deployment.md), [`camera-calibration.md`](./camera-calibration.md).
 
-Estado consolidado (2026-07-03):
+Estado consolidado (atualizado 2026-07-06):
 - Mapa real: `pi/maps/corredor_6tags_80x200.json` ✅ (valida no schema)
+- **2026-07-06: dock-to-tag (opt-in) + vista de cima no robô real** — novo modo
+  que estaciona em frente a UMA tag por segmentos (testado no 3.4b) e endpoint
+  `GET /world-state` que faz a tela `/demo` desenhar o Arena no hardware
+  (pose do EKF + mapa). Desligado por padrão; ver `docs/dock-to-tag.md`.
 - Calibração: `pi/calibracao/camera_intrinsics.json` ✅ — OpenCV, **640×480**,
   erro de reprojeção 0,144 px (fotos em `roboticaMengo/imagens/`)
 - Captura deve rodar em **640×480** (`CAMERA_FRAME_WIDTH/HEIGHT` no `.env`)
@@ -278,8 +282,8 @@ cd ~/Empilhadeira/src && ./scripts/run_pi.sh
 - **Checar de outra máquina:** `curl http://<IP_DO_PI>:8000/maps/current` →
   `corredor_6tags_80x200`.
 
-### ✅ PORTÃO A (sem encoder)
-Firmware grava em malha aberta · MPU @20 Hz (`az≈9.8`) · motores no sentido certo ·
+### ✅ PORTÃO A (histórico, era "sem encoder")
+Firmware grava · MPU @20 Hz (`|az|≈9.8–11`, negativo no nosso chassi) · motores no lado e sentido certos ·
 garfo com carga · watchdog bench < 200 ms · câmera com `z` na fita · backend com
 os 3 logs · telemetria no celular · **MANUAL dirigível** · os dois watchdogs
 andando · modo OPERAÇÃO servido pelo Pi (`Frontend estático montado`).
@@ -499,8 +503,9 @@ getifaddr en0` no Mac), porta 8000 acessível (`curl http://<IP_DO_PI>:8000/maps
 de outra máquina).
 
 ### ✅ PORTÃO 1
-Frames 20 Hz · encoders positivos p/ frente · motores no sentido certo ·
-watchdog < 200 ms · câmera com z correto na fita · telemetria no celular.
+Frames 20 Hz · encoders positivos p/ frente (~1440/volta) · motores no LADO e
+sentido certos (um por vez) · watchdog < 200 ms · câmera com z correto na fita
+e sinais de x_cm/pitch validados · telemetria no celular.
 
 ---
 
@@ -565,7 +570,10 @@ Repetir com offset lateral 10–20 cm e heading ±15° (cenários que o sim pass
 
 ### 3.3 Segurança em autonomia (obrigatório antes do corredor)
 1. **Cobrir a tag** durante AUTOMATICO → `PARADO` latched + `parado_reason`;
-   só novo comando reativa.
+   só novo comando reativa. **Exceção por design:** com missão ativa OU dock
+   em DOCKING (3.4b) o tag-loss NÃO trava — a tag sai do FOV em curvas
+   normais e a execução segue por odometria/EKF. Nesses modos a parada de
+   emergência é: modo PARADO na UI, ou os watchdogs abaixo.
 2. Desplugar serial durante AUTOMATICO → para < 200 ms.
 3. Matar Wi-Fi durante AUTOMATICO → control loop continua a manobra sozinho
    com segurança (1 clique basta).
@@ -575,6 +583,35 @@ Dirigir MANUAL pelo corredor 80×200 olhando a pose no painel:
 - Pose "teleporta" ao ver tag = subir `EKF_Q_*` (odometria superestimada).
 - Pose ignora tags = descer `EKF_R_*`.
 - Entre tags a pose deriva pouco e corrige suave a cada tag nova.
+
+### 3.4b Dock-to-tag — ensaio da maquinaria da missão com UMA tag
+> É o degrau entre a aproximação reativa (3.2) e a missão (3.5): usa o MESMO
+> `SegmentExecutor` + EKF da missão, mas disparado por uma tag avulsa, sem
+> pick/place. Se o dock funciona, a parte de navegação da missão funciona.
+> [ref: docs/dock-to-tag.md]
+
+Pré-requisitos: Portão B (odometria provada) e 3.4 razoável (o dock executa
+pela pose do EKF). Robô a ~50–80 cm de UMA tag, arena aberta, mapa carregado
+(para a vista de cima em `/demo`).
+
+1. [CEL] Painel "Aproximar de uma tag" → **Ligar** (ou `POST /dock/enable`) →
+   selecionar AUTOMATICO → mostrar a tag.
+   - **Esperado:** estado Procurando → Aproximando (rota de segmentos aparece
+     na vista de cima) → Estacionado a `DOCK_STANDOFF_M` (~15 cm, fita) DE
+     FRENTE para a tag.
+2. Repetir com a tag deslocada lateralmente e o robô torto (±30°) — o
+   planejamento é feito UMA vez ao ver a tag; perder a tag na curva de 90° é
+   normal e não pode travar (execução por odometria).
+3. **Use o modo default `line_of_sight`** — não depende da convenção de yaw
+   da tag. O modo `tag_normal` (quadrar com a face) SÓ depois de validar o
+   sinal do `pitch_deg` (check 6 do 1.4) e o
+   `DOCK_PITCH_TO_TAG_YAW_OFFSET_RAD` (default π = convenção do SIMULADOR; no
+   hardware real provavelmente 0.0 — calibrar no config).
+4. Segurança: cobrir a tag durante o DOCKING **não** para (ver 3.3 item 1) —
+   validar que PARADO na UI e os dois watchdogs interrompem o dock.
+5. Erro sistemático de posição final = odometria (voltar ao B5/3.1) — o dock
+   herda a qualidade dela; não mexa em parâmetro do dock antes de fechar a
+   odometria.
 
 ### 3.5 Missão completa (ensaio do desafio)
 

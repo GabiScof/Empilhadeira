@@ -13,6 +13,7 @@ import SafetyAlert from "../components/SafetyAlert.jsx";
 import DebugExport from "../components/DebugExport.jsx";
 import MapSelector from "../components/MapSelector.jsx";
 import MissionPanel from "../components/MissionPanel.jsx";
+import DockPanel from "../components/DockPanel.jsx";
 
 // Contrato de comunicação vindo de main: alvo do WebSocket configurável via
 // VITE_PI_WS_URL; sem a env, cai no mesmo-host (servido a partir do Pi).
@@ -35,12 +36,23 @@ export default function DemoPage() {
   const [garfo, setGarfo] = useState("parar");
 
   const fetchWorldState = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE}/sim/world-state`);
-      if (res.ok) {
-        setWorldState(await res.json());
+    // Simulador: /sim/world-state (verdade-terreno + garfo + falhas).
+    // Robô real: /world-state (vista de cima do EKF + mapa), pois /sim/* não
+    // existe no hardware. No robô real, um GET a /sim/* cai no fallback SPA e
+    // devolve index.html (HTML 200) — por isso o res.json() dentro do try: se
+    // vier HTML, ele lança, retornamos null e caímos para /world-state.
+    const tryFetch = async (path) => {
+      try {
+        const res = await fetch(`${API_BASE}${path}`);
+        if (!res.ok) return null;
+        return await res.json();
+      } catch {
+        return null;
       }
-    } catch {}
+    };
+    const data =
+      (await tryFetch("/sim/world-state")) || (await tryFetch("/world-state"));
+    if (data) setWorldState(data);
   }, []);
 
   useEffect(() => {
@@ -130,6 +142,7 @@ export default function DemoPage() {
             onModeChange={handleMode}
             disabled={!connected}
           />
+          <DockPanel apiBase={API_BASE} telemetry={telemetry} />
           <Joystick
             onMove={handleJoystick}
             disabled={currentState !== "MANUAL" || !connected}

@@ -69,7 +69,18 @@ def test_no_command_stays_safe():
 
 
 def test_tag_loss_in_loop_latches_parado():
-    """Em AUTO, perder a tag durante o loop → PARADO travado (não oscila)."""
+    """Em AUTO, perder a tag durante o loop → PARADO travado (não oscila).
+
+    Testa o navegador LEGADO. Com DOCK_TO_TAG=1 o dock substitui o legado nesse
+    ramo e suprime tag-loss de propósito (igual à missão), então o cenário não
+    se aplica — pula.
+    """
+    import pytest
+
+    from app import config
+    if config.DOCK_TO_TAG_ENABLED:
+        pytest.skip("dock-to-tag ligado substitui o navegador legado neste ramo")
+
     state = SharedState()
     state.last_command = Command(modo=Mode.AUTOMATICO)
     state.state_machine.acknowledge()

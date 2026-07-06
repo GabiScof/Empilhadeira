@@ -2,6 +2,7 @@
 
 Em MANUAL: joystick → cinemática → setpoint.
 Em AUTOMATICO com missão ativa: missão SM → planejador → executor → setpoint.
+Em AUTOMATICO sem missão, com dock ligado (state.dock_enabled): docker → setpoint.
 Em AUTOMATICO sem missão (legado): navegador antigo → setpoint.
 
 [ref: Seção 2 e 5 do mega-prompt]
@@ -105,6 +106,35 @@ def _propose_wheel_speeds_legacy(
     return twist_to_wheel_speeds(v, omega)
 
 
+def _propose_wheel_speeds_dock(
+    vision: VisionState, state: SharedState, dt: float
+) -> tuple[float, float]:
+    """Modo AUTOMATICO sem missão, com dock-to-tag ligado: docker → (w_esq, w_dir).
+
+    Vê UMA tag, planeja segmentos discretos (avança / gira 90°) até o standoff
+    em frente a ela e executa via EKF. Publica a rota em ``state.planned_path``
+    e o rastro em ``state.executed_trail`` (mesma visualização da missão).
+    """
+    w_esq, w_dir = state.docker.step(
+        vision=vision,
+        robot_x=state.ekf.x,
+        robot_y=state.ekf.y,
+        robot_theta=state.ekf.theta,
+        dt=dt,
+    )
+
+    if state.docker.segments:
+        state.planned_path = state.docker.segments
+
+    trail_point = (state.ekf.x, state.ekf.y)
+    if not state.executed_trail or state.executed_trail[-1] != trail_point:
+        state.executed_trail.append(trail_point)
+        if len(state.executed_trail) > 2000:
+            state.executed_trail = state.executed_trail[-1000:]
+
+    return w_esq, w_dir
+
+
 async def control_loop(state: SharedState) -> None:
     """Loop de controle de malha fechada a `config.CONTROL_HZ`."""
     logger.info("Control loop iniciado (%.0f Hz)", config.CONTROL_HZ)
@@ -135,20 +165,38 @@ async def control_loop(state: SharedState) -> None:
                 joystick_y = command.joystick.y
                 garfo = command.garfo
 
+            # Dock-to-tag: só age no ramo AUTOMATICO-sem-missão e com o flag
+            # opt-in ligado. Com DOCK_TO_TAG=0, dock_active é sempre False e
+            # este caminho é idêntico ao legado.
+            dock_active = (
+                state.dock_enabled
+                and requested_mode == Mode.AUTOMATICO
+                and not state.mission.is_active
+            )
+
             # Propor velocidades conforme o modo
             if requested_mode == Mode.MANUAL:
                 w_esq, w_dir = _propose_wheel_speeds_manual(joystick_x, joystick_y)
+                if state.dock_enabled:
+                    state.docker.reset()
             elif requested_mode == Mode.AUTOMATICO:
                 if state.mission.is_active:
+                    if state.dock_enabled:
+                        state.docker.reset()
                     w_esq, w_dir = _propose_wheel_speeds_mission(state, dt)
+                elif dock_active:
+                    w_esq, w_dir = _propose_wheel_speeds_dock(vision, state, dt)
                 else:
                     w_esq, w_dir = _propose_wheel_speeds_legacy(vision, state)
             else:
                 w_esq, w_dir = 0.0, 0.0
+                if state.dock_enabled:
+                    state.docker.reset()
 
-            # Missão ativa: EKF cuida da localização, tag-loss de segurança
-            # não se aplica (tags podem sair do FOV durante turns normais).
-            if state.mission.is_active:
+            # Missão OU dock ativo: EKF cuida da localização, tag-loss de
+            # segurança não se aplica (a tag pode sair do FOV durante uma
+            # curva de 90° normal).
+            if state.mission.is_active or dock_active:
                 vision_for_sm = VisionState(detectado=True)
                 if state.state_machine.safety_latched:
                     state.state_machine.acknowledge()
