@@ -169,9 +169,9 @@ constexpr int PIN_FORK_PWM = 5;   // L298n #2 ENA — PWM  [M1_EN]
 constexpr bool FORK_INV = false;
 
 // Duty fixo do garfo (0-255 para resolucao 8 bits).
-// 180 ≈ 70% duty. Suficiente para o worm gear JGY-370-12V subir o garfo
-// com carga leve (~100-200g). Aumentar se nao subir; diminuir se for rapido demais.
-constexpr int FORK_DUTY = 180;
+// 220 ≈ 86% duty. Mais torque/velocidade para o worm gear JGY-370-12V subir o
+// garfo com carga. Aumentar se nao subir; diminuir se for rapido demais.
+constexpr int FORK_DUTY = 220;
 
 // ---------------------------------------------------------------------------
 // Pinos — Chaves fim-de-curso do garfo

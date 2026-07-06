@@ -59,7 +59,7 @@ WHEEL_BASE_L_CM: float = 15.0
 
 # PROVISÓRIO — TODO(equipe): confirmar — raio da roda (cm).
 # Roda Lego NXT ~56 mm de diâmetro → r ≈ 2.8 cm.
-WHEEL_RADIUS_R_CM: float = 2.8
+WHEEL_RADIUS_R_CM: float = 2.7
 
 # PROVISÓRIO — TODO(equipe): confirmar — v máx (cm/s).
 # Conservador para ambiente interno controlado.
@@ -113,7 +113,7 @@ NAV_ALIGN_PITCH_TOL: float = 2.0  # graus — tolerância angular
 APRILTAG_FAMILY: str = "tag25h9"
 
 # PROVISÓRIO — TODO(equipe): confirmar — tamanho físico da tag (cm).
-APRILTAG_SIZE_CM: float = 5.0
+APRILTAG_SIZE_CM: float = 4.0
 
 CAMERA_FX: float = 799.3907361857031
 CAMERA_FY: float = 794.2843064465196
@@ -129,7 +129,7 @@ CAMERA_PARAMS: tuple[float, float, float, float] = (
 
 # PROVISÓRIO — TODO(equipe): confirmar (x, y, z) em cm.
 # Sem offset até a equipe medir a posição relativa câmera-garfo.
-CAMERA_TO_FORK_OFFSET_CM: tuple[float, float, float] = (0.0, 0.0, 0.0)
+CAMERA_TO_FORK_OFFSET_CM: tuple[float, float, float] = (0.0, -14.2, 25.5)
 
 CAMERA_INTRINSICS_PATH: Path = (
     Path(__file__).resolve().parent.parent / "calibracao" / "camera_intrinsics.json"
