@@ -215,14 +215,27 @@ void loop() {
     measuredDir = encoderReadDir(dt_s);
 
     if (setpointValid) {
-      pidEsq.setSetpoint(lastSetpoint.w_esq);
-      pidDir.setSetpoint(lastSetpoint.w_dir);
+      // Setpoint ZERO = parada comandada INCONDICIONAL: nao passa pelo PID.
+      // Com encoder morto (medido=0), o erro de um setpoint 0 seria 0 e o
+      // integral acumulado na conducao seguraria duty maximo para sempre
+      // (u = Ki*integral) — o robo ignoraria o PARADO. Bug visto na bancada
+      // em 2026-07-06 (roda direita sem pull-up nao parava).
+      if (lastSetpoint.w_esq == 0.0f) {
+        pidEsq.reset();
+        motorSetWheelEsq(0.0f);
+      } else {
+        pidEsq.setSetpoint(lastSetpoint.w_esq);
+        motorSetWheelEsq(pidEsq.update(measuredEsq, dt_s));
+      }
 
-      const float uEsq = pidEsq.update(measuredEsq, dt_s);
-      const float uDir = pidDir.update(measuredDir, dt_s);
+      if (lastSetpoint.w_dir == 0.0f) {
+        pidDir.reset();
+        motorSetWheelDir(0.0f);
+      } else {
+        pidDir.setSetpoint(lastSetpoint.w_dir);
+        motorSetWheelDir(pidDir.update(measuredDir, dt_s));
+      }
 
-      motorSetWheelEsq(uEsq);
-      motorSetWheelDir(uDir);
       motorSetFork(lastSetpoint.garfo);
     }
   }
