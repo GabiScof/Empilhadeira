@@ -114,6 +114,10 @@ desenvolver a lógica do Pi** e calibrar ganhos iniciais — mas a sintonia PID 
 **O que faz:**
 - Calcula geometricamente quais tags estão no FOV a partir da pose do robô
 - Devolve `z_cm`, `x_cm`, `pitch_deg` no mesmo contrato que a câmera real
+  (convenção do projeto: `x_cm` positivo = tag à ESQUERDA; na câmera real o
+  frame óptico OpenCV tem x positivo = direita, e o `pose.py` **nega o x na
+  fronteira** — corrigido 2026-07-06, sem isso a navegação viraria para longe
+  da tag)
 - Suporta múltiplas tags (para fusão EKF multi-tag)
 - Adiciona ruído gaussiano configurável (posição ±0,2 cm, ângulo ±0,5°)
 - Simula FOV horizontal 60°, alcance 3–150 cm

@@ -136,7 +136,9 @@ Implementado em `RealVisionSource` (`tasks/vision_loop.py`).
 ### Fase A — Montagem elétrica (sem energizar motores)
 
 1. Conferir mapa de pinos em [`hardware-bring-up.md`](./hardware-bring-up.md)
-   (alinhado com `Testes_eletronica.ino`: ESQ=12/14/13, DIR=27/26/25, garfo=18/19/5,
+   (ESQ=27/26/25, DIR=12/14/13 — conferido na bancada 2026-07-06: os canais
+   A/B do L298n estavam trocados na fiação em relação ao rótulo M2/M3 do
+   `Testes_eletronica.ino`, remapeado por software no `config.h` —, garfo=18/19/5,
    ENC-ESQ=23/15 — refiado 2026-07-06, era 34/35 —, ENC-DIR=32/33).
 2. GND comum: fonte 12 V, L298n ×2, ESP32, Pi, MPU-6050.
 3. Remover jumpers ENA/ENB dos dois L298n.
@@ -161,8 +163,12 @@ pio device monitor -b 115200
 **Validar:**
 - [ ] Frames de sensores a ~20 Hz (JSON+CRC8)
 - [ ] Girar roda manualmente → `enc.esq`/`enc.dir` mudam de sinal
-- [ ] Inclinar chassi → `mpu.ax/ay/az` respondem
-- [ ] Enviar setpoint de teste via monitor (ou script) → motor responde
+- [ ] Inclinar chassi → `mpu.ax/ay/az` respondem. Parado, `|az| ≈ 9.8–11`;
+      no nosso chassi `az` é **negativo** (~-11, MPU montado com z para baixo) —
+      normal, o `GyroCalibrator` detecta eixo/sinal
+- [ ] Enviar setpoint de teste **um lado por vez** (`--w-esq X --w-dir 0`,
+      depois o inverso) → gira a roda certa, para frente. O teste conjunto
+      mascara canais A/B trocados (foi o caso da placa, corrigido 2026-07-06)
 - [ ] Desconectar serial → motores param em < 200 ms (watchdog)
 
 ### Fase C — Calibração mecânica

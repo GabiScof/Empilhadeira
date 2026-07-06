@@ -15,8 +15,22 @@ Estado consolidado (2026-07-03):
 - Calibração: `pi/calibracao/camera_intrinsics.json` ✅ — OpenCV, **640×480**,
   erro de reprojeção 0,144 px (fotos em `roboticaMengo/imagens/`)
 - Captura deve rodar em **640×480** (`CAMERA_FRAME_WIDTH/HEIGHT` no `.env`)
-- Pinagem firmware alinhada ao `Testes_eletronica.ino`; fim-de-curso desabilitado (-1)
-- Inversões: `MOTOR_ESQ_INV=true` já compensa a roda esquerda invertida da placa
+- Pinagem firmware conferida na bancada; fim-de-curso desabilitado (-1)
+- **2026-07-06: canais dos MOTORES estavam trocados na fiação** (canal A
+  12/14/13 aciona a roda DIREITA; canal B 27/26/25 a ESQUERDA — o inverso do
+  rótulo M2/M3 do `Testes_eletronica.ino`). Remapeado por software no
+  `config.h`: `PIN_MOTOR_ESQ_*`=27/26/25 (`MOTOR_ESQ_INV=false`),
+  `PIN_MOTOR_DIR_*`=12/14/13 (`MOTOR_DIR_INV=true`). Sintoma que isso causava:
+  com as malhas PID cruzadas (cada PID lia uma roda e acionava a outra), uma
+  roda saturava no máximo e a outra morria, alternando aleatoriamente o lado
+  entre testes. **Lição: sempre testar um lado por vez** (`--w-esq X --w-dir 0`)
+  — o teste com as duas rodas juntas NÃO detecta canais trocados.
+- **2026-07-06: dois bugs de SINAL corrigidos no Pi** — (a) modo manual:
+  `joystick_to_twist` gerava ω invertido (joystick à direita virava à
+  esquerda); (b) visão real: o x do frame óptico OpenCV (positivo = direita) é
+  o OPOSTO da convenção do projeto (positivo = esquerda, a do simulador/nav) —
+  negado na fronteira em `pose.py`. Sem o fix (b), a autonomia viraria PARA
+  LONGE da tag. Validar (b) no 1.4 com a tag deslocada.
 - **2026-07-06: encoders FUNCIONANDO** (alimentação via GPIO 2 = VCC / GPIO 4 =
   GND, dirigidos pelo `encodersBegin()`; lados esq↔dir corrigidos no `config.h`:
   ESQ=23/15, DIR=32/33 — o esquerdo foi refiado no mesmo dia de 34/35 para
@@ -169,7 +183,9 @@ pio run -t upload       # travou em "Connecting..."? segurar o botão BOOT do ES
 ```bash
 pio device monitor -b 115200
 ```
-- **Esperado:** JSON a ~20 Hz com `az≈9.8` (MPU sente a gravidade).
+- **Esperado:** JSON a ~20 Hz com `|az|≈9.8–11` (MPU sente a gravidade). No
+  nosso chassi o MPU está montado com o eixo z para baixo → **`az` sai
+  NEGATIVO (~-11)** — é normal; o GyroCalibrator detecta eixo/sinal no boot.
 - **Testar (só o que NÃO depende do encoder):** [MÃO] inclinar o chassi →
   `ax/ay/az` mudam. **Pule** os checks de sinal/PPR do encoder (`enc.*` pode ficar 0).
 - **Se falhar:** lixo no monitor = baudrate errado; nada = TX/RX invertidos ou
@@ -186,8 +202,9 @@ python3 scripts/bench_setpoint.py --garfo subir --seconds 2
   `enc esq=... dir=... rad/s | mpu az=.. gz=..`. Em malha aberta com encoder
   morto o `enc` sai 0 — **normal**; o que importa é a roda girar.
 - **Testar:**
-  1. [MÃO] **As duas rodas giram para FRENTE** (`MOTOR_ESQ_INV=true` já compensa a
-     esquerda). Inverteu uma? Ajustar `MOTOR_*_INV` no `config.h` e regravar (A1).
+  1. [MÃO] **Um lado por vez** (`--w-esq 2 --w-dir 0` → só a esquerda; espelho
+     para a direita) e **para FRENTE**. Lado errado = canais do L298n trocados
+     (remapeados no `config.h` em 2026-07-06); sentido errado = `MOTOR_*_INV`.
   2. [MÃO] `--garfo subir` **sobe** (senão `FORK_INV=true`). **Soltar antes do fim
      do curso mecânico** (sem fim-de-curso montado).
   3. **Watchdog:** Ctrl-C com as rodas girando → param **< 200 ms**. Reprovou = pare.
@@ -303,7 +320,11 @@ cd ~/Empilhadeira/src && source .venv/bin/activate
 python3 scripts/bench_setpoint.py --w-esq 2 --w-dir 2 --seconds 5
 ```
 - **Esperado:** agora `enc esq/dir` impresso **≈ +2.0 rad/s** (o PID persegue o
-  setpoint). Ficou longe/oscilando → sintonia PID (item 3.1, Ziegler-Nichols).
+  setpoint), oscilando em degraus de ~0.44 rad/s (resolução da medida: x4 a
+  100 Hz). Ficou longe/oscilando forte → sintonia PID (item 3.1, Ziegler-Nichols).
+- **Antes do teste conjunto, um lado por vez** (`--w-esq 2 --w-dir 0` → SÓ a
+  esquerda; espelho para a direita) — detecta canais trocados, que o teste
+  conjunto mascara (validado 2026-07-06).
 - **Testar:** Ctrl-C com rodas girando → param **< 200 ms** (watchdog, agora com PID ativo).
 
 ### B4 [PI]/[MAC]/[CEL] — Subir o stack e revalidar MANUAL com malha fechada
@@ -340,7 +361,7 @@ visão confere com a fita → **libera a FASE 3**.
 
 ### 1.1 Fiação (fonte DESLIGADA)
 
-Pinos: ESQ 12/14/13 · DIR 27/26/25 · Garfo 18/19/5 · ENC-E 23/15 (refiado 2026-07-06, era 34/35) · ENC-D 32/33 · I2C 21/22.
+Pinos (config.h, conferidos 2026-07-06): ESQ 27/26/25 (canal B) · DIR 12/14/13 (canal A) · Garfo 18/19/5 · ENC-E 23/15 (refiado, era 34/35) · ENC-D 32/33 · I2C 21/22.
 
 - [ ] **Sem pull-up externo nos encoders** — 23/15 e 32/33 têm pull-up interno (`INPUT_PULLUP`); 34/35 ficaram livres (se reutilizados, aí sim exigem 10 kΩ → 3V3)
 - [ ] **Nenhum pull-up no GPIO 12** (strapping — ESP32 não sobe/não grava se HIGH no boot)
@@ -359,7 +380,8 @@ pio run -t upload                     # se travar em "Connecting...", segurar o 
 pio device monitor -b 115200
 ```
 
-**Esperado:** JSON @ ~20 Hz com `az≈9.8` no MPU.
+**Esperado:** JSON @ ~20 Hz com `|az|≈9.8–11` no MPU (no nosso chassi o z
+aponta para baixo → `az` NEGATIVO ~-11, normal).
 
 Checks de sensor (na mão, sem motor):
 1. Girar cada roda **para frente** → `enc.esq`/`enc.dir` **positivos**.
@@ -384,9 +406,16 @@ python3 scripts/bench_setpoint.py --garfo subir --seconds 2     # garfo
 
 (`--port /dev/ttyACM0` se for a porta anotada na Fase 0.)
 
-1. **As duas rodas giram para FRENTE** (ESQ já compensada com `MOTOR_ESQ_INV=true`;
-   se alguma inverter, ajustar o flag e regravar).
-2. `enc.*` impresso ≈ +2.0 rad/s (fecha o ciclo comando→motor→encoder).
+1. **UM LADO POR VEZ primeiro** (lição de 2026-07-06 — o teste conjunto não
+   detecta canais trocados): `--w-esq 2 --w-dir 0` → SÓ a roda **esquerda**
+   gira, para **frente**; depois `--w-esq 0 --w-dir 2` → só a **direita**.
+   Roda do lado errado girar = canais do L298n trocados → remapear
+   `PIN_MOTOR_*` no `config.h` (já mapeado; regressão só se refizerem fios).
+   Girar para trás = ajustar o `MOTOR_*_INV` daquele canal.
+2. Juntas: as duas para FRENTE e `enc.*` impresso ≈ +2.0 rad/s, subindo em
+   degraus de ~0.44 (resolução x4 a 100 Hz) — fecha o ciclo
+   comando→motor→encoder. **Sintoma de canais cruzados:** uma roda satura e a
+   outra morre, alternando o lado entre execuções → voltar ao item 1.
 3. `--garfo subir` sobe (senão `FORK_INV=true`). **Soltar antes do fim do curso mecânico.**
 4. **Watchdog:** Ctrl-C com rodas girando → param **< 200 ms**. Reprovou = não avance.
 
@@ -410,6 +439,15 @@ Validações com fita métrica:
 3. Anotar a distância máxima de detecção (< ~1,5 m compromete tags distantes).
 4. Medir a tag impressa com paquímetro — mapa declara `tag_size_m: 0.05`;
    se diferente, corrigir no mapa E em `APRILTAG_SIZE_CM`.
+5. **Sinal do x_cm** (convenção do projeto = a do simulador): tag deslocada à
+   **ESQUERDA** do centro da imagem → `x_cm` **POSITIVO** (o `pose.py` nega o
+   x do frame OpenCV desde 2026-07-06; se vier negativo, a negação se perdeu —
+   sem ela a autonomia vira PARA LONGE da tag).
+6. **Sinal do pitch_deg**: girar a tag no eixo vertical (borda esquerda para
+   perto da câmera, depois a direita) → o `pitch_deg` deve trocar de sinal de
+   forma consistente. Anotar a convenção observada e conferir contra o FACE no
+   3.2 — a extração de Euler da câmera real ainda não foi validada contra o
+   simulador.
 
 ### 1.5 Backend no Pi + frontend (conforme a topologia da Fase 0)
 
@@ -482,7 +520,9 @@ Robô mexendo no boot = calibração adiada até a primeira parada.
 |---|---|---|
 | Frente devagar | Anda **reto** | Vira no lugar = inversão de um lado (voltar ao 1.3); curva suave = PPR/raio desigual — anotar p/ Fase 3 |
 | Ré | Reto para trás | idem |
+| Joystick à **direita** | Gira à **DIREITA** (e à esquerda p/ esquerda) | Invertido = regressão do sinal do ω em `joystick_to_twist` (corrigido 2026-07-06: ω = -x; convenção ω positivo = anti-horário) |
 | Giro no lugar | Gira sem transladar | cinemática/wheelbase — anotar |
+| Giro anti-horário | Heading da telemetria **aumenta** (θ anti-horário positivo) | sinal do gyro/odometria — conferir GyroCalibrator e convenção antes do EKF (3.4) |
 | Parado | Heading da telemetria **estável** | gyro não calibrou (2.0) |
 
 ### 2.2 Garfo com carga
@@ -516,6 +556,9 @@ visão confere com fita.
 ### 3.2 Primeira autonomia: aproximação reativa (1 tag, arena aberta)
 Robô a ~60 cm da tag, alinhado, fora do corredor. 1 clique em AUTOMATICO:
 - `nav_phase` percorre APPROACH→FACE→RETREAT; para a **15 ± 2 cm** (fita).
+- **Vira PARA LONGE da tag** = sinal do `x_cm` (check 5 do 1.4 — negação do x
+  do OpenCV em `pose.py`) ou do `pitch_deg` (check 6). Interromper e conferir
+  os sinais antes de mexer em ganho.
 - Sistematicamente longe/perto = escala da calibração (1.4) ou `TAG_STANDOFF_M`.
 - Oscila/serpenteia = reduzir `NAV_K_HEADING`; lento demais = subir `NAV_K_DIST`.
 Repetir com offset lateral 10–20 cm e heading ±15° (cenários que o sim passou 9/9).

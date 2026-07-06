@@ -203,8 +203,12 @@ Fonte de verdade: [`serial-protocol.md`](./serial-protocol.md). Espelhados em 3 
 **Transporte:** mesmo framing (JSON + CRC8 + `\n`), enviado a 20 Hz pelo ESP
 
 ```json
-{"enc":{"esq":0.0,"dir":0.0},"mpu":{"ax":0,"ay":9.8,"az":0,"gx":0,"gy":0,"gz":0,"temp_c":25},"bms":null}
+{"enc":{"esq":0.0,"dir":0.0},"mpu":{"ax":0,"ay":0,"az":-11,"gx":0,"gy":0,"gz":0,"temp_c":25},"bms":null}
 ```
+
+> Parado, `|az| ≈ 9.8–11`. No nosso chassi o MPU está montado com o eixo z
+> para BAIXO, então `az` sai **negativo** (~-11) — normal; o `GyroCalibrator`
+> detecta eixo e sinal automaticamente.
 
 | Campo | Tipo | Unidade | Descrição |
 |-------|------|---------|-----------|
@@ -642,7 +646,7 @@ SAÍDA:    state.update_setpoint(Setpoint) → vai para Serial Loop → ESP32
 
 | Função | Entrada | Saída | Fórmula |
 |--------|---------|-------|---------|
-| `joystick_to_twist(x, y)` | x∈[-1,1], y∈[-1,1] | `(v, ω)` cm/s, rad/s | `v = y × MAX_V`, `ω = x × MAX_ω`, com saturação |
+| `joystick_to_twist(x, y)` | x∈[-1,1], y∈[-1,1] | `(v, ω)` cm/s, rad/s | `v = y × MAX_V`, `ω = -x × MAX_ω`, com saturação (sinal corrigido 2026-07-06: ω positivo = anti-horário/esquerda, então joystick à DIREITA gera ω negativo — antes virava para o lado errado) |
 | `twist_to_wheel_speeds(v, ω)` | v cm/s, ω rad/s | `(w_esq, w_dir)` rad/s | `w = (v ± ω·L/2) / r` |
 | `wheel_speeds_to_twist(w_esq, w_dir)` | w_esq, w_dir rad/s | `(v, ω)` cm/s, rad/s | Inversa |
 
@@ -1075,6 +1079,12 @@ SAÍDA 2:  list[TagObservation] (todas as tags: z_m, x_m, yaw_rad, quality)
 
 **Detalhe importante:** aplica `CAMERA_TO_FORK_OFFSET_CM` em x/z para compensar a posição relativa da câmera ao garfo.
 
+**Sinal do x (corrigido 2026-07-06):** o frame óptico OpenCV/AprilTag tem x
+positivo = tag à DIREITA, o oposto da convenção do projeto/simulador
+(`x_cm` positivo = tag à ESQUERDA). `pose.py` **nega o x na fronteira** —
+sem isso a navegação autônoma viraria para longe da tag. Validar no robô:
+tag deslocada à esquerda da câmera → `x_cm` positivo.
+
 **No real, definir:**
 1. **`CAMERA_TO_FORK_OFFSET_CM`** — offset da câmera ao ponto de referência
 2. **Convenção yaw** — a implementação usa pitch como proxy para yaw no plano (funciona para tag na parede). Validar com câmera real.
@@ -1165,15 +1175,15 @@ firmware/src/
 
 | Função | GPIO | Tipo | Observação |
 |--------|------|------|------------|
-| Motor esq IN1 | 16 | OUTPUT | Direção A |
-| Motor esq IN2 | 17 | OUTPUT | Direção B |
-| Motor esq PWM | 4 | LEDC | Canal 0, 20kHz, 8 bits |
-| Motor dir IN1 | 18 | OUTPUT | Direção A |
-| Motor dir IN2 | 19 | OUTPUT | Direção B |
+| Motor esq IN1 | 27 | OUTPUT | L298n #1 canal B (conferido na bancada 2026-07-06: canais A/B trocados na fiação, remapeado por software) |
+| Motor esq IN2 | 26 | OUTPUT | L298n #1 canal B |
+| Motor esq PWM | 25 | LEDC | Canal 0, 20kHz, 8 bits |
+| Motor dir IN1 | 12 | OUTPUT | L298n #1 canal A (strapping — LOW no boot) |
+| Motor dir IN2 | 14 | OUTPUT | L298n #1 canal A |
 | Motor dir PWM | 13 | LEDC | Canal 1 |
-| Garfo IN1 | 25 | OUTPUT | — |
-| Garfo IN2 | 26 | OUTPUT | — |
-| Garfo PWM | 27 | LEDC | Canal 2 |
+| Garfo IN1 | 18 | OUTPUT | L298n #2 |
+| Garfo IN2 | 19 | OUTPUT | L298n #2 |
+| Garfo PWM | 5 | LEDC | Canal 2 |
 | Fim-curso topo | -1 | — | Desabilitado (chave não montada) |
 | Fim-curso base | -1 | — | Desabilitado (chave não montada; GPIO 15 agora é o encoder esq B) |
 | Encoder esq A | 23 | INPUT_PULLUP | ISR CHANGE (decodificação x4) — refiado 2026-07-06 |
@@ -1259,7 +1269,9 @@ SAÍDA:    sinais GPIO (direção) + duty PWM (velocidade)
 **Por que L298n?** Driver H-bridge simples e barato; suporta até 2A por canal; controle bidirecional com 2 pinos de direção + 1 PWM.
 
 **No real, definir:**
-1. Verificar que motores giram na direção esperada (trocar IN1/IN2 se invertido)
+1. Verificar que motores giram na direção esperada — **validado 2026-07-06**
+   (`MOTOR_ESQ_INV=false`, `MOTOR_DIR_INV=true`; testar sempre UM lado por vez —
+   o teste conjunto mascara canais A/B trocados)
 2. Verificar se `FORK_DUTY=180` é suficiente para subir o garfo com pallet
 
 ### Encoders — `encoders.h/cpp`

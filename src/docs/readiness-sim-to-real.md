@@ -234,12 +234,14 @@ loop() @ ~loop rate
 
 Documentado em [`hardware-bring-up.md`](./hardware-bring-up.md). Resumo:
 
-Alinhado com `Testes_eletronica.ino` (fonte da verdade da placa real):
+Alinhado com a placa real (conferida na bancada 2026-07-06 — os canais A/B dos
+motores estavam trocados em relação ao rótulo M2/M3 do `Testes_eletronica.ino`,
+remapeados por software no `config.h`):
 
 | Função | GPIO |
 |--------|------|
-| Motor esq IN1/IN2/PWM | 12, 14, 13 (M2) |
-| Motor dir IN1/IN2/PWM | 27, 26, 25 (M3) |
+| Motor esq IN1/IN2/PWM | 27, 26, 25 (canal B — era M3) |
+| Motor dir IN1/IN2/PWM | 12, 14, 13 (canal A — era M2) |
 | Garfo IN1/IN2/PWM | 18, 19, 5 (M1) |
 | Encoder esq A/B | 23, 15 (refiado 2026-07-06 — era 34/35) |
 | Encoder dir A/B | 32, 33 (ENC1) |
@@ -324,10 +326,14 @@ Framing: `{"w_esq":1.5,"w_dir":1.5,"garfo":"parar"}*a3\n`
 ```json
 {
   "enc":{"esq":0.0,"dir":0.0},
-  "mpu":{"ax":0,"ay":0,"az":9.8,"gx":0,"gy":0,"gz":0,"temp_c":25},
+  "mpu":{"ax":0,"ay":0,"az":-11,"gx":0,"gy":0,"gz":0,"temp_c":25},
   "bms":null
 }
 ```
+
+> Parado, `|az| ≈ 9.8–11`. No nosso chassi o MPU está montado com o eixo z para
+> BAIXO — `az` sai **negativo** (~-11), normal; o `GyroCalibrator` detecta
+> eixo/sinal.
 
 | Camada | Encode | Decode |
 |--------|--------|--------|

@@ -39,10 +39,14 @@ def test_joystick_full_forward():
 
 
 def test_joystick_full_right():
-    """Joystick todo para a direita (1,0) → ω=MAX_ANGULAR."""
+    """Joystick todo para a direita (1,0) → ω=-MAX_ANGULAR.
+
+    ω positivo = anti-horário (esquerda); virar à direita = ω negativo.
+    Sinal validado na bancada em 2026-07-06 (modo manual virava invertido).
+    """
     v, omega = joystick_to_twist(1.0, 0.0)
     assert abs(v) < 1e-6
-    assert abs(omega - config.MAX_ANGULAR_SPEED) < 1e-6
+    assert abs(omega + config.MAX_ANGULAR_SPEED) < 1e-6
 
 
 def test_joystick_saturation():

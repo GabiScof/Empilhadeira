@@ -66,12 +66,12 @@ Os nomes entre colchetes são os defines equivalentes naquele firmware de teste.
 
 | Função              | GPIO | Dir     | Destino no Hardware          | Observação                     |
 |---------------------|------|---------|------------------------------|--------------------------------|
-| Motor Esq IN1       | 12   | OUTPUT  | L298n #1 IN1 (canal A)      | [M2_IN1] ⚠️ strapping — LOW no boot, sem pull-up externo |
-| Motor Esq IN2       | 14   | OUTPUT  | L298n #1 IN2 (canal A)      | [M2_IN2]                       |
-| Motor Esq PWM       | 13   | OUTPUT  | L298n #1 ENA (canal A)      | [M2_EN] LEDC ch0, 20 kHz, 8 bits |
-| Motor Dir IN1       | 27   | OUTPUT  | L298n #1 IN3 (canal B)      | [M3_IN1]                       |
-| Motor Dir IN2       | 26   | OUTPUT  | L298n #1 IN4 (canal B)      | [M3_IN2]                       |
-| Motor Dir PWM       | 25   | OUTPUT  | L298n #1 ENB (canal B)      | [M3_EN] LEDC ch1, 20 kHz, 8 bits |
+| Motor Esq IN1       | 27   | OUTPUT  | L298n #1 IN3 (canal B)      | [era M3_IN1] canais trocados na fiação — ver nota abaixo |
+| Motor Esq IN2       | 26   | OUTPUT  | L298n #1 IN4 (canal B)      | [era M3_IN2]                   |
+| Motor Esq PWM       | 25   | OUTPUT  | L298n #1 ENB (canal B)      | [era M3_EN] LEDC ch0, 20 kHz, 8 bits |
+| Motor Dir IN1       | 12   | OUTPUT  | L298n #1 IN1 (canal A)      | [era M2_IN1] ⚠️ strapping — LOW no boot, sem pull-up externo |
+| Motor Dir IN2       | 14   | OUTPUT  | L298n #1 IN2 (canal A)      | [era M2_IN2]                   |
+| Motor Dir PWM       | 13   | OUTPUT  | L298n #1 ENA (canal A)      | [era M2_EN] LEDC ch1, 20 kHz, 8 bits |
 | Fork IN1            | 18   | OUTPUT  | L298n #2 IN1               | [M1_IN1]                       |
 | Fork IN2            | 19   | OUTPUT  | L298n #2 IN2               | [M1_IN2]                       |
 | Fork PWM            | 5    | OUTPUT  | L298n #2 ENA               | [M1_EN] LEDC ch2, 20 kHz, 8 bits |
@@ -83,6 +83,13 @@ Os nomes entre colchetes são os defines equivalentes naquele firmware de teste.
 | Fork Limit Bottom   | -1   | —       | (chave não montada)         | **Desabilitado** — nunca bloqueia |
 | I2C SDA             | 21   | I2C     | MPU-6050 SDA               | Padrão ESP32                   |
 | I2C SCL             | 22   | I2C     | MPU-6050 SCL               | Padrão ESP32                   |
+
+> **Canais dos motores (conferido na bancada 2026-07-06):** na fiação real o
+> canal A do L298n (12/14/13) aciona a roda **DIREITA** e o canal B (27/26/25)
+> a **ESQUERDA** — o inverso do rótulo M2/M3 do `Testes_eletronica.ino`.
+> Remapeado por software no `config.h` (`PIN_MOTOR_ESQ_*`=27/26/25 com
+> `MOTOR_ESQ_INV=false`; `PIN_MOTOR_DIR_*`=12/14/13 com `MOTOR_DIR_INV=true`),
+> validado com `bench_setpoint` um lado por vez.
 
 `INPUT↑` = INPUT_PULLUP (resistor interno de ~45 kΩ). Todos os pinos de
 encoder atuais (23/15 e 32/33) têm pull-up interno — nenhum pull-up externo
@@ -97,7 +104,7 @@ nas bordas; foi movido para 23/15.)
 | 0        | Strapping pin (flash mode se LOW no boot) — não usado    |
 | 2        | Strapping pin (pode entrar em flash mode) — não usado    |
 | 6-11     | Conectados ao flash SPI interno — **nunca usar**         |
-| 12       | Strapping (tensão do flash). **Usado como ESQ IN1** — funciona porque IN1 idle=LOW; **não** adicionar pull-up externo |
+| 12       | Strapping (tensão do flash). **Usado como DIR IN1** (canal A; era rotulado ESQ até 2026-07-06) — funciona porque IN1 idle=LOW; **não** adicionar pull-up externo |
 | 15       | Strapping (MTDO). **Usado como Encoder Esq B** — se LOW no boot, apenas silencia as mensagens de boot da ROM; inofensivo |
 | 34-39    | Input-only **sem pullup interno**. **34/35 estão LIVRES** (refiado 2026-07-06 — o encoder esquerdo saiu deles); se reutilizar, lembrar do pull-up externo |
 
@@ -119,9 +126,13 @@ L298n VCC (12V)  ── Fonte 12V
 L298n GND        ── GND comum (ESP32 + fonte)
 L298n 5V out     ── NÃO usar para alimentar ESP32 (usar USB ou reg. externo)
 
-Motor Esq (+/-) ─── L298n OUT1/OUT2
-Motor Dir (+/-) ─── L298n OUT3/OUT4
+Motor Dir (+/-) ─── L298n OUT1/OUT2 (canal A)
+Motor Esq (+/-) ─── L298n OUT3/OUT4 (canal B)
 ```
+
+> **Conferido na bancada 2026-07-06:** o canal A aciona a roda DIREITA e o
+> canal B a ESQUERDA (fiação real, inverso do rótulo M2/M3). O `config.h` já
+> remapeia por software — não trocar fios sem atualizar o mapa de pinos.
 
 **IMPORTANTE**: Remover os jumpers de ENA e ENB do módulo L298n! Esses jumpers
 forçam 5V constante no enable, desabilitando o controle PWM. Com o jumper
@@ -327,8 +338,12 @@ pio device monitor
 Mostra os frames de sensores que o ESP32 envia a 20 Hz. Exemplo:
 
 ```
-{"enc":{"esq":0.00,"dir":0.00},"mpu":{"ax":0.12,"ay":-0.03,"az":9.78,"gx":0.01,"gy":-0.02,"gz":0.00,"temp_c":25.4},"bms":null}*a3
+{"enc":{"esq":0.00,"dir":0.00},"mpu":{"ax":0.12,"ay":-0.03,"az":-10.95,"gx":0.01,"gy":-0.02,"gz":0.00,"temp_c":25.4},"bms":null}*a3
 ```
+
+> Parado, espere `|az| ≈ 9.8–11`. No nosso chassi o MPU está montado com o
+> eixo z para BAIXO, então `az` sai **negativo** (~-11) — é normal; o
+> `GyroCalibrator` do Pi detecta eixo e sinal sozinho.
 
 ### Atalho: compilar + gravar + monitor
 
@@ -387,10 +402,17 @@ cd src/firmware && pio run
 
 ### Teste 5: Direção dos motores
 
-1. Enviar setpoint com `w_esq = 3.0, w_dir = 0.0` → roda esquerda gira para frente.
-2. Se girar para trás: trocar `PIN_MOTOR_ESQ_IN1 ↔ PIN_MOTOR_ESQ_IN2` em `config.h`.
-3. Repetir para roda direita.
+1. Enviar setpoint com `w_esq = 3.0, w_dir = 0.0` → **somente** a roda esquerda
+   gira, para frente. Se a roda DIREITA girar, os canais A/B estão trocados em
+   relação ao mapa de pinos (foi exatamente o caso da placa real, corrigido por
+   software em 2026-07-06 — ver §2).
+2. Se girar para trás: inverter o `MOTOR_ESQ_INV` em `config.h`.
+3. Repetir para roda direita (`w_esq = 0.0, w_dir = 3.0`).
 4. Enviar `w_esq = 3.0, w_dir = 3.0` → robô anda para frente em linha reta.
+
+> **Sempre validar UM lado por vez.** Com os canais trocados e as malhas PID
+> cruzadas, o teste conjunto mascara o problema: uma roda satura no máximo, a
+> outra morre, e o lado afetado muda aleatoriamente entre execuções.
 
 ### Teste 6: PID tuning
 
@@ -448,7 +470,17 @@ Serial.println(error);  // 0 = OK, 2 = NACK
 
 ### Motor gira no sentido errado
 
-Trocar IN1 ↔ IN2 em `config.h` para o motor afetado. Recompilar e gravar.
+Inverter o `MOTOR_*_INV` (ou trocar IN1 ↔ IN2) em `config.h` para o motor
+afetado. Recompilar e gravar.
+
+### Uma roda satura no máximo e a outra morre (lado muda entre execuções)
+
+Sintoma clássico de **canais A/B trocados** (mapa de pinos não bate com a
+fiação): cada PID lê o encoder de uma roda mas aciona o motor da outra — as
+malhas cruzadas divergem. Foi o caso da placa real, corrigido por software no
+`config.h` em 2026-07-06. Diagnóstico: comandar UM lado por vez
+(`--w-esq X --w-dir 0`) e conferir qual roda gira; o teste conjunto mascara
+o problema.
 
 ### Encoder lê zero mesmo com motor girando
 
@@ -493,7 +525,7 @@ Itens que podem precisar de ajuste após testes com o hardware real:
 |------|------|--------|
 | Tensão dos encoders NXT (3.3V ou 5V?) | Fiação / level shifter | **Verificar com multímetro** |
 | ENCODER_PPR = 1440 correto? | `config.h` | **Validado 2026-07-06** (1 volta ≈ 1440; 10 voltas ≈ 14400) |
-| Sentido dos motores (IN1/IN2) | `config.h` | **Definir no primeiro teste** |
+| Sentido dos motores (IN1/IN2) | `config.h` | **Validado 2026-07-06** — canais A/B remapeados (ESQ=27/26/25, DIR=12/14/13) com `MOTOR_ESQ_INV=false`/`MOTOR_DIR_INV=true` |
 | Ganhos PID (Kp=20, Ki=5, Kd=1) | `config.h` | **Sintonizar com Ziegler-Nichols** |
 | FORK_DUTY = 180 adequado? | `config.h` | **Testar com carga real** |
 | Tipo dos switches (NO ou NC?) | `config.h` (`FORK_LIMIT_ACTIVE_LEVEL`) | **Confirmar na montagem** |

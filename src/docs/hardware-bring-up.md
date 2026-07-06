@@ -33,12 +33,18 @@ Fonte: `firmware/src/config.h` (ESP32 DevKit V1, 30 pinos).
 
 | Função | GPIO | Destino |
 |--------|------|---------|
-| Motor Esq IN1 | 12 | L298n IN1 (canal A) [M2_IN1] |
-| Motor Esq IN2 | 14 | L298n IN2 (canal A) [M2_IN2] |
-| Motor Esq PWM | 13 | L298n ENA (canal A) — LEDC ch0 [M2_EN] |
-| Motor Dir IN1 | 27 | L298n IN3 (canal B) [M3_IN1] |
-| Motor Dir IN2 | 26 | L298n IN4 (canal B) [M3_IN2] |
-| Motor Dir PWM | 25 | L298n ENB (canal B) — LEDC ch1 [M3_EN] |
+| Motor Esq IN1 | 27 | L298n IN3 (canal B) [era M3_IN1] |
+| Motor Esq IN2 | 26 | L298n IN4 (canal B) [era M3_IN2] |
+| Motor Esq PWM | 25 | L298n ENB (canal B) — LEDC ch0 [era M3_EN] |
+| Motor Dir IN1 | 12 | L298n IN1 (canal A) [era M2_IN1] |
+| Motor Dir IN2 | 14 | L298n IN2 (canal A) [era M2_IN2] |
+| Motor Dir PWM | 13 | L298n ENA (canal A) — LEDC ch1 [era M2_EN] |
+
+> **Conferido na bancada 2026-07-06:** na fiação real o canal A (12/14/13)
+> aciona a roda **DIREITA** e o canal B (27/26/25) a **ESQUERDA** — inverso do
+> rótulo M2/M3 do `Testes_eletronica.ino`. Remapeado por software no `config.h`
+> (`MOTOR_ESQ_INV=false`, `MOTOR_DIR_INV=true`), validado com `bench_setpoint`
+> um lado por vez.
 
 ### Motor do Garfo — L298n #2
 
@@ -97,16 +103,18 @@ GPIOs que **não devem ser usados** ou exigem cuidado especial:
 | **0** | Strapping — LOW no boot entra em flash mode |
 | **2** | Strapping — pode afetar boot |
 | **6–11** | Flash SPI interno — **nunca usar** |
-| **12** | Strapping — altera tensão do flash. **USADO como ESQ IN1 [M2_IN1]**: precisa estar LOW no boot. Como IN1 fica LOW em repouso, funciona — mas **não colocar pull-up externo** nele |
+| **12** | Strapping — altera tensão do flash. **USADO como DIR IN1** (canal A; era rotulado ESQ/M2 até 2026-07-06): precisa estar LOW no boot. Como IN1 fica LOW em repouso, funciona — mas **não colocar pull-up externo** nele |
 | **34–39** | Input-only, **sem pullup interno**. **34/35 estão LIVRES** (refiado 2026-07-06 — o encoder esquerdo saiu deles); se reutilizar, pull-up externo 10 kΩ → 3V3 obrigatório |
 | **5** | Strapping (HIGH no boot). **USADO como PWM do garfo [M1_EN]** — LEDC só ativa depois do boot, ok |
 | **15** | Strapping (MTDO). **USADO como Encoder Esq B** — se LOW no boot, apenas silencia as mensagens de boot da ROM; inofensivo |
 
 Herdamos esses dois cuidados da placa real (`Testes_eletronica.ino`):
 
-1. **GPIO 12 (roda ESQ IN1)** é strapping pin — precisa estar LOW no boot ou a
-   seleção de tensão da flash falha. IN1 idle = LOW, então funciona; apenas
-   **nunca** adicionar pull-up externo nesse fio.
+1. **GPIO 12 (IN1 do canal A — hoje roda DIREITA)** é strapping pin — precisa
+   estar LOW no boot ou a seleção de tensão da flash falha. IN1 idle = LOW,
+   então funciona; apenas **nunca** adicionar pull-up externo nesse fio.
+   (Conferido na bancada 2026-07-06: o canal A aciona a roda direita, não a
+   esquerda como o rótulo M2 sugeria.)
 2. **GPIO 34/35 estão livres desde 2026-07-06.** São input-only sem pull-up
    interno — o `pinMode(INPUT_PULLUP)` neles é silenciosamente ignorado pelo
    hardware. Por isso o encoder esquerdo, que estava nesses pinos, sobrecontava
@@ -307,7 +315,7 @@ python -m app.main
 | Parâmetro | Onde | Como validar |
 |-----------|------|--------------|
 | `ENCODER_PPR = 1440` | `firmware/config.h` | 1 volta manual → ~1440 contagens no monitor (10 voltas → ~14400); 360 ciclos × 4 da decodificação x4 — validado 2026-07-06 |
-| Sentido dos motores | `config.h` (`MOTOR_ESQ_INV=true`, `MOTOR_DIR_INV`, `FORK_INV`) | Setpoint positivo → as DUAS rodas para frente; "subir" sobe o garfo. ESQ já vem invertida (herdado de `M2_INV` no Testes_eletronica.ino) |
+| Sentido dos motores | `config.h` (`MOTOR_ESQ_INV=false`, `MOTOR_DIR_INV=true`, `FORK_INV`) | Setpoint positivo → as DUAS rodas para frente; "subir" sobe o garfo. Validado na bancada 2026-07-06 **um lado por vez** (`bench_setpoint --w-esq X --w-dir 0`) — o teste conjunto mascara canais A/B trocados (com as malhas PID cruzadas, uma roda satura e a outra morre, alternando o lado) |
 | Sinal dos encoders | `config.h` (`ENC_ESQ_INV=true`, `ENC_DIR_INV=true`) | Roda para frente → ω positivo no monitor. Se negativo, inverter o flag (crítico: sinal errado faz o PID divergir). Validado na bancada 2026-07-06 com a decodificação x4 |
 | Level shifter | Fiação | Osciloscópio/multímetro ≤ 3,3 V nos GPIOs |
 

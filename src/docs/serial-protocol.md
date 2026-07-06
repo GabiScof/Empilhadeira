@@ -76,7 +76,7 @@ Exemplo (ilustrativo, CRC fictício):
 | Campo         | Tipo   | Unidade | Faixa        | Obrig. | Notas                                  |
 |---------------|--------|---------|--------------|--------|----------------------------------------|
 | `modo`        | enum   | —       | ver acima    | sim    | Estado desejado pelo operador.         |
-| `joystick.x`  | float  | —       | [-1, 1]      | sim    | Giro (ω). Ignorado fora de MANUAL.     |
+| `joystick.x`  | float  | —       | [-1, 1]      | sim    | Giro (ω): x>0 (direita) → ω **negativo** (horário); ω positivo = anti-horário (`joystick_to_twist` faz ω = -x, corrigido 2026-07-06). Ignorado fora de MANUAL. |
 | `joystick.y`  | float  | —       | [-1, 1]      | sim    | Avanço (v). Ignorado fora de MANUAL.   |
 | `garfo`       | enum   | —       | subir/descer/parar | sim | Canal independente; vale nos dois modos. **Sempre manual** — ver nota abaixo.|
 | `ts_ms`       | int    | ms      | ≥ 0          | sim    | Usado para watchdog de comando no Pi.  |
@@ -117,7 +117,7 @@ Exemplo (ilustrativo, CRC fictício):
 | `visao.detectado`   | bool        | —       | —         | sim    | Há tag no FOV?                         |
 | `visao.id`          | int \| null | —       | —         | sim    | ID da AprilTag ou null.                |
 | `visao.z_cm`        | float\|null | cm      | —         | sim    | Distância ao alvo ou null.             |
-| `visao.x_cm`        | float\|null | cm      | —         | sim    | Deslocamento lateral ou null.          |
+| `visao.x_cm`        | float\|null | cm      | —         | sim    | Deslocamento lateral ou null. Positivo = tag à **ESQUERDA** (o `pose.py` nega o x do frame óptico OpenCV na fronteira — corrigido 2026-07-06). |
 | `visao.pitch_deg`   | float\|null | graus   | —         | sim    | Orientação relativa da tag ou null.    |
 | `bateria.cel`       | float\|null | V?      | —         | sim    | Tensão de célula; null sem leitura.    |
 | `bateria.i_a`       | float\|null | A       | —         | sim    | Corrente; null sem leitura.            |

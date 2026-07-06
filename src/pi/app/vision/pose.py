@@ -64,7 +64,12 @@ def estimate_vision_state(detections: list[Any]) -> VisionState:
     x_m, _y_m, z_m = pose_t
     _roll_deg, pitch_deg, _yaw_deg = rotation_matrix_to_euler_angles(pose_r)
 
-    x_cm = float(x_m * 100.0)
+    # Frame óptico da câmera (OpenCV/AprilTag): x positivo = tag à DIREITA.
+    # Convenção do projeto (synthetic_vision + navigation, ω anti-horário
+    # positivo): x_cm positivo = tag à ESQUERDA. Negamos aqui, na fronteira,
+    # para a navegação real virar EM DIREÇÃO à tag e não para longe dela.
+    # Validar no robô: tag deslocada à esquerda da câmera → x_cm positivo.
+    x_cm = float(-x_m * 100.0)
     z_cm = float(z_m * 100.0)
 
     if config.CAMERA_TO_FORK_OFFSET_CM is not None:
