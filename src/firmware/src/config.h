@@ -41,10 +41,11 @@
 // app/config.py (geometria/óptica não moram no firmware).
 //
 // ── Firmware (este arquivo) ────────────────────────────────────────────────
-//  1. [F] ENCODER_PPR .......... (atual 360)
+//  1. [F] ENCODER_PPR .......... (atual 1440 = 360 ciclos x4 da quadratura)
 //         COMO: gire a roda à mão EXATAMENTE 10 voltas completas e leia o total
-//         de pulsos contados; PPR = pulsos / 10. Confirma a leitura RISING-only
-//         da fase A. Atualizar aqui E o EMU_ENCODER_PPR no config.py.
+//         de pulsos contados; PPR = pulsos / 10. Com a decodificação x4
+//         (encoders.cpp) o esperado é ~14400 em 10 voltas. Atualizar aqui E o
+//         EMU_ENCODER_PPR no config.py.
 //
 //  2. [F] MOTOR_ESQ_INV / MOTOR_DIR_INV ... (sentido dos motores)
 //         COMO: enviar setpoint linear POSITIVO. As DUAS rodas devem girar para
@@ -224,18 +225,21 @@ constexpr int PIN_ENC_ESQ_B = 15;  // Encoder esquerdo, fase B (leitura sentido)
 constexpr int PIN_ENC_DIR_A = 32;  // Encoder direito, fase A (interrupcao)  [era ENC1_A]
 constexpr int PIN_ENC_DIR_B = 33;  // Encoder direito, fase B (leitura sentido)  [era ENC1_B]
 
-// Inversao de sinal dos encoders — [ENC1_INV/ENC2_INV false] no
-// Testes_eletronica.ino (que so conta pulsos, sem sentido). Validar na
-// bancada: roda girando para FRENTE deve reportar omega POSITIVO. Se vier
-// negativo (motor montado espelhado), trocar para true aqui.
+// Inversao de sinal dos encoders — VALIDADO NA BANCADA (2026-07-06), teste da
+// mao: roda para FRENTE reporta omega POSITIVO nos dois lados.
+//   ESQ: apos refiacao (A=23/B=15) e conserto do fio da fase B, sinal correto
+//        sem inversao.
+//   DIR: contava invertido de forma consistente → corrigido com true.
 constexpr bool ENC_ESQ_INV = false;
-constexpr bool ENC_DIR_INV = false;
+constexpr bool ENC_DIR_INV = true;
 
 // Pulsos por revolucao do eixo de saida do Lego NXT 53787.
-// O motor NXT reporta 360 ticks/rev na saida (apos reducao interna).
-// Com leitura RISING-only na fase A, equivale a 360 PPR.
-// Se a equipe medir um valor diferente, ajustar aqui.
-constexpr int ENCODER_PPR = 360;
+// O motor NXT reporta 360 ciclos de quadratura/rev na saida (apos reducao
+// interna) — confirmado na bancada com a leitura RISING-only antiga (~360).
+// Com a decodificacao COMPLETA x4 (CHANGE nas fases A e B, ver encoders.cpp),
+// cada ciclo gera 4 contagens: 360 x 4 = 1440 PPR.
+// Espelhar qualquer mudanca aqui no EMU_ENCODER_PPR do app/config.py (Pi).
+constexpr int ENCODER_PPR = 1440;
 
 // ---------------------------------------------------------------------------
 // Pinos — MPU-6050 (I2C via Wire)

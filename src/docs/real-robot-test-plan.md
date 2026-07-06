@@ -284,7 +284,7 @@ pio device monitor -b 115200
 ```
 - **Testar:**
   1. [MÃO] girar cada roda **para frente** → `enc.esq`/`enc.dir` **positivos**.
-     Negativo → `ENC_*_INV=true` no `config.h`, regravar (B1). Direito sempre
+     Negativo → `ENC_*_INV=true` no `config.h`, regravar (B1). Esquerdo sempre
      zero → pull-up do 1.1.
   2. [MÃO] **1 volta exata** → ~360 pulsos. Diferente → ajustar `ENCODER_PPR`
      (firmware) **e** `EMU_ENCODER_PPR` (pi/app/config.py). **Ctrl-C** ao fim.
@@ -332,9 +332,9 @@ visão confere com a fita → **libera a FASE 3**.
 
 ### 1.1 Fiação (fonte DESLIGADA)
 
-Pinos: ESQ 12/14/13 · DIR 27/26/25 · Garfo 18/19/5 · ENC-E 32/33 · ENC-D 34/35 · I2C 21/22.
+Pinos: ESQ 12/14/13 · DIR 27/26/25 · Garfo 18/19/5 · ENC-E 34/35 · ENC-D 32/33 · I2C 21/22.
 
-- [ ] **Pull-up 10 kΩ → 3V3 nos GPIO 34 e 35** (sem isso o encoder direito lê zero eternamente)
+- [ ] **Pull-up 10 kΩ → 3V3 nos GPIO 34 e 35** (sem isso o encoder esquerdo lê zero eternamente)
 - [ ] **Nenhum pull-up no GPIO 12** (strapping — ESP32 não sobe/não grava se HIGH no boot)
 - [ ] Jumpers ENA/ENB removidos dos dois L298n
 - [ ] GND comum em estrela (fonte, 2× L298n, ESP32, Pi, MPU)
@@ -346,7 +346,7 @@ Pinos: ESQ 12/14/13 · DIR 27/26/25 · Garfo 18/19/5 · ENC-E 32/33 · ENC-D 34/
 ```bash
 cd ~/Empilhadeira/src/firmware
 source ../.venv/bin/activate          # pio foi instalado no venv (Fase 0)
-pio run                               # 1ª vez demora (baixa toolchain) — tem que dar SUCCESS
+pio run                              # 1ª vez demora (baixa toolchain) — tem que dar SUCCESS
 pio run -t upload                     # se travar em "Connecting...", segurar o botão BOOT
 pio device monitor -b 115200
 ```
@@ -356,7 +356,7 @@ pio device monitor -b 115200
 Checks de sensor (na mão, sem motor):
 1. Girar cada roda **para frente** → `enc.esq`/`enc.dir` **positivos**.
    Negativo → `ENC_*_INV=true` em `config.h`, regravar.
-   Direito sempre zero → pull-up do 1.1.
+   Esquerdo sempre zero → pull-up do 1.1.
 2. 1 volta exata → ~360 pulsos (senão ajustar `ENCODER_PPR` nos dois configs).
 3. Inclinar o chassi → `ax/ay/az` mudam.
 

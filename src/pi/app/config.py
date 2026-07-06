@@ -177,8 +177,9 @@ EMU_FORK_SPEED: float = 2.0  # cm/s de deslocamento vertical — PROVISÓRIO —
 EMU_FORK_MIN_HEIGHT: float = 0.0  # cm
 EMU_FORK_MAX_HEIGHT: float = 10.0  # cm — PROVISÓRIO — TODO(equipe): confirmar
 
-# Encoder Lego NXT 53787
-EMU_ENCODER_PPR: int = 360
+# Encoder Lego NXT 53787 — 360 ciclos de quadratura/rev x4 (decodificação
+# completa nas fases A e B; espelha ENCODER_PPR do firmware/config.h)
+EMU_ENCODER_PPR: int = 1440
 
 # Watchdog de setpoint (espelha SETPOINT_TIMEOUT_MS do firmware)
 EMU_SETPOINT_TIMEOUT_MS: int = 200

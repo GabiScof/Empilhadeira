@@ -2,22 +2,29 @@
  * encoders.cpp — Leitura dos encoders de quadratura por interrupcao (ISR).
  *
  * Os motores Lego NXT (53787) possuem encoders de quadratura integrados com
- * duas fases (A e B). A estrategia de leitura:
+ * duas fases (A e B). Estrategia de leitura — decodificacao COMPLETA (x4):
  *
- *   1. Attach de interrupcao em RISING na fase A de cada encoder.
- *   2. Na ISR, leitura da fase B para determinar o sentido de rotacao:
- *      - B == LOW na borda de subida de A -> sentido positivo (frente).
- *      - B == HIGH na borda de subida de A -> sentido negativo (re).
- *   3. Um contador volatile acumula pulsos entre chamadas de leitura.
+ *   1. Attach de interrupcao em CHANGE nas DUAS fases (A e B) de cada encoder.
+ *   2. A ISR le o estado atual (A<<1)|B e consulta uma tabela de transicao
+ *      (estado anterior -> estado atual) que devolve -1, 0 ou +1:
+ *      - Sequencia 00->10->11->01->00 (A adianta B) -> sentido positivo.
+ *      - Sequencia inversa -> sentido negativo.
+ *      - Transicao invalida (pulo de 2 estados, ruido) -> 0 (ignorada).
+ *   3. Um contador volatile acumula os incrementos entre chamadas de leitura.
  *   4. A funcao de leitura (encoderReadEsq/Dir) calcula a velocidade angular
  *      em rad/s: omega = (pulsos / ENCODER_PPR) * 2*PI / dt_s.
  *
+ * A decodificacao x4 conta as 4 bordas de cada ciclo de quadratura: 4x mais
+ * resolucao que a leitura antiga (RISING-only em A) e rejeicao natural de
+ * ruido — bounce numa fase gera transicoes que se cancelam (+1/-1) em vez de
+ * acumular. ENCODER_PPR (config.h) = 1440 ja reflete o x4.
+ *
+ * CONVENCAO DE SINAL preservada da leitura antiga (validada na bancada em
+ * 2026-07-06): "A subindo com B em LOW" conta POSITIVO. Os flags ENC_*_INV
+ * validados continuam valendo.
+ *
  * O acesso ao contador e feito em secao critica (noInterrupts/interrupts)
  * para atomicidade na leitura + reset do acumulador.
- *
- * ENCODER_PPR (config.h) = 360 pulsos por revolucao completa do eixo de saida
- * do Lego NXT 53787 (ja considerando a reducao interna). Confirmar com o
- * motor real — se o valor medido for diferente, ajustar em config.h.
  *
  * Nota de engenharia [ref: Secao 4 da AGENTS.md]:
  *   A cinematica diferencial assume rodas sem escorregamento. Se a roda
@@ -37,28 +44,41 @@
 static volatile long pulses_esq = 0;
 static volatile long pulses_dir = 0;
 
+// Ultimo estado (A<<1)|B de cada encoder, para a tabela de transicao.
+static volatile uint8_t state_esq = 0;
+static volatile uint8_t state_dir = 0;
+
+// Tabela de transicao de quadratura, indexada por (estado_anterior<<2)|estado_atual.
+// Estados: (A<<1)|B. Sequencia positiva: 0->2->3->1->0 (A subindo com B LOW = +1,
+// mesma convencao da leitura antiga). Transicoes invalidas valem 0.
+// DRAM_ATTR: ISRs em IRAM nao podem depender de dados na flash (.rodata).
+DRAM_ATTR static const int8_t QDEC_LUT[16] = {
+    0, -1, +1, 0,   // de 00 para: 00, 01, 10, 11
+    +1, 0,  0, -1,  // de 01 para: 00, 01, 10, 11
+    -1, 0,  0, +1,  // de 10 para: 00, 01, 10, 11
+    0, +1, -1, 0,   // de 11 para: 00, 01, 10, 11
+};
+
 /**
- * ISR da fase A do encoder esquerdo.
+ * ISR compartilhada pelas fases A e B do encoder esquerdo (CHANGE em ambas).
  * IRAM_ATTR coloca a funcao na IRAM do ESP32 para execucao rapida em contexto
  * de interrupcao (requisito do framework Arduino-ESP32).
  */
-static void IRAM_ATTR isrEncoderEsqA() {
-  if (digitalRead(PIN_ENC_ESQ_B) == LOW) {
-    ++pulses_esq;
-  } else {
-    --pulses_esq;
-  }
+static void IRAM_ATTR isrEncoderEsq() {
+  const uint8_t s = (static_cast<uint8_t>(digitalRead(PIN_ENC_ESQ_A)) << 1) |
+                    static_cast<uint8_t>(digitalRead(PIN_ENC_ESQ_B));
+  pulses_esq += QDEC_LUT[(state_esq << 2) | s];
+  state_esq = s;
 }
 
 /**
- * ISR da fase A do encoder direito.
+ * ISR compartilhada pelas fases A e B do encoder direito.
  */
-static void IRAM_ATTR isrEncoderDirA() {
-  if (digitalRead(PIN_ENC_DIR_B) == LOW) {
-    ++pulses_dir;
-  } else {
-    --pulses_dir;
-  }
+static void IRAM_ATTR isrEncoderDir() {
+  const uint8_t s = (static_cast<uint8_t>(digitalRead(PIN_ENC_DIR_A)) << 1) |
+                    static_cast<uint8_t>(digitalRead(PIN_ENC_DIR_B));
+  pulses_dir += QDEC_LUT[(state_dir << 2) | s];
+  state_dir = s;
 }
 
 void encodersBegin() {
@@ -79,8 +99,18 @@ void encodersBegin() {
   pinMode(PIN_ENC_DIR_A, INPUT_PULLUP);
   pinMode(PIN_ENC_DIR_B, INPUT_PULLUP);
 
-  attachInterrupt(digitalPinToInterrupt(PIN_ENC_ESQ_A), isrEncoderEsqA, RISING);
-  attachInterrupt(digitalPinToInterrupt(PIN_ENC_DIR_A), isrEncoderDirA, RISING);
+  // Semear o estado inicial com a posicao real das fases ANTES de anexar as
+  // interrupcoes — senao a primeira transicao seria comparada contra 00
+  // arbitrario e poderia contar um pulso invalido.
+  state_esq = (static_cast<uint8_t>(digitalRead(PIN_ENC_ESQ_A)) << 1) |
+              static_cast<uint8_t>(digitalRead(PIN_ENC_ESQ_B));
+  state_dir = (static_cast<uint8_t>(digitalRead(PIN_ENC_DIR_A)) << 1) |
+              static_cast<uint8_t>(digitalRead(PIN_ENC_DIR_B));
+
+  attachInterrupt(digitalPinToInterrupt(PIN_ENC_ESQ_A), isrEncoderEsq, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(PIN_ENC_ESQ_B), isrEncoderEsq, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(PIN_ENC_DIR_A), isrEncoderDir, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(PIN_ENC_DIR_B), isrEncoderDir, CHANGE);
 
   pulses_esq = 0;
   pulses_dir = 0;
