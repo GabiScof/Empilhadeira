@@ -210,6 +210,27 @@ constexpr int PIN_FORK_LIMIT_BOTTOM = -1;  // Fim-de-curso inferior — sem chav
 constexpr int FORK_LIMIT_ACTIVE_LEVEL = 0;  // 0 = LOW; usar 1 (HIGH) p/ switch NC
 
 // ---------------------------------------------------------------------------
+// Alimentacao do encoder por GPIO (fiacao real da equipe)
+// ---------------------------------------------------------------------------
+// Os fios de alimentacao do encoder foram ligados em GPIOs em vez dos pinos
+// de energia da placa: GPIO 2 faz papel de VCC (OUTPUT HIGH = 3,3 V) e
+// GPIO 4 faz papel de GND (OUTPUT LOW). encodersBegin() os inicializa ANTES
+// de configurar as interrupcoes, para o encoder ja nascer energizado.
+//
+// LIMITES (importante):
+//   - Um GPIO do ESP32 fornece ~40 mA absolutos (~12 mA recomendado). Serve
+//     para encoder de baixo consumo; se alimentar OS DOIS encoders por aqui
+//     e a leitura ficar instavel/fraca, mover os fios para os pinos reais
+//     3V3/GND da placa e setar estes dois como -1.
+//   - GPIO 2 e strapping pin e aciona o LED onboard do DevKit V1: o LED vai
+//     acender junto (normal). Na GRAVACAO o pino precisa estar LOW/solto —
+//     a carga do encoder puxa para baixo, entao normalmente ok; se a gravacao
+//     falhar, desconectar temporariamente o fio do GPIO 2.
+// -1 = desabilitado (alimentacao vinda dos pinos de energia da placa).
+constexpr int PIN_ENC_POWER_VCC = 2;  // OUTPUT HIGH -> "VCC" do encoder
+constexpr int PIN_ENC_POWER_GND = 4;  // OUTPUT LOW  -> "GND" do encoder
+
+// ---------------------------------------------------------------------------
 // Pinos — Encoders de quadratura (Lego NXT 53787)
 // ---------------------------------------------------------------------------
 // GPIO 32/33: suportam interrupcao e INPUT_PULLUP interno.

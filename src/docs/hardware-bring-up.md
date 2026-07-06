@@ -56,6 +56,15 @@ Fonte: `firmware/src/config.h` (ESP32 DevKit V1, 30 pinos).
 | Encoder Esq B | 33 | Leitura de sentido [ENC1_B] |
 | Encoder Dir A | 34 | Interrupção RISING — **input-only, pull-up externo obrigatório** [ENC2_A] |
 | Encoder Dir B | 35 | Leitura de sentido — **input-only, pull-up externo obrigatório** [ENC2_B] |
+| "VCC" encoder | 2 | GPIO em OUTPUT HIGH (3,3 V) — `PIN_ENC_POWER_VCC`; LED onboard acende junto |
+| "GND" encoder | 4 | GPIO em OUTPUT LOW — `PIN_ENC_POWER_GND` |
+
+> **Alimentação por GPIO:** a fiação real usa GPIO 2/4 como trilhas de energia
+> do encoder; `encodersBegin()` os dirige no boot (HIGH/LOW). Limite ~40 mA por
+> pino — se os DOIS encoders alimentados por aí ficarem instáveis, mover para
+> os pinos reais 3V3/GND da placa e setar `PIN_ENC_POWER_* = -1` no `config.h`.
+> Se a **gravação** do firmware falhar, desconectar temporariamente o fio do
+> GPIO 2 (strapping pin).
 
 ### Fim-de-Curso do Garfo
 

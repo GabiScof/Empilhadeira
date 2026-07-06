@@ -62,6 +62,18 @@ static void IRAM_ATTR isrEncoderDirA() {
 }
 
 void encodersBegin() {
+  // Alimentacao do encoder via GPIO (fiacao da equipe): GPIO como "VCC"/"GND".
+  // Energizar ANTES de configurar entradas/interrupcoes, para as fases ja
+  // nascerem dirigidas pelo encoder (evita contagem fantasma no boot).
+  if (PIN_ENC_POWER_GND >= 0) {
+    pinMode(PIN_ENC_POWER_GND, OUTPUT);
+    digitalWrite(PIN_ENC_POWER_GND, LOW);   // faz papel de GND
+  }
+  if (PIN_ENC_POWER_VCC >= 0) {
+    pinMode(PIN_ENC_POWER_VCC, OUTPUT);
+    digitalWrite(PIN_ENC_POWER_VCC, HIGH);  // faz papel de 3,3 V
+  }
+
   pinMode(PIN_ENC_ESQ_A, INPUT_PULLUP);
   pinMode(PIN_ENC_ESQ_B, INPUT_PULLUP);
   pinMode(PIN_ENC_DIR_A, INPUT_PULLUP);
