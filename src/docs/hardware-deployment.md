@@ -137,12 +137,14 @@ Implementado em `RealVisionSource` (`tasks/vision_loop.py`).
 
 1. Conferir mapa de pinos em [`hardware-bring-up.md`](./hardware-bring-up.md)
    (alinhado com `Testes_eletronica.ino`: ESQ=12/14/13, DIR=27/26/25, garfo=18/19/5,
-   ENC1=32/33, ENC2=34/35).
+   ENC-ESQ=23/15 — refiado 2026-07-06, era 34/35 —, ENC-DIR=32/33).
 2. GND comum: fonte 12 V, L298n ×2, ESP32, Pi, MPU-6050.
 3. Remover jumpers ENA/ENB dos dois L298n.
 4. Level shifter nos encoders NXT se saída > 3,3 V (medir com multímetro).
-5. Pull-up externo 10 kΩ → 3V3 nas fases do encoder direito (GPIO 34/35 são
-   input-only, sem pull-up interno). **Não** colocar pull-up no GPIO 12 (strapping).
+5. Encoders sem pull-up externo: os pinos atuais (23/15 e 32/33) têm pull-up
+   interno (`INPUT_PULLUP`). GPIO 34/35 ficaram livres (refiado 2026-07-06 —
+   sobrecontavam por ruído; se reutilizados, exigem pull-up externo).
+   **Não** colocar pull-up no GPIO 12 (strapping).
 6. Fim-de-curso garfo: **desabilitados** (-1 em `config.h` — chaves não montadas;
    garfo nunca bloqueia por limite). Ao instalar, usar GPIOs livres — GPIO 5 agora
    é o PWM do garfo.
@@ -171,7 +173,7 @@ Medir e atualizar **antes** de confiar na odometria/EKF:
 |-----------|---------|------------|
 | `WHEEL_BASE_L_CM` | `pi/app/config.py` | Centro eixo esq → centro eixo dir |
 | `WHEEL_RADIUS_R_CM` | `pi/app/config.py` | Diâmetro roda ÷ 2 |
-| `ENCODER_PPR` | `firmware/src/config.h` + `config.py` | 1 volta manual → contar pulsos |
+| `ENCODER_PPR` | `firmware/src/config.h` + `config.py` | 1 volta manual → ~1440 contagens (x4; validado 2026-07-06) |
 | `EMU_FORK_MAX_HEIGHT` | `pi/app/config.py` | Curso vertical do garfo |
 | `PALLET_MASS_KG` | `pi/app/config.py` | Balança |
 | `APRILTAG_SIZE_CM` | `pi/app/config.py` | Paquímetro na tag impressa |

@@ -75,17 +75,20 @@ Os nomes entre colchetes são os defines equivalentes naquele firmware de teste.
 | Fork IN1            | 18   | OUTPUT  | L298n #2 IN1               | [M1_IN1]                       |
 | Fork IN2            | 19   | OUTPUT  | L298n #2 IN2               | [M1_IN2]                       |
 | Fork PWM            | 5    | OUTPUT  | L298n #2 ENA               | [M1_EN] LEDC ch2, 20 kHz, 8 bits |
-| Encoder Esq A       | 32   | INPUT↑  | NXT 53787 encoder fase A    | [ENC1_A] Interrupção RISING    |
-| Encoder Esq B       | 33   | INPUT↑  | NXT 53787 encoder fase B    | [ENC1_B] Leitura de sentido na ISR |
-| Encoder Dir A       | 34   | INPUT   | NXT 53787 encoder fase A    | [ENC2_A] ⚠️ input-only — pull-up EXTERNO 10k→3V3 |
-| Encoder Dir B       | 35   | INPUT   | NXT 53787 encoder fase B    | [ENC2_B] ⚠️ input-only — pull-up EXTERNO 10k→3V3 |
+| Encoder Esq A       | 23   | INPUT↑  | NXT 53787 encoder fase A    | Interrupção CHANGE (x4) — refiado 2026-07-06 (era 34) |
+| Encoder Esq B       | 15   | INPUT↑  | NXT 53787 encoder fase B    | Interrupção CHANGE (x4) — refiado 2026-07-06 (era 35); ⚠️ strapping (MTDO), ver §2 |
+| Encoder Dir A       | 32   | INPUT↑  | NXT 53787 encoder fase A    | [ENC1_A] Interrupção CHANGE (x4) |
+| Encoder Dir B       | 33   | INPUT↑  | NXT 53787 encoder fase B    | [ENC1_B] Interrupção CHANGE (x4) |
 | Fork Limit Top      | -1   | —       | (chave não montada)         | **Desabilitado** — nunca bloqueia |
 | Fork Limit Bottom   | -1   | —       | (chave não montada)         | **Desabilitado** — nunca bloqueia |
 | I2C SDA             | 21   | I2C     | MPU-6050 SDA               | Padrão ESP32                   |
 | I2C SCL             | 22   | I2C     | MPU-6050 SCL               | Padrão ESP32                   |
 
-`INPUT↑` = INPUT_PULLUP (resistor interno de ~45 kΩ). Em GPIO 34/35 o
-`pinMode(INPUT_PULLUP)` é ignorado pelo hardware — pull-up externo obrigatório.
+`INPUT↑` = INPUT_PULLUP (resistor interno de ~45 kΩ). Todos os pinos de
+encoder atuais (23/15 e 32/33) têm pull-up interno — nenhum pull-up externo
+é necessário. (Refiado 2026-07-06: o encoder esquerdo estava em 34/35,
+input-only e sem pull-up interno, e sobrecontava ~420 pulsos/volta por ruído
+nas bordas; foi movido para 23/15.)
 
 ### GPIOs com cuidado especial
 
@@ -95,7 +98,8 @@ Os nomes entre colchetes são os defines equivalentes naquele firmware de teste.
 | 2        | Strapping pin (pode entrar em flash mode) — não usado    |
 | 6-11     | Conectados ao flash SPI interno — **nunca usar**         |
 | 12       | Strapping (tensão do flash). **Usado como ESQ IN1** — funciona porque IN1 idle=LOW; **não** adicionar pull-up externo |
-| 34-39    | Input-only **sem pullup interno**. **34/35 usados no ENC2** — pull-up externo obrigatório |
+| 15       | Strapping (MTDO). **Usado como Encoder Esq B** — se LOW no boot, apenas silencia as mensagens de boot da ROM; inofensivo |
+| 34-39    | Input-only **sem pullup interno**. **34/35 estão LIVRES** (refiado 2026-07-06 — o encoder esquerdo saiu deles); se reutilizar, lembrar do pull-up externo |
 
 ---
 
@@ -141,13 +145,14 @@ Alternativa: driver menor (L9110S, TB6612) se o garfo precisar de menos corrente
 Motor NXT (conector 6 pinos):
   Pin 1 (branco) ─── 5V (ou 3.3V — verificar)
   Pin 2 (preto)  ─── GND
-  Pin 5 (amarelo)─── ESP32 GPIO 32 (Esq A) / GPIO 34 (Dir A)
-  Pin 6 (azul)   ─── ESP32 GPIO 33 (Esq B) / GPIO 35 (Dir B)
+  Pin 5 (amarelo)─── ESP32 GPIO 23 (Esq A) / GPIO 32 (Dir A)
+  Pin 6 (azul)   ─── ESP32 GPIO 15 (Esq B) / GPIO 33 (Dir B)
 ```
 
-> **Encoder direito (GPIO 34/35)**: pinos input-only sem pull-up interno —
-> instalar pull-up externo 10 kΩ → 3V3 em cada fase, senão a leitura fica
-> sempre zero.
+> **Refiado 2026-07-06**: o encoder esquerdo estava em GPIO 34/35 (input-only,
+> sem pull-up interno) e sobrecontava por ruído nas bordas. Foi movido para
+> 23/15, que têm pull-up interno — o `INPUT_PULLUP` do `encoders.cpp` vale e
+> nenhum pull-up externo é necessário. GPIO 34/35 ficaram livres.
 
 > **Nota**: o encoder do NXT opera a 5V pela especificação original. Se o sinal
 > de saída for 5V (push-pull), pode ser necessário um divisor resistivo
@@ -208,7 +213,7 @@ Se os switches forem NC (Normally Closed), trocar `FORK_LIMIT_ACTIVE_LEVEL` para
 | `SETPOINT_TIMEOUT_MS`  | 200    | ms      | 4 mensagens perdidas @ 20 Hz                  |
 | `LEDC_FREQ_HZ`         | 20000  | Hz      | Acima da faixa audível                        |
 | `LEDC_RESOLUTION_BITS` | 8      | bits    | 256 níveis (0-255)                            |
-| `ENCODER_PPR`          | 360    | pulsos  | Lego NXT 53787 (saída do redutor)             |
+| `ENCODER_PPR`          | 1440   | contagens | Lego NXT 53787: 360 ciclos de quadratura/volta × 4 (decodificação x4) |
 | `FORK_DUTY`            | 180    | 0-255   | ~70% — suficiente para worm gear              |
 | `FORK_LIMIT_ACTIVE_LEVEL` | LOW | -       | Switch NO + pullup                            |
 | `MPU6050_ADDR`         | 0x68   | -       | AD0=GND (padrão)                              |
@@ -235,7 +240,7 @@ Se os switches forem NC (Normally Closed), trocar `FORK_LIMIT_ACTIVE_LEVEL` para
 
 - [ ] Tensão do encoder NXT (5V push-pull? → precisa divisor/level shifter)
 - [ ] Sentido de rotação dos motores (se invertido, trocar IN1↔IN2 em `config.h`)
-- [ ] ENCODER_PPR correto (girar eixo 1 volta completa → deve ler 360 pulsos)
+- [ ] ENCODER_PPR correto (girar eixo 1 volta completa → deve ler ~1440 contagens; 10 voltas → ~14400)
 - [ ] Switches de fim-de-curso: apertar manualmente e verificar no Serial Monitor
 - [ ] MPU-6050 respondendo (I2C scan: `Wire.beginTransmission(0x68)`)
 - [ ] Jumpers ENA/ENB do L298n **removidos**
@@ -370,7 +375,7 @@ cd src/firmware && pio run
 
 2. Girar o eixo do motor à mão → observar `enc.esq` ou `enc.dir` mudando.
 3. Girar em ambos os sentidos → verificar que o sinal inverte.
-4. Uma revolução completa = ~360 pulsos (verificar no monitor).
+4. Uma revolução completa = ~1440 contagens (decodificação x4; verificar no monitor).
 
 ### Teste 4: Fim-de-curso do garfo
 
@@ -469,6 +474,8 @@ Trocar IN1 ↔ IN2 em `config.h` para o motor afetado. Recompilar e gravar.
 Normal — GPIO 15 HIGH no boot habilita debug output na UART. São ~100 bytes de
 lixo na primeira vez. O `SetpointFrameDecoder` descarta automaticamente (quadros
 sem '\n' válido são ignorados). Não causa problemas operacionais.
+Desde 2026-07-06 o GPIO 15 é a fase B do encoder esquerdo: se o encoder o
+segurar LOW no boot, as mensagens da ROM simplesmente somem — também inofensivo.
 
 ### ESP32 não entra em modo de gravação
 
@@ -485,7 +492,7 @@ Itens que podem precisar de ajuste após testes com o hardware real:
 | Item | Onde | Status |
 |------|------|--------|
 | Tensão dos encoders NXT (3.3V ou 5V?) | Fiação / level shifter | **Verificar com multímetro** |
-| ENCODER_PPR = 360 correto? | `config.h` | **Validar girando 1 volta** |
+| ENCODER_PPR = 1440 correto? | `config.h` | **Validado 2026-07-06** (1 volta ≈ 1440; 10 voltas ≈ 14400) |
 | Sentido dos motores (IN1/IN2) | `config.h` | **Definir no primeiro teste** |
 | Ganhos PID (Kp=20, Ki=5, Kd=1) | `config.h` | **Sintonizar com Ziegler-Nichols** |
 | FORK_DUTY = 180 adequado? | `config.h` | **Testar com carga real** |

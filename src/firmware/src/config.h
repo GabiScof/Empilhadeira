@@ -134,21 +134,26 @@ constexpr float PID_INTEGRAL_LIMIT = 500.0f;
 // ---------------------------------------------------------------------------
 // Pinos — Motores de tracao (rodas) via L298n #1
 // ---------------------------------------------------------------------------
-// L298n modulo #1: canal A = roda esquerda, canal B = roda direita.
-// Remover os jumpers de ENA/ENB do L298n e conectar os fios PWM do ESP32.
-constexpr int PIN_MOTOR_ESQ_IN1 = 12;  // L298n IN1 (canal A)  [M2_IN1]
-constexpr int PIN_MOTOR_ESQ_IN2 = 14;  // L298n IN2 (canal A)  [M2_IN2]
-constexpr int PIN_MOTOR_ESQ_PWM = 13;  // L298n ENA (canal A) — PWM  [M2_EN]
-constexpr int PIN_MOTOR_DIR_IN1 = 27;  // L298n IN3 (canal B)  [M3_IN1]
-constexpr int PIN_MOTOR_DIR_IN2 = 26;  // L298n IN4 (canal B)  [M3_IN2]
-constexpr int PIN_MOTOR_DIR_PWM = 25;  // L298n ENB (canal B) — PWM  [M3_EN]
+// LADOS CONFERIDOS NA BANCADA (2026-07-06): teste fisico com
+// `bench_setpoint --w-esq 8 --w-dir 0` girou a roda DIREITA → na fiacao real
+// o canal A (12/14/13) aciona a roda DIREITA e o canal B (27/26/25) a
+// ESQUERDA, o inverso do rotulo M2/M3 do Testes_eletronica.ino. Mapeado aqui
+// por software (mesma solucao dos encoders); encoders conferidos separados e
+// estao corretos. Se um dia refizerem os fios dos motores, trocar de volta.
+constexpr int PIN_MOTOR_ESQ_IN1 = 27;  // L298n IN3 (canal B)  [era M3_IN1]
+constexpr int PIN_MOTOR_ESQ_IN2 = 26;  // L298n IN4 (canal B)  [era M3_IN2]
+constexpr int PIN_MOTOR_ESQ_PWM = 25;  // L298n ENB (canal B) — PWM  [era M3_EN]
+constexpr int PIN_MOTOR_DIR_IN1 = 12;  // L298n IN1 (canal A)  [era M2_IN1]
+constexpr int PIN_MOTOR_DIR_IN2 = 14;  // L298n IN2 (canal A)  [era M2_IN2]
+constexpr int PIN_MOTOR_DIR_PWM = 13;  // L298n ENA (canal A) — PWM  [era M2_EN]
 
-// Inversao de sentido por motor — herdada do Testes_eletronica.ino (fonte da
-// verdade): na placa real o motor da roda ESQ (M2) e montado invertido, entao
-// "frente" fisica = IN1 LOW / IN2 HIGH. true = inverte a logica de sentido.
+// Inversao de sentido por motor — o flag acompanha o CANAL (a inversao vem da
+// montagem do motor ligado naquele canal, nao do rotulo esq/dir): nos benches
+// de 2026-07-06 as duas rodas giraram para FRENTE com setpoint positivo e os
+// flags abaixo, entao a polaridade de cada canal esta correta.
 // Validar na bancada: setpoint positivo deve mover as DUAS rodas para frente.
-constexpr bool MOTOR_ESQ_INV = true;   // [M2_INV true]
-constexpr bool MOTOR_DIR_INV = false;  // [M3_INV false]
+constexpr bool MOTOR_ESQ_INV = false;  // canal B (27/26/25)
+constexpr bool MOTOR_DIR_INV = true;   // canal A (12/14/13)
 
 // ---------------------------------------------------------------------------
 // Pinos — Motor do garfo via L298n #2 (ou driver separado)

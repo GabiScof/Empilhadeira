@@ -984,7 +984,7 @@ SAÍDA:    Cinemática direta/inversa em SI
 **No real, definir:**
 1. **Medir `WHEEL_BASE_L_CM`** — distância entre centros das rodas, com paquímetro
 2. **Medir `WHEEL_RADIUS_R_CM`** — raio da roda (não o diâmetro!)
-3. **Validar `ENCODER_PPR`** — rodar 1 volta completa e contar pulsos
+3. **Validar `ENCODER_PPR`** — rodar 1 volta completa e contar pulsos (validado 2026-07-06: ~1440 com a decodificação x4)
 
 ### 4.19 Schema de mapas — `map_schema.py`
 
@@ -1174,12 +1174,12 @@ firmware/src/
 | Garfo IN1 | 25 | OUTPUT | — |
 | Garfo IN2 | 26 | OUTPUT | — |
 | Garfo PWM | 27 | LEDC | Canal 2 |
-| Fim-curso topo | 5 | INPUT_PULLUP | LOW = ativado |
-| Fim-curso base | 15 | INPUT_PULLUP | LOW = ativado |
-| Encoder esq A | 32 | INPUT_PULLUP | ISR RISING |
-| Encoder esq B | 33 | INPUT_PULLUP | Leitura direcional |
-| Encoder dir A | 14 | INPUT_PULLUP | ISR RISING |
-| Encoder dir B | 23 | INPUT_PULLUP | Leitura direcional |
+| Fim-curso topo | -1 | — | Desabilitado (chave não montada) |
+| Fim-curso base | -1 | — | Desabilitado (chave não montada; GPIO 15 agora é o encoder esq B) |
+| Encoder esq A | 23 | INPUT_PULLUP | ISR CHANGE (decodificação x4) — refiado 2026-07-06 |
+| Encoder esq B | 15 | INPUT_PULLUP | ISR CHANGE (x4) |
+| Encoder dir A | 32 | INPUT_PULLUP | ISR CHANGE (x4) |
+| Encoder dir B | 33 | INPUT_PULLUP | ISR CHANGE (x4) |
 | I²C SDA | 21 | Wire | MPU-6050 |
 | I²C SCL | 22 | Wire | MPU-6050 |
 
@@ -1265,19 +1265,19 @@ SAÍDA:    sinais GPIO (direção) + duty PWM (velocidade)
 ### Encoders — `encoders.h/cpp`
 
 ```
-ENTRADA:  pulsos da ISR (interrução no pino A, leitura de B para direção)
-SAÍDA:    ω (rad/s) = (pulsos / PPR) × 2π / dt
+ENTRADA:  contagens da ISR (CHANGE nas fases A e B, tabela de transição x4)
+SAÍDA:    ω (rad/s) = (contagens / PPR) × 2π / dt
 ```
 
 | Aspecto | Detalhe |
 |---------|---------|
-| PPR | 360 pulsos/revolução (NXT motor) |
-| ISR | RISING no pino A; lê B para direção |
-| Cálculo | ω = (contagem atômica / 360) × 2π / dt |
+| PPR | 1440 contagens/revolução (NXT: 360 ciclos de quadratura × 4) |
+| ISR | CHANGE nas DUAS fases; tabela de transição (decodificação completa x4) — ruído/bounce gera transições que se cancelam |
+| Cálculo | ω = (contagem atômica / 1440) × 2π / dt |
 | Reset | Contador zerado após leitura |
 
 **No real, definir:**
-1. **Validar PPR:** girar roda 1 volta completa → checar se ω×dt = 2π
+1. **Validar PPR:** girar roda 1 volta completa → ~1440 contagens (validado 2026-07-06)
 2. **Level shifter:** se encoder é 5V e ESP32 é 3.3V, usar level shifter bidirecional
 
 ### Protocol — `protocol.h/cpp`
@@ -1422,7 +1422,7 @@ class SerialTransport(Protocol):
 |------|--------------------------|------|---------------------|
 | `WHEEL_BASE_L_CM` | 15 cm | Medir com paquímetro | Cinemática errada → robô curva demais/pouco |
 | `WHEEL_RADIUS_R_CM` | 2.8 cm | Medir com paquímetro | Velocidade calculada errada |
-| `ENCODER_PPR` | 360 | Rodar 1 volta e validar | Odometria com escala errada |
+| `ENCODER_PPR` | 1440 (validado 2026-07-06) | 1 volta ≈ 1440 contagens (x4) | Odometria com escala errada |
 | `PID Kp/Ki/Kd` | 20/5/1 | Ziegler-Nichols | Motor oscila ou responde devagar |
 | `APRILTAG_SIZE_CM` | 5 cm | Paquímetro | Escala da pose PnP errada |
 | `CAMERA_TO_FORK_OFFSET_CM` | (0,0,0) | Medir | Erro sistemático de posicionamento |

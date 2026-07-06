@@ -93,7 +93,7 @@ mas descreve posições **medidas** na arena, não um modelo idealizado.
 | Anti-windup | ±500 | `PID_INTEGRAL_LIMIT` |
 | Taxa PID | ~100 Hz | `PID_HZ` |
 | Motor | 1ª ordem, τ≈50 ms, max 12.25 rad/s | `motors.cpp` |
-| Encoder | PPR=360, ω = pulsos/dt | `encoders.cpp` |
+| Encoder | PPR=1440 (x4), ω = pulsos/dt | `encoders.cpp` |
 | Garfo | duty 180, altura 0–10 cm, limites | `motors.cpp` |
 | Watchdog | 200 ms sem setpoint → motores=0 | `main.cpp` |
 | Protocolo | JSON+CRC8+\n @20 Hz | `protocol.cpp` |
@@ -219,7 +219,7 @@ Estes valores existem em **dois lugares** e devem ser **consistentes** entre sim
 |-----------|-------------------|-------------------------------|-----------|
 | `WHEEL_BASE_L_CM` / `WHEELBASE_M` | 15,0 cm | Medir no chassi | ⚠️ Provisório |
 | `WHEEL_RADIUS_R_CM` | 2,8 cm | Medir roda NXT | ⚠️ Provisório |
-| `ENCODER_PPR` | 360 | Validar 1 volta manual | ⚠️ Provisório |
+| `ENCODER_PPR` | 1440 (360 ciclos × 4 da quadratura) | 1 volta manual ≈ 1440 contagens | ✅ Validado na bancada 2026-07-06 |
 | PID Kp/Ki/Kd | `EMU_PID_*` | `config.h` — **mesmos valores iniciais** | ✅ Transferir como starting point |
 | `SETPOINT_TIMEOUT_MS` | 200 ms | 200 ms | ✅ Idêntico |
 | `ZREF_CM` / `TAG_APPROACH_STANDOFF_M` | 15 cm | Ajustar se garfo/câmera diferirem | ⚠️ Validar no chão |
@@ -373,7 +373,7 @@ Coisas que **só o hardware** pode validar:
 
 1. **Calibração de câmera** — PnP real, distorção, auto-exposure
 2. **Dinâmica de motor** — dead zone L298n, aquecimento, carga no garfo
-3. **Encoders NXT** — level shifter, bounce, PPR real com redução
+3. **Encoders NXT** — level shifter, bounce (PPR já validado na bancada 2026-07-06: 1440 com decodificação x4, que cancela transições de ruído)
 4. **Patinagem** — sim usa multiplicador escalar; chão real é irregular
 5. **FOV e foco** — tag sai do FOV na reta final com câmera real?
 6. **Massa do pallet** — garfo JGY-370 aguenta? (0,1 kg vs ~1 kg aberto)

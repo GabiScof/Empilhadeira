@@ -19,7 +19,12 @@ Estado consolidado (2026-07-03):
 - Inversões: `MOTOR_ESQ_INV=true` já compensa a roda esquerda invertida da placa
 - **2026-07-06: encoders FUNCIONANDO** (alimentação via GPIO 2 = VCC / GPIO 4 =
   GND, dirigidos pelo `encodersBegin()`; lados esq↔dir corrigidos no `config.h`:
-  ESQ=34/35, DIR=32/33). O modo malha aberta (`OPEN_LOOP`) foi **REMOVIDO do
+  ESQ=23/15, DIR=32/33 — o esquerdo foi refiado no mesmo dia de 34/35 para
+  23/15, pois 34/35 são input-only sem pull-up interno e sobrecontavam ~420
+  pulsos/volta por ruído). Decodificação agora é a COMPLETA x4 (CHANGE nas
+  duas fases, tabela de transição em `encoders.cpp`) → `ENCODER_PPR=1440`;
+  sinais validados na bancada (`ENC_ESQ_INV=true`, `ENC_DIR_INV=true`).
+  O modo malha aberta (`OPEN_LOOP`) foi **REMOVIDO do
   firmware** — o PID está sempre ativo. No runbook abaixo a Trilha A fica só
   como histórico; siga a **Trilha B** e ignore menções a `OPEN_LOOP` (a
   constante não existe mais no código).
@@ -266,8 +271,9 @@ andando · modo OPERAÇÃO servido pelo Pi (`Frontend estático montado`).
 
 ## TRILHA B — COM ENCODER (malha fechada) · fechar o robô COMPLETO
 
-> Pré-requisito: **PORTÃO A verde** e o encoder já lendo (pull-up 10 kΩ → 3V3 nos
-> GPIO 34/35 conferido no item 1.1). Aqui só re-rodamos os gates que dependem do
+> Pré-requisito: **PORTÃO A verde** e o encoder já lendo (fiação nos GPIO 23/15
+> e 32/33 conferida no item 1.1 — todos com pull-up interno, sem resistor
+> externo). Aqui só re-rodamos os gates que dependem do
 > encoder; comunicação, garfo, câmera e OPERAÇÃO já foram provados na Trilha A.
 
 ### B1 [PI] — Gravar o firmware atual (PID sempre ativo)
@@ -284,10 +290,12 @@ pio device monitor -b 115200
 ```
 - **Testar:**
   1. [MÃO] girar cada roda **para frente** → `enc.esq`/`enc.dir` **positivos**.
-     Negativo → `ENC_*_INV=true` no `config.h`, regravar (B1). Esquerdo sempre
-     zero → pull-up do 1.1.
-  2. [MÃO] **1 volta exata** → ~360 pulsos. Diferente → ajustar `ENCODER_PPR`
-     (firmware) **e** `EMU_ENCODER_PPR` (pi/app/config.py). **Ctrl-C** ao fim.
+     Negativo → inverter o `ENC_*_INV` no `config.h`, regravar (B1). Já validado
+     na bancada 2026-07-06 (`ENC_ESQ_INV=true`, `ENC_DIR_INV=true`) — re-rodar
+     só confirma. Esquerdo sempre zero → fiação do 1.1.
+  2. [MÃO] **1 volta exata** → ~1440 contagens (decodificação x4; 10 voltas →
+     ~14400). Diferente → ajustar `ENCODER_PPR` (firmware) **e**
+     `EMU_ENCODER_PPR` (pi/app/config.py). Validado 2026-07-06. **Ctrl-C** ao fim.
 
 ### B3 [PI] — Malha fechando: comando → motor → encoder
 ```bash
@@ -322,7 +330,7 @@ python3 scripts/bench_setpoint.py --w-esq 2 --w-dir 2 --seconds 5
   dela dependem da odometria provada em B5.
 
 ### ✅ PORTÃO B (com encoder)
-Encoders positivos p/ frente e ~360 ppr · `enc ≈ +2.0` fechando a malha ·
+Encoders positivos p/ frente e ~1440 ppr (x4) · `enc ≈ +2.0` fechando a malha ·
 watchdog < 200 ms com PID · **anda reto** · odometria ~1 m e heading ~360° ·
 visão confere com a fita → **libera a FASE 3**.
 
@@ -332,9 +340,9 @@ visão confere com a fita → **libera a FASE 3**.
 
 ### 1.1 Fiação (fonte DESLIGADA)
 
-Pinos: ESQ 12/14/13 · DIR 27/26/25 · Garfo 18/19/5 · ENC-E 34/35 · ENC-D 32/33 · I2C 21/22.
+Pinos: ESQ 12/14/13 · DIR 27/26/25 · Garfo 18/19/5 · ENC-E 23/15 (refiado 2026-07-06, era 34/35) · ENC-D 32/33 · I2C 21/22.
 
-- [ ] **Pull-up 10 kΩ → 3V3 nos GPIO 34 e 35** (sem isso o encoder esquerdo lê zero eternamente)
+- [ ] **Sem pull-up externo nos encoders** — 23/15 e 32/33 têm pull-up interno (`INPUT_PULLUP`); 34/35 ficaram livres (se reutilizados, aí sim exigem 10 kΩ → 3V3)
 - [ ] **Nenhum pull-up no GPIO 12** (strapping — ESP32 não sobe/não grava se HIGH no boot)
 - [ ] Jumpers ENA/ENB removidos dos dois L298n
 - [ ] GND comum em estrela (fonte, 2× L298n, ESP32, Pi, MPU)
@@ -355,9 +363,10 @@ pio device monitor -b 115200
 
 Checks de sensor (na mão, sem motor):
 1. Girar cada roda **para frente** → `enc.esq`/`enc.dir` **positivos**.
-   Negativo → `ENC_*_INV=true` em `config.h`, regravar.
-   Esquerdo sempre zero → pull-up do 1.1.
-2. 1 volta exata → ~360 pulsos (senão ajustar `ENCODER_PPR` nos dois configs).
+   Negativo → inverter o `ENC_*_INV` em `config.h`, regravar (validado
+   2026-07-06: `ENC_ESQ_INV=true`, `ENC_DIR_INV=true`).
+   Esquerdo sempre zero → fiação do 1.1.
+2. 1 volta exata → ~1440 contagens (x4; senão ajustar `ENCODER_PPR` nos dois configs).
 3. Inclinar o chassi → `ax/ay/az` mudam.
 
 Erros: lixo no monitor = baudrate; nada = TX/RX invertidos ou cabo só-carga;

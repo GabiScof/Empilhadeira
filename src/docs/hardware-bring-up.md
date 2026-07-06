@@ -12,7 +12,7 @@ pode danificar GPIOs ou drivers.
 - [ ] GND comum entre fonte, L298n, ESP32 e Pi
 - [ ] Jumpers ENA/ENB **removidos** nos dois L298n
 - [ ] Level shifter nos encoders NXT (se saída 5 V)
-- [ ] Pull-up externo 10 kΩ → 3V3 nas fases do encoder direito (GPIO 34/35)
+- [ ] Encoders nos GPIOs 23/15 (esq) e 32/33 (dir) — todos com pull-up interno (`INPUT_PULLUP`); **nenhum pull-up externo necessário** (refiado 2026-07-06: 34/35 ficaram livres)
 - [ ] Sem pull-up externo no GPIO 12 (strapping — ESQ IN1)
 - [ ] MPU-6050 em 3.3 V (I2C)
 - [ ] Fim-de-curso: desabilitados (-1) — operador solta o botão do garfo antes do fim do curso
@@ -52,10 +52,10 @@ Fonte: `firmware/src/config.h` (ESP32 DevKit V1, 30 pinos).
 
 | Função | GPIO | Observação |
 |--------|------|------------|
-| Encoder Esq A | 34 | Interrupção RISING — input-only [era ENC2_A]; lados conferidos na bancada 2026-07-06 |
-| Encoder Esq B | 35 | Leitura de sentido — input-only [era ENC2_B] |
-| Encoder Dir A | 32 | Interrupção RISING [era ENC1_A] |
-| Encoder Dir B | 33 | Leitura de sentido [era ENC1_B] |
+| Encoder Esq A | 23 | Interrupção CHANGE (decodificação x4) — refiado 2026-07-06 (era 34, que sobrecontava por ruído) |
+| Encoder Esq B | 15 | Interrupção CHANGE (x4) — refiado 2026-07-06 (era 35); strapping MTDO: LOW no boot só silencia mensagens da ROM |
+| Encoder Dir A | 32 | Interrupção CHANGE (x4) [era ENC1_A] |
+| Encoder Dir B | 33 | Interrupção CHANGE (x4) [era ENC1_B] |
 | "VCC" encoder | 2 | GPIO em OUTPUT HIGH (3,3 V) — `PIN_ENC_POWER_VCC`; LED onboard acende junto |
 | "GND" encoder | 4 | GPIO em OUTPUT LOW — `PIN_ENC_POWER_GND` |
 
@@ -74,7 +74,8 @@ Fonte: `firmware/src/config.h` (ESP32 DevKit V1, 30 pinos).
 | Limite inferior | -1 | **Desabilitado** — chave não montada; `forkAtBottomLimit()` retorna sempre `false` |
 
 Quando as chaves forem instaladas, definir os GPIOs em `config.h` — **GPIO 5
-agora é o PWM do garfo**, então escolher outros pinos livres (ex.: 15, 4, 16, 17).
+agora é o PWM do garfo** e **GPIO 15 virou a fase B do encoder esquerdo**,
+então escolher outros pinos livres (ex.: 16, 17).
 
 ### I2C — MPU-6050
 
@@ -97,19 +98,21 @@ GPIOs que **não devem ser usados** ou exigem cuidado especial:
 | **2** | Strapping — pode afetar boot |
 | **6–11** | Flash SPI interno — **nunca usar** |
 | **12** | Strapping — altera tensão do flash. **USADO como ESQ IN1 [M2_IN1]**: precisa estar LOW no boot. Como IN1 fica LOW em repouso, funciona — mas **não colocar pull-up externo** nele |
-| **34–39** | Input-only, **sem pullup interno**. **34/35 usados no encoder direito** → pull-up externo 10 kΩ → 3V3 obrigatório |
+| **34–39** | Input-only, **sem pullup interno**. **34/35 estão LIVRES** (refiado 2026-07-06 — o encoder esquerdo saiu deles); se reutilizar, pull-up externo 10 kΩ → 3V3 obrigatório |
 | **5** | Strapping (HIGH no boot). **USADO como PWM do garfo [M1_EN]** — LEDC só ativa depois do boot, ok |
+| **15** | Strapping (MTDO). **USADO como Encoder Esq B** — se LOW no boot, apenas silencia as mensagens de boot da ROM; inofensivo |
 
 Herdamos esses dois cuidados da placa real (`Testes_eletronica.ino`):
 
 1. **GPIO 12 (roda ESQ IN1)** é strapping pin — precisa estar LOW no boot ou a
    seleção de tensão da flash falha. IN1 idle = LOW, então funciona; apenas
    **nunca** adicionar pull-up externo nesse fio.
-2. **GPIO 34/35 (encoder direito)** são input-only sem pull-up interno. O
-   `pinMode(INPUT_PULLUP)` neles é silenciosamente ignorado pelo hardware —
-   **sem pull-up externo (10 kΩ → 3V3) o encoder direito não lê nada**. O
-   `Testes_eletronica.ino` usa `INPUT` puro nesses pinos, confirmando que a
-   placa depende de pull-up externo.
+2. **GPIO 34/35 estão livres desde 2026-07-06.** São input-only sem pull-up
+   interno — o `pinMode(INPUT_PULLUP)` neles é silenciosamente ignorado pelo
+   hardware. Por isso o encoder esquerdo, que estava nesses pinos, sobrecontava
+   ~420 pulsos/volta com bordas ruidosas e foi movido para 23/15 (que têm
+   pull-up interno). Se algum sinal voltar para 34/35 no futuro, pull-up
+   externo 10 kΩ → 3V3 é obrigatório.
 
 ---
 
@@ -130,15 +133,16 @@ do conector NXT com o motor girando.
 Fiação encoder (conector 6 pinos NXT):
 
 ```
-Pin 5 (amarelo) → fase A → GPIO 32 (esq) / GPIO 34 (dir) (via level shifter se necessário)
-Pin 6 (azul)    → fase B → GPIO 33 (esq) / GPIO 35 (dir)
+Pin 5 (amarelo) → fase A → GPIO 23 (esq) / GPIO 32 (dir) (via level shifter se necessário)
+Pin 6 (azul)    → fase B → GPIO 15 (esq) / GPIO 33 (dir)
 Pin 1 (branco)  → 5 V ou 3,3 V (conforme motor)
 Pin 2 (preto)   → GND
 ```
 
-> **Encoder direito (GPIO 34/35):** além do level shifter, esses pinos são
-> input-only sem pull-up interno — instalar pull-up externo 10 kΩ → 3V3 em
-> cada fase, senão a leitura fica sempre zero.
+> **Pull-ups:** todos os pinos de encoder atuais (23/15 e 32/33) têm pull-up
+> interno, ativado via `INPUT_PULLUP` no `encoders.cpp` — nenhum resistor
+> externo é necessário. (Refiado 2026-07-06: o encoder esquerdo saiu dos GPIO
+> 34/35, que são input-only sem pull-up interno e sobrecontavam por ruído.)
 
 ---
 
@@ -302,9 +306,9 @@ python -m app.main
 
 | Parâmetro | Onde | Como validar |
 |-----------|------|--------------|
-| `ENCODER_PPR = 360` | `firmware/config.h` | 1 volta manual → ~360 pulsos no monitor |
+| `ENCODER_PPR = 1440` | `firmware/config.h` | 1 volta manual → ~1440 contagens no monitor (10 voltas → ~14400); 360 ciclos × 4 da decodificação x4 — validado 2026-07-06 |
 | Sentido dos motores | `config.h` (`MOTOR_ESQ_INV=true`, `MOTOR_DIR_INV`, `FORK_INV`) | Setpoint positivo → as DUAS rodas para frente; "subir" sobe o garfo. ESQ já vem invertida (herdado de `M2_INV` no Testes_eletronica.ino) |
-| Sinal dos encoders | `config.h` (`ENC_ESQ_INV`, `ENC_DIR_INV`) | Roda para frente → ω positivo no monitor. Se negativo, inverter o flag (crítico: sinal errado faz o PID divergir) |
+| Sinal dos encoders | `config.h` (`ENC_ESQ_INV=true`, `ENC_DIR_INV=true`) | Roda para frente → ω positivo no monitor. Se negativo, inverter o flag (crítico: sinal errado faz o PID divergir). Validado na bancada 2026-07-06 com a decodificação x4 |
 | Level shifter | Fiação | Osciloscópio/multímetro ≤ 3,3 V nos GPIOs |
 
 ### PID (Malha Interna)
@@ -350,7 +354,7 @@ python -m app.main
 |---------|----------------|------|
 | ESP32 não grava / boot falha | GPIO 12 (ESQ IN1) puxado HIGH no boot | Remover pull-up externo do fio IN1 esq; desconectar driver ao gravar se preciso |
 | Encoder sempre zero | Sem level shifter / fiação | Verificar tensão e ISR |
-| Encoder **direito** sempre zero | GPIO 34/35 sem pull-up externo | Instalar 10 kΩ → 3V3 em cada fase (pull-up interno não existe nesses pinos) |
+| Encoder sempre zero após refiação para GPIO 34/35 | 34–39 são input-only sem pull-up interno | Só se aplica se alguém religar um encoder em 34/35 (hoje livres): instalar 10 kΩ → 3V3 em cada fase. Os pinos atuais (23/15 e 32/33) têm pull-up interno |
 | Motor oscila | Kp alto ou PPR errado | Ziegler-Nichols; validar PPR |
 | Garfo não segura carga | Duty baixo ou motor errado | Aumentar `FORK_DUTY`; confirmar worm gear |
 | Pi reinicia ao acionar motor | Fonte subdimensionada | Buck MP2307 com margem; capacitor na saída |

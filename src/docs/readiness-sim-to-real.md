@@ -228,7 +228,7 @@ loop() @ ~loop rate
 | Taxa PID | 100 Hz | ✅ emulador |
 | Watchdog | 200 ms | ✅ `SETPOINT_TIMEOUT_MS` |
 | MPU escala | ±2g, ±250°/s | ✅ Kalman espera m/s² e °/s |
-| Encoders | PPR=360, rad/s | ✅ EKF usa rad/s |
+| Encoders | PPR=1440 (decodificação x4), rad/s | ✅ EKF usa rad/s |
 
 ### 3.3 Mapa de pinos (`config.h`)
 
@@ -241,13 +241,15 @@ Alinhado com `Testes_eletronica.ino` (fonte da verdade da placa real):
 | Motor esq IN1/IN2/PWM | 12, 14, 13 (M2) |
 | Motor dir IN1/IN2/PWM | 27, 26, 25 (M3) |
 | Garfo IN1/IN2/PWM | 18, 19, 5 (M1) |
-| Encoder esq A/B | 32, 33 (ENC1) |
-| Encoder dir A/B | 34, 35 (ENC2 — input-only, pull-up externo obrigatório) |
+| Encoder esq A/B | 23, 15 (refiado 2026-07-06 — era 34/35) |
+| Encoder dir A/B | 32, 33 (ENC1) |
 | Fim-curso garfo top/bottom | -1, -1 (desabilitado — chaves não montadas) |
 | I2C SDA/SCL | 21, 22 |
 
 ⚠️ GPIO 12 é strapping pin (LOW no boot obrigatório — sem pull-up externo);
-GPIO 34/35 não têm pull-up interno (usar 10 kΩ → 3V3 externo).
+GPIO 34/35 estão livres desde 2026-07-06 (não têm pull-up interno — se
+reutilizados, usar 10 kΩ → 3V3 externo); os pinos de encoder atuais (23/15 e
+32/33) têm pull-up interno, sem resistor externo.
 
 ### 3.4 Compilação
 
@@ -365,7 +367,7 @@ Framing: `{"w_esq":1.5,"w_dir":1.5,"garfo":"parar"}*a3\n`
 |------|-------------|--------------|
 | PID Kp/Ki/Kd | 20/5/1 | Ziegler-Nichols |
 | WHEEL_BASE, WHEEL_RADIUS | 15 cm, 2.8 cm | Medir |
-| ENCODER_PPR | 360 | Validar 1 volta |
+| ENCODER_PPR | 1440 (x4) | Validado 2026-07-06 (1 volta ≈ 1440) |
 | ZREF / standoff | 15 cm | Medir distância real |
 | NAV_K*, EKF_Q/R | Tunados em sim | Re-tunar |
 | APRILTAG_SIZE | 5 cm | Paquímetro |
@@ -411,7 +413,7 @@ Framing: `{"w_esq":1.5,"w_dir":1.5,"garfo":"parar"}*a3\n`
 1. Câmera real detecta tags na distância/iluminação da arena
 2. PnP real tem mesma precisão que geometria sintética + ruído 0.2 cm
 3. PID real converge sem oscilar (L298n, atrito, carga)
-4. Encoders NXT com level shifter reportam PPR=360 corretamente
+4. Encoders NXT com level shifter reportam PPR=1440 corretamente (validado na bancada 2026-07-06 com a decodificação x4)
 5. Garfo worm gear segura massa real do pallet
 6. EKF com ruído real de patinagem e detecções ruins
 7. Wi-Fi RTT < 170 ms com celular do operador

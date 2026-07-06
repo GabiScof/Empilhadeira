@@ -58,7 +58,7 @@ O emulador de firmware (`firmware_emulator.py`) replica fielmente:
 
 - PID Kp=20, Ki=5, Kd=1, anti-windup ±500
 - Motor 1ª ordem (τ ≈ 50 ms), saturação ~12.25 rad/s
-- Encoder PPR=360, watchdog 200 ms
+- Encoder PPR=1440 (decodificação x4 no firmware), watchdog 200 ms
 - Garfo com duty fixo 180 e limites topo/base
 
 ## Mapas na Simulação
