@@ -12,7 +12,7 @@
  *   - Rodas:  ESQ(M2)=IN1 12 / IN2 14 / PWM 13   DIR(M3)=IN1 27 / IN2 26 / PWM 25
  *   - Garfo (M1): IN1 18 / IN2 19 / PWM 5
  *   - Inversao:   M2_INV=true (roda ESQ montada invertida) → MOTOR_ESQ_INV
- *   - Encoders:   ENC1(esq)=32/33   ENC2(dir)=34/35
+ *   - Encoders:   ESQ=23/15 (refiado em 2026-07-06; era 34/35)   DIR=32/33
  *   - I2C MPU-6050: SDA 21 / SCL 22
  *   - Fim-de-curso: DESABILITADOS por enquanto (sem chaves montadas → -1)
  *
@@ -20,7 +20,8 @@
  *   - GPIO 12 (ESQ IN1) e strapping pin: PRECISA estar em LOW no boot, senao a
  *     seleccao de tensao da flash falha. Como IN1 idle = LOW, ok — mas nao ligar
  *     pull-up externo nele.
- *   - GPIO 34/35 (ENC2) sao input-only: exigem pull-up EXTERNO (ver secao encoders).
+ *   - GPIO 34/35 ficaram LIVRES (input-only, sem pull-up interno — se reutilizar,
+ *     lembrar do pull-up externo).
  *
  * Ganhos PID: valores iniciais conservadores para Lego NXT 53787.
  * Ajustar empiricamente com o procedimento Ziegler-Nichols (ver README).
@@ -211,15 +212,15 @@ constexpr int PIN_ENC_POWER_GND = 4;  // OUTPUT LOW  -> "GND" do encoder
 // Pinos — Encoders de quadratura (Lego NXT 53787)
 // ---------------------------------------------------------------------------
 // GPIO 32/33: suportam interrupcao e INPUT_PULLUP interno.
-// GPIO 34/35: input-only, SEM pull-up interno — exigem pull-up EXTERNO (10k para
-//   3V3) para o encoder funcionar. O pinMode(INPUT_PULLUP) em 34/35 nao dá erro,
-//   mas e ignorado pelo hardware. (Mapa alinhado ao Testes_eletronica.ino: ENC2 = 34/35.)
-// LADOS CONFERIDOS NA BANCADA (2026-07-06): na fiacao real o encoder da roda
-// ESQUERDA chega em 34/35 e o da DIREITA em 32/33 — o inverso do rotulo
-// ENC1/ENC2 do Testes_eletronica.ino. Mapeado aqui por software para nao
-// mexer na fiacao. (Se um dia refizerem os fios, so trocar de volta.)
-constexpr int PIN_ENC_ESQ_A = 34;  // Encoder esquerdo, fase A (interrupcao)  [era ENC2_A]
-constexpr int PIN_ENC_ESQ_B = 35;  // Encoder esquerdo, fase B (leitura sentido)  [era ENC2_B]
+// LADOS CONFERIDOS NA BANCADA (2026-07-06): encoder da roda DIREITA em 32/33.
+// FIACAO REFEITA (2026-07-06): o encoder ESQUERDO estava nos GPIOs 34/35
+// (input-only, sem pull-up interno) e sobrecontava ~420 pulsos/volta por ruido
+// nas bordas. Foi movido para 23/15, que tem pull-up interno — o INPUT_PULLUP
+// do encoders.cpp volta a valer e a contagem deve bater com ENCODER_PPR.
+// ATENCAO: GPIO 15 e strapping pin (MTDO) — se estiver LOW no boot, apenas
+// silencia as mensagens de boot da ROM; inofensivo, mas nao estranhar.
+constexpr int PIN_ENC_ESQ_A = 23;  // Encoder esquerdo, fase A (interrupcao)  [era 34]
+constexpr int PIN_ENC_ESQ_B = 15;  // Encoder esquerdo, fase B (leitura sentido)  [era 35]
 constexpr int PIN_ENC_DIR_A = 32;  // Encoder direito, fase A (interrupcao)  [era ENC1_A]
 constexpr int PIN_ENC_DIR_B = 33;  // Encoder direito, fase B (leitura sentido)  [era ENC1_B]
 
