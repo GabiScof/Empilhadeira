@@ -130,29 +130,6 @@ constexpr float PID_KD_DIR = 1.0f;
 constexpr float PID_INTEGRAL_LIMIT = 500.0f;
 
 // ---------------------------------------------------------------------------
-// Modo MALHA ABERTA (open-loop) — dirigir SEM depender do encoder
-// ---------------------------------------------------------------------------
-// >>> ATENCAO: com OPEN_LOOP=true o firmware IGNORA o encoder e NAO fecha malha.
-//
-// Por que existe: com encoder morto/instavel, a malha PID ve medido=0, o erro
-// fica preso no setpoint, o integral (Ki) satura e AS DUAS RODAS VAO A DUTY
-// MAXIMO com qualquer comando — impossivel teleoperar. Neste modo o setpoint
-// de velocidade (rad/s) e mapeado DIRETO para duty PWM, sem PID:
-//     duty = clamp(|w| * OPEN_LOOP_DUTY_PER_RADS, 0, MAX_DUTY);  sinal = sentido
-//
-// Escala: MAX_LINEAR_SPEED=30 cm/s e raio=2.8 cm dao fundo de escala ~10.7 rad/s;
-// ~24 duty/(rad/s) leva o talo do joystick a ~MAX_DUTY (255).
-//
-// O QUE VALE neste modo: comunicacao Pi<->ESP32, sentido dos motores, garfo,
-// watchdogs e teleoperacao MANUAL (Fases 1.2-1.5, 2.1-2.3, modo OPERACAO).
-// O QUE NAO VALE: odometria de roda (enc_* fica invalido), "anda reto" como
-// prova de controlador, e a autonomia/EKF da Fase 3 — NAO confiar em pose aqui.
-//
-// >>> VOLTAR PARA false assim que os encoders forem confiaveis (restaura o PID).
-constexpr bool  OPEN_LOOP = true;
-constexpr float OPEN_LOOP_DUTY_PER_RADS = 24.0f;
-
-// ---------------------------------------------------------------------------
 // Pinos — Motores de tracao (rodas) via L298n #1
 // ---------------------------------------------------------------------------
 // L298n modulo #1: canal A = roda esquerda, canal B = roda direita.
@@ -237,10 +214,14 @@ constexpr int PIN_ENC_POWER_GND = 4;  // OUTPUT LOW  -> "GND" do encoder
 // GPIO 34/35: input-only, SEM pull-up interno — exigem pull-up EXTERNO (10k para
 //   3V3) para o encoder funcionar. O pinMode(INPUT_PULLUP) em 34/35 nao dá erro,
 //   mas e ignorado pelo hardware. (Mapa alinhado ao Testes_eletronica.ino: ENC2 = 34/35.)
-constexpr int PIN_ENC_ESQ_A = 32;  // Encoder esquerdo, fase A (interrupcao)  [ENC1_A]
-constexpr int PIN_ENC_ESQ_B = 33;  // Encoder esquerdo, fase B (leitura sentido)  [ENC1_B]
-constexpr int PIN_ENC_DIR_A = 34;  // Encoder direito, fase A (interrupcao)  [ENC2_A]
-constexpr int PIN_ENC_DIR_B = 35;  // Encoder direito, fase B (leitura sentido)  [ENC2_B]
+// LADOS CONFERIDOS NA BANCADA (2026-07-06): na fiacao real o encoder da roda
+// ESQUERDA chega em 34/35 e o da DIREITA em 32/33 — o inverso do rotulo
+// ENC1/ENC2 do Testes_eletronica.ino. Mapeado aqui por software para nao
+// mexer na fiacao. (Se um dia refizerem os fios, so trocar de volta.)
+constexpr int PIN_ENC_ESQ_A = 34;  // Encoder esquerdo, fase A (interrupcao)  [era ENC2_A]
+constexpr int PIN_ENC_ESQ_B = 35;  // Encoder esquerdo, fase B (leitura sentido)  [era ENC2_B]
+constexpr int PIN_ENC_DIR_A = 32;  // Encoder direito, fase A (interrupcao)  [era ENC1_A]
+constexpr int PIN_ENC_DIR_B = 33;  // Encoder direito, fase B (leitura sentido)  [era ENC1_B]
 
 // Inversao de sinal dos encoders — [ENC1_INV/ENC2_INV false] no
 // Testes_eletronica.ino (que so conta pulsos, sem sentido). Validar na

@@ -17,10 +17,12 @@ Estado consolidado (2026-07-03):
 - Captura deve rodar em **640×480** (`CAMERA_FRAME_WIDTH/HEIGHT` no `.env`)
 - Pinagem firmware alinhada ao `Testes_eletronica.ino`; fim-de-curso desabilitado (-1)
 - Inversões: `MOTOR_ESQ_INV=true` já compensa a roda esquerda invertida da placa
-- **Encoder instável?** Há uma **Trilha sem encoder (malha aberta)** logo após a
-  FASE 0 (`OPEN_LOOP=true`): valida comunicação, motores, garfo, watchdogs e
-  MANUAL sem esperar o encoder; a odometria/autonomia ficam para o **Retorno ao
-  encoder** na mesma seção.
+- **2026-07-06: encoders FUNCIONANDO** (alimentação via GPIO 2 = VCC / GPIO 4 =
+  GND, dirigidos pelo `encodersBegin()`; lados esq↔dir corrigidos no `config.h`:
+  ESQ=34/35, DIR=32/33). O modo malha aberta (`OPEN_LOOP`) foi **REMOVIDO do
+  firmware** — o PID está sempre ativo. No runbook abaixo a Trilha A fica só
+  como histórico; siga a **Trilha B** e ignore menções a `OPEN_LOOP` (a
+  constante não existe mais no código).
 
 ---
 
@@ -99,27 +101,24 @@ hostname -I
 
 ---
 
-## RUNBOOK PASSO A PASSO — Trilha A (sem encoder) e Trilha B (com encoder)
+## RUNBOOK PASSO A PASSO
 
-> Duas trilhas na mesma bancada/robô, comando a comando.
-> **Trilha A (malha aberta, `OPEN_LOOP=true`)** valida tudo que NÃO precisa de
-> odometria: comunicação, motores, garfo, watchdogs, câmera, teleoperação MANUAL
-> e o modo OPERAÇÃO. Faça agora, enquanto o encoder está instável.
-> **Trilha B (malha fechada, `OPEN_LOOP=false`)** fecha a malha PID e libera
-> odometria + autonomia (FASE 3). Faça quando o encoder estiver confiável — ela
-> só re-roda os gates que a Trilha A não pôde provar; o resto já está verde.
+> ⚠️ **ATUALIZAÇÃO 2026-07-06:** os encoders funcionam e o modo malha aberta
+> (`OPEN_LOOP`) foi **removido do firmware** — o PID está sempre ativo. A
+> Trilha A abaixo fica como registro histórico do bring-up: os passos dela que
+> não envolvem `OPEN_LOOP` (A2, A4–A9) continuam válidos como referência de
+> comandos, mas **o caminho atual é: A-passos já verdes + Trilha B inteira**.
+> Onde um passo mandar editar `OPEN_LOOP` no config.h, ignore — não existe mais.
 >
 > **Convenção de terminal em cada passo:**
 > **[MAC]** terminal no seu Mac · **[PI]** terminal SSH no Raspberry Pi ·
 > **[CEL]** navegador do celular · **[MÃO]** ação física na bancada/robô.
 > Cada passo traz **comando → Esperado → Testar → Se falhar**.
-
-### Por que separar as trilhas
-A malha PID do firmware faz `erro = setpoint − velocidade_medida`. Com encoder
-morto, `medido ≈ 0`: o erro fica preso no setpoint, o integral (Ki=5) satura e
-**as duas rodas vão a duty máximo com qualquer comando** — impossível teleoperar.
-A Trilha A troca o PID por um mapa direto `duty = |w| · OPEN_LOOP_DUTY_PER_RADS`
-(sem encoder) → joystick proporcional e dirigível. A Trilha B devolve o PID.
+>
+> Contexto histórico (por que a Trilha A existiu): com encoder morto, a malha
+> PID via `medido≈0`, o integral saturava e as rodas iam a duty máximo — a
+> malha aberta destravou a teleoperação enquanto o hardware do encoder era
+> consertado. Problema resolvido; código removido.
 
 ---
 
@@ -149,11 +148,10 @@ SERIAL_PORT=/dev/ttyUSB0         # a porta do PRÉ.1
 
 ---
 
-## TRILHA A — SEM ENCODER (malha aberta)
+## TRILHA A — histórico (era "sem encoder"; hoje o firmware é sempre PID)
 
-### A1 [PI] — Ligar a malha aberta e gravar o firmware
+### A1 [PI] — Gravar o firmware
 ```bash
-# Confirme em firmware/src/config.h:  constexpr bool OPEN_LOOP = true;  (default atual)
 cd ~/Empilhadeira/src/firmware && source ../.venv/bin/activate
 pio run                 # 1ª vez baixa o toolchain — tem que dar SUCCESS
 pio run -t upload       # travou em "Connecting..."? segurar o botão BOOT do ESP32
@@ -233,8 +231,7 @@ npm run dev                          # expõe na rede (host:true), porta 5173
   - [MÃO] tag na frente da câmera → `visao.detectado = true`.
   - Campo `rodas`/`enc` fica ~0 (encoder morto) — **esperado** nesta trilha.
 - **Testar MANUAL (robô no chão, área livre, [MÃO] no PARADO):**
-  - Joystick à frente devagar → **anda** (proporcional ao talo). Muito rápido/lento
-    → [PI] ajustar `OPEN_LOOP_DUTY_PER_RADS` no `config.h` (atual 24) e regravar (A1).
+  - Joystick à frente devagar → **anda** (proporcional ao talo).
   - Ré → anda para trás; giro no lugar → gira.
   - **Só julgue SENTIDO** (frente/ré/giro). **NÃO** julgue "anda reto": sem
     correção por roda ele pode derivar — isso é da Trilha B.
@@ -273,13 +270,13 @@ andando · modo OPERAÇÃO servido pelo Pi (`Frontend estático montado`).
 > GPIO 34/35 conferido no item 1.1). Aqui só re-rodamos os gates que dependem do
 > encoder; comunicação, garfo, câmera e OPERAÇÃO já foram provados na Trilha A.
 
-### B1 [PI] — Voltar para malha fechada e regravar
+### B1 [PI] — Gravar o firmware atual (PID sempre ativo)
 ```bash
-# firmware/src/config.h:  constexpr bool OPEN_LOOP = false;
 cd ~/Empilhadeira/src/firmware && source ../.venv/bin/activate
 pio run -t upload
 ```
-- **Esperado:** `SUCCESS` + upload verificado. A partir daqui o PID fecha a malha.
+- **Esperado:** `SUCCESS` + upload verificado. O PID fecha a malha (não há mais
+  flag de malha aberta — o firmware é sempre malha fechada).
 
 ### B2 [PI] — Encoder: sinal e PPR (monitor, rodas no ar)
 ```bash

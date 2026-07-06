@@ -52,10 +52,10 @@ Fonte: `firmware/src/config.h` (ESP32 DevKit V1, 30 pinos).
 
 | Função | GPIO | Observação |
 |--------|------|------------|
-| Encoder Esq A | 32 | Interrupção RISING [ENC1_A] |
-| Encoder Esq B | 33 | Leitura de sentido [ENC1_B] |
-| Encoder Dir A | 34 | Interrupção RISING — **input-only, pull-up externo obrigatório** [ENC2_A] |
-| Encoder Dir B | 35 | Leitura de sentido — **input-only, pull-up externo obrigatório** [ENC2_B] |
+| Encoder Esq A | 34 | Interrupção RISING — input-only [era ENC2_A]; lados conferidos na bancada 2026-07-06 |
+| Encoder Esq B | 35 | Leitura de sentido — input-only [era ENC2_B] |
+| Encoder Dir A | 32 | Interrupção RISING [era ENC1_A] |
+| Encoder Dir B | 33 | Leitura de sentido [era ENC1_B] |
 | "VCC" encoder | 2 | GPIO em OUTPUT HIGH (3,3 V) — `PIN_ENC_POWER_VCC`; LED onboard acende junto |
 | "GND" encoder | 4 | GPIO em OUTPUT LOW — `PIN_ENC_POWER_GND` |
 
