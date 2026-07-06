@@ -225,12 +225,13 @@ constexpr int PIN_ENC_ESQ_B = 15;  // Encoder esquerdo, fase B (leitura sentido)
 constexpr int PIN_ENC_DIR_A = 32;  // Encoder direito, fase A (interrupcao)  [era ENC1_A]
 constexpr int PIN_ENC_DIR_B = 33;  // Encoder direito, fase B (leitura sentido)  [era ENC1_B]
 
-// Inversao de sinal dos encoders — VALIDADO NA BANCADA (2026-07-06), teste da
-// mao: roda para FRENTE reporta omega POSITIVO nos dois lados.
-//   ESQ: apos refiacao (A=23/B=15) e conserto do fio da fase B, sinal correto
-//        sem inversao.
-//   DIR: contava invertido de forma consistente → corrigido com true.
-constexpr bool ENC_ESQ_INV = false;
+// Inversao de sinal dos encoders — VALIDADO NA BANCADA (2026-07-06) com a
+// decodificacao x4: roda para FRENTE deve reportar omega POSITIVO.
+//   ESQ: com o x4 conta invertido (fases A/B fisicamente trocadas em relacao
+//        ao lado direito) → corrigido com true.
+//   DIR: correto com true (ja validado).
+// Se a fiacao mudar de novo, revalidar com o teste da mao.
+constexpr bool ENC_ESQ_INV = true;
 constexpr bool ENC_DIR_INV = true;
 
 // Pulsos por revolucao do eixo de saida do Lego NXT 53787.
