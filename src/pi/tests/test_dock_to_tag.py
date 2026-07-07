@@ -411,3 +411,65 @@ def test_dock_routes_registered_and_take_json_body():
 
 def _ang(a: float) -> float:
     return math.atan2(math.sin(a), math.cos(a))
+
+
+def test_closed_loop_tag_normal_docks_squared_with_tilted_tag():
+    """GARANTIA do caso "tag de lado": tag_normal encosta QUADRADO com a face.
+
+    Malha fechada com tag INCLINADA 25° em relação à linha de visão: o robô
+    deve estacionar sobre a NORMAL da face (não sobre a linha de visão) e
+    terminar encarando a tag de frente — ao final, a câmera veria a tag com
+    pitch ≈ 0. Convenção unificada (pitch negado + offset π) em ação.
+    """
+    from app.control.ekf import PoseEKF
+    from app.world.robot_model import RobotModel
+
+    sv = _clean_vision()
+    rm = RobotModel()
+
+    # Robô em (1.0, 1.5) m olhando -y; tag em (1.0, 0.6) m INCLINADA 25°:
+    # a face não aponta para o robô (aponta +y girada de 25°).
+    tilt = math.radians(25.0)
+    tag_x, tag_y = 1.0, 0.6
+    tag_theta = math.pi / 2 + tilt  # normal da face no mundo
+
+    ekf = PoseEKF(1.0, 1.5, -math.pi / 2)
+    docker = TagDocker(standoff_m=0.15, min_detections=3, mode="tag_normal")
+
+    # Dinâmica: integração exata da cinemática (sem escorregamento no sim).
+    x, y, th = 1.0, 1.5, -math.pi / 2
+    dt = 0.05
+    for _ in range(3000):
+        vs = sv.compute(
+            robot_x=x * 100.0, robot_y=y * 100.0, robot_theta=th,
+            tag_x=tag_x * 100.0, tag_y=tag_y * 100.0, tag_theta=tag_theta,
+        )
+        w_l, w_r = docker.step(vs, ekf.x, ekf.y, ekf.theta, dt)
+        if docker.state in (DockState.DONE, DockState.FAULT):
+            break
+        v, omega = rm.forward_kinematics(w_l, w_r)
+        # mundo ideal: pose real == odometria
+        th = th + omega * dt
+        x += v * math.cos(th) * dt
+        y += v * math.sin(th) * dt
+        ekf.predict(w_l, w_r, omega, dt, rm.wheel_radius_m, rm.wheelbase_m)
+
+    assert docker.state == DockState.DONE
+
+    # 1. Estacionou sobre a NORMAL da face, a standoff dela:
+    exp_x = tag_x + 0.15 * math.cos(tag_theta)
+    exp_y = tag_y + 0.15 * math.sin(tag_theta)
+    assert math.hypot(x - exp_x, y - exp_y) < 0.06, (x, y, exp_x, exp_y)
+
+    # 2. QUADRADO com a face: heading final = normal + π (encarando a tag).
+    exp_heading = tag_theta + math.pi
+    assert abs(_wrap(th - exp_heading)) < math.radians(8.0)
+
+    # 3. Prova óptica: do ponto final, a câmera vê a tag quase frontal.
+    vs_final = sv.compute(
+        robot_x=x * 100.0, robot_y=y * 100.0, robot_theta=th,
+        tag_x=tag_x * 100.0, tag_y=tag_y * 100.0, tag_theta=tag_theta,
+    )
+    assert vs_final.detectado
+    assert abs(vs_final.x_cm) < 5.0
+    assert abs(vs_final.pitch_deg) < 10.0
