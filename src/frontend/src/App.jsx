@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import { useWebSocket } from "./ws/useWebSocket.js";
+import { API_BASE, WS_URL } from "./endpoints.js";
 import ModeSelector from "./components/ModeSelector.jsx";
 import Joystick from "./components/Joystick.jsx";
 import DPad from "./components/DPad.jsx";
@@ -15,17 +16,6 @@ import MapPage from "./pages/MapPage.jsx";
 // Contrato de comunicação vindo de main: o alvo do WebSocket é configurável via
 // VITE_PI_WS_URL (ex.: ws://192.168.0.10:8000/ws) para apontar o frontend ao IP do
 // Pi. Sem a env, cai no mesmo-host (servido a partir do próprio Pi).
-const WS_URL =
-  import.meta.env.VITE_PI_WS_URL ||
-  (window.location.protocol === "https:" ? "wss://" : "ws://") +
-    (window.location.hostname || "localhost") +
-    ":8000/ws";
-
-const API_BASE =
-  window.location.protocol +
-  "//" +
-  (window.location.hostname || "localhost") +
-  ":8000";
 
 function OperatorPage() {
   const { telemetry, connected, sendCommand } = useWebSocket(WS_URL);

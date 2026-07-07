@@ -9,12 +9,8 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import MapView from "../components/MapView.jsx";
+import { API_BASE } from "../endpoints.js";
 
-const API_BASE =
-  window.location.protocol +
-  "//" +
-  (window.location.hostname || "localhost") +
-  ":8000";
 
 export default function MapPage() {
   const [maps, setMaps] = useState([]);

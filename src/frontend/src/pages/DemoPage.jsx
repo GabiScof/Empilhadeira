@@ -14,6 +14,7 @@ import DebugExport from "../components/DebugExport.jsx";
 import MapSelector from "../components/MapSelector.jsx";
 import MissionPanel from "../components/MissionPanel.jsx";
 import DockPanel from "../components/DockPanel.jsx";
+import { API_BASE } from "../endpoints.js";
 
 // Contrato de comunicação vindo de main: alvo do WebSocket configurável via
 // VITE_PI_WS_URL; sem a env, cai no mesmo-host (servido a partir do Pi).
@@ -23,11 +24,6 @@ const WS_URL =
     (window.location.hostname || "localhost") +
     ":8000/ws";
 
-const API_BASE =
-  window.location.protocol +
-  "//" +
-  (window.location.hostname || "localhost") +
-  ":8000";
 
 export default function DemoPage() {
   const { telemetry, connected, sendCommand } = useWebSocket(WS_URL);
