@@ -28,6 +28,8 @@ import time
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
+from app import config
+
 if TYPE_CHECKING:
     from app.control.ekf import PoseEKF
     from app.control.path_planner import Segment
@@ -140,6 +142,11 @@ class MissionSM:
         else:
             self._place_position_id = None
 
+        # Padrão configurável (.env) antes do sorteio: prioridade
+        # argumento explícito > padrão do config > sorteio por seed.
+        if self._pick_position_id is None and config.MISSION_DEFAULT_PICK_ID in tag_ids:
+            self._pick_position_id = config.MISSION_DEFAULT_PICK_ID
+
         rng = random.Random(self._seed)
 
         if self._pick_position_id is None:
@@ -149,6 +156,9 @@ class MissionSM:
         if not remaining:
             self._fault("Apenas uma tag — não sobrou posição para place")
             return False
+
+        if self._place_position_id is None and config.MISSION_DEFAULT_PLACE_ID in remaining:
+            self._place_position_id = config.MISSION_DEFAULT_PLACE_ID
 
         if self._place_position_id is None:
             self._place_position_id = rng.choice(remaining)

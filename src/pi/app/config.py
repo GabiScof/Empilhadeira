@@ -397,3 +397,12 @@ DOCK_PITCH_TO_TAG_YAW_OFFSET_RAD: float = math.pi
 MISSION_SEED: int = int(os.getenv("MISSION_SEED", "42"))
 # TODO(equipe): confirmar gatilho de retomada — "continuar" (default) ou auto pelo fim-de-curso
 MISSION_RESUME_TRIGGER: str = os.getenv("MISSION_RESUME_TRIGGER", "button")
+
+# Pick/place PADRÃO da missão (position_id do mapa) — HARDCODED, não vem do env.
+# Usado quando o operador NÃO escolhe no painel (dropdown "Sortear") e no
+# `POST /mission/start` sem corpo. Prioridade: argumento explícito (UI/curl) >
+# este padrão > sorteio por MISSION_SEED. Defina None p/ voltar ao sorteio.
+# No corredor_6tags_80x160: L2 = 2ª tag da esquerda (mais perto),
+# R3 = 3ª da direita (mais longe).
+MISSION_DEFAULT_PICK_ID: str | None = "L2"
+MISSION_DEFAULT_PLACE_ID: str | None = "R3"
