@@ -167,10 +167,10 @@ CAMERA_INTRINSICS_PATH: Path = (
 )
 
 # Índice do dispositivo de câmera para cv2.VideoCapture.
-# FIXADO em 1 (câmera nova = /dev/video1 no Pi, decisão da equipe 2026-07-07).
+# FIXADO em 0 (câmera nova enumera como /dev/video0; ajustado na bancada 2026-07-07).
 # Propositalmente SEM env override — o valor certo mora aqui; se a enumeração
 # de dispositivos mudar (trocar porta USB/câmera), editar esta linha.
-CAMERA_INDEX: int = 1
+CAMERA_INDEX: int = 0
 # Defaults = resolução da CALIBRAÇÃO (câmera nova: 1280×720). São só fallback:
 # quem abre a câmera (vision_loop/teste_cam) força a resolução anotada no JSON
 # de calibração — capturar em outra invalida fx/fy/cx/cy silenciosamente.
