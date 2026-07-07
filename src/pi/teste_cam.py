@@ -16,14 +16,20 @@ consumir. Convenções (validar nos checks do 1.4 do real-robot-test-plan):
 
 Uso:
     python teste_cam.py                # abre janela com o vídeo
-    HEADLESS=1 python teste_cam.py     # sem janela (só imprime no terminal, p/ Pi via SSH)
+    python teste_cam.py --janela       # FORÇA a janela (ignora HEADLESS do ambiente)
+    python teste_cam.py --headless     # sem janela (só imprime no terminal, p/ SSH)
+    HEADLESS=1 python teste_cam.py     # idem --headless, via ambiente
     CAMERA_INDEX=1 python teste_cam.py # escolhe outra câmera
+
+Prioridade: flag de linha de comando > variável de ambiente. Se o HEADLESS=1
+ficou exportado no shell, `--janela` sobrepõe sem precisar mexer no ambiente.
 
 Teclas na janela: 'q' ou ESC para sair.
 """
 
 from __future__ import annotations
 
+import argparse
 import os
 
 import cv2
@@ -112,7 +118,24 @@ def _draw_detection(frame: np.ndarray, det) -> None:
 
 
 def main() -> None:
-    headless = os.getenv("HEADLESS", "0") == "1"
+    parser = argparse.ArgumentParser(description="Teste da câmera + AprilTag.")
+    grupo = parser.add_mutually_exclusive_group()
+    grupo.add_argument(
+        "--janela", action="store_true",
+        help="força o modo com janela (sobrepõe HEADLESS=1 do ambiente)",
+    )
+    grupo.add_argument(
+        "--headless", action="store_true",
+        help="força o modo sem janela (só terminal)",
+    )
+    args = parser.parse_args()
+
+    if args.janela:
+        headless = False
+    elif args.headless:
+        headless = True
+    else:
+        headless = os.getenv("HEADLESS", "0") == "1"
 
     _check_cv2_videoio()
 
