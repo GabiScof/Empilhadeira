@@ -154,15 +154,13 @@ CAMERA_TO_FORK_OFFSET_CM: tuple[float, float, float] = (0.0, -14.2, -21.3)
 # em graus. (Ou inclinômetro do celular apoiado no corpo da câmera.)
 # Depois de definir o tilt, RECALIBRAR o CAMERA_TO_FORK_OFFSET_CM (offset
 # medido sem compensação absorve o erro da hipotenusa e só vale numa distância).
-# MEDIDO NA BANCADA (2026-07-07) para a CÂMERA ANTIGA, tag centralizada:
-#   lente a 29,5 cm do chão · centro da tag a 15,3 cm · d = 26,3 cm
-#   → Δh = 14,2 cm → tilt = atan(14,2/26,3) = 28,4°.
-# ⚠️ CÂMERA NOVA REMONTADA (2026-07-07, lente 4,2 cm mais à frente):
-# RE-MEDIR o tilt com o mesmo procedimento antes de confiar no z — o valor
-# abaixo é o da montagem anterior, provavelmente próximo mas não confirmado.
-# Validar: tag a 30 cm horizontais → z≈30; a 15 cm → z≈15 (fita métrica).
-# Nota: incidência no standoff de 15 cm = atan(Δh/15) — manter ≲ 45°.
-CAMERA_TILT_DEG: float = float(os.getenv("CAMERA_TILT_DEG", "28.4"))
+# MEDIDO NA BANCADA (2026-07-07) para a CÂMERA NOVA, tag centralizada na
+# imagem: lente a 27,0 cm do chão · centro da tag a 15,3 cm · d = 27,9 cm
+#   → Δh = 11,7 cm → tilt = atan(11,7/27,9) = 22,7°.
+# (Montagem anterior/câmera antiga: 28,4° — lente estava a 29,5 cm.)
+# Incidência no standoff de 15 cm: atan(11,7/15) ≈ 38° — confortável (< 45°).
+# Validar: tag a 30 cm horizontais da ponta do garfo → z≈30; a 15 → z≈15.
+CAMERA_TILT_DEG: float = float(os.getenv("CAMERA_TILT_DEG", "22.7"))
 
 CAMERA_INTRINSICS_PATH: Path = (
     Path(__file__).resolve().parent.parent / "calibracao" / "camera_intrinsics.json"
