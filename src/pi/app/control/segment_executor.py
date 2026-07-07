@@ -38,6 +38,9 @@ FALLBACK_OMEGA_RADS: float = config.NAV_FALLBACK_OMEGA_RADS  # velocidade de gir
 POS_TOL_M: float = config.NAV_POS_TOL_M  # tolerância de posição (m)
 HEADING_TOL_RAD: float = config.NAV_HEADING_TOL_RAD  # tolerância de heading (rad)
 
+MIN_V_MS: float = config.NAV_MIN_V_MS  # piso anti atrito estático (reto)
+MIN_OMEGA_RADS: float = config.NAV_MIN_OMEGA_RADS  # piso anti atrito (giro)
+
 MAX_SEGMENT_TIME_S: float = config.NAV_MAX_SEGMENT_TIME_S  # timeout por segmento
 
 
@@ -160,6 +163,10 @@ class SegmentExecutor:
         else:
             v = FALLBACK_V_MS
 
+        # Piso anti atrito estático: proporcional puro comanda v minúsculo
+        # perto do alvo e o robô real para antes da tolerância (bancada
+        # 2026-07-07). Fora da tolerância, andar sempre acima do piso.
+        v = max(v, MIN_V_MS)
         v = min(v, self._max_v)
 
         if abs(heading_error) > math.pi / 4:
@@ -190,6 +197,12 @@ class SegmentExecutor:
             omega = FALLBACK_OMEGA_RADS * (1.0 if heading_error > 0 else -1.0)
             if abs(heading_error) < 0.3:
                 omega *= abs(heading_error) / 0.3
+
+        # Piso anti atrito estático no giro (skid steer precisa de torque):
+        # sem isto o robô trava a poucos graus do alvo e estoura o timeout.
+        # HEADING_TOL foi folgada (2°→4°) para o piso não oscilar na chegada.
+        if abs(omega) < MIN_OMEGA_RADS:
+            omega = MIN_OMEGA_RADS * (1.0 if heading_error > 0 else -1.0)
 
         omega = max(-self._max_omega, min(self._max_omega, omega))
 

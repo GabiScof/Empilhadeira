@@ -295,7 +295,15 @@ GYRO_CAL_TRACK_ALPHA: float = 0.01  # EMA p/ rastrear drift térmico após calib
 NAV_K_DIST: float = 1.5     # ganho proporcional distância → v (1/s); cap em MAX_LINEAR_SPEED_MS
 NAV_K_HEADING: float = 2.5  # ganho proporcional heading → ω (1/s); cap em MAX_ANGULAR_SPEED_RADS
 NAV_POS_TOL_M: float = 0.02  # tolerância de posição (m)
-NAV_HEADING_TOL_RAD: float = 0.035  # ~2° — tolerância de heading
+NAV_HEADING_TOL_RAD: float = 0.07  # ~4° — folga p/ o piso de ω não oscilar (era 2°)
+
+# Pisos de velocidade (anti atrito estático) — bancada 2026-07-07: a malha
+# proporcional comanda velocidades minúsculas perto do alvo e o chão engole
+# (roda zumbe, robô parado, dock "lento/fraco" até estourar timeout). Fora da
+# tolerância, nunca comandar abaixo disto:
+NAV_MIN_V_MS: float = 0.07        # ~2.6 rad/s de roda — vence o atrito no reto
+NAV_MIN_OMEGA_RADS: float = 1.0   # giro no lugar (skid) exige mais torque
+
 NAV_FALLBACK_V_MS: float = 0.08  # velocidade fixa quando K_DIST=0 (fallback de segurança)
 NAV_FALLBACK_OMEGA_RADS: float = 1.0  # vel. angular fixa quando K_HEADING=0 (fallback)
 NAV_MAX_SEGMENT_TIME_S: float = 45.0  # timeout por segmento (margem p/ corredores longos)
