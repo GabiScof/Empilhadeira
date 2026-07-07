@@ -1,15 +1,69 @@
 {
   "name": "corredor_6tags_80x200",
-  "arena": { "width_m": 0.80, "height_m": 2.00, "origin": "bottom_left" },
-  "start_pose": { "x_m": 0.40, "y_m": 0.10, "theta_deg": 90 },
-  "home_pose":  { "x_m": 0.40, "y_m": 0.10, "theta_deg": 90 },
+  "arena": {
+    "width_m": 0.8,
+    "height_m": 2.0,
+    "origin": "bottom_left"
+  },
+  "start_pose": {
+    "x_m": 0.4,
+    "y_m": 0.1,
+    "theta_deg": 90
+  },
+  "home_pose": {
+    "x_m": 0.4,
+    "y_m": 0.1,
+    "theta_deg": 90
+  },
   "tags": [
-    { "position_id": "L1", "x_m": 0.05, "y_m": 1.60, "wall": "left",  "yaw_deg": 0   },
-    { "position_id": "L2", "x_m": 0.05, "y_m": 1.00, "wall": "left",  "yaw_deg": 0   },
-    { "position_id": "L3", "x_m": 0.05, "y_m": 0.40, "wall": "left",  "yaw_deg": 0   },
-    { "position_id": "R1", "x_m": 0.75, "y_m": 1.60, "wall": "right", "yaw_deg": 180 },
-    { "position_id": "R2", "x_m": 0.75, "y_m": 1.00, "wall": "right", "yaw_deg": 180 },
-    { "position_id": "R3", "x_m": 0.75, "y_m": 0.40, "wall": "right", "yaw_deg": 180 }
+    {
+      "position_id": "L1",
+      "x_m": 0.05,
+      "y_m": 1.6,
+      "wall": "left",
+      "yaw_deg": 0,
+      "april_tag_id": 3
+    },
+    {
+      "position_id": "L2",
+      "x_m": 0.05,
+      "y_m": 1.0,
+      "wall": "left",
+      "yaw_deg": 0,
+      "april_tag_id": 1
+    },
+    {
+      "position_id": "L3",
+      "x_m": 0.05,
+      "y_m": 0.4,
+      "wall": "left",
+      "yaw_deg": 0,
+      "april_tag_id": 2
+    },
+    {
+      "position_id": "R1",
+      "x_m": 0.75,
+      "y_m": 1.6,
+      "wall": "right",
+      "yaw_deg": 180,
+      "april_tag_id": 4
+    },
+    {
+      "position_id": "R2",
+      "x_m": 0.75,
+      "y_m": 1.0,
+      "wall": "right",
+      "yaw_deg": 180,
+      "april_tag_id": 5
+    },
+    {
+      "position_id": "R3",
+      "x_m": 0.75,
+      "y_m": 0.4,
+      "wall": "right",
+      "yaw_deg": 180,
+      "april_tag_id": 0
+    }
   ],
   "tag_size_m": 0.04,
   "tag_family": "tag25h9"

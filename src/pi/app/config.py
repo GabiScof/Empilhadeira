@@ -247,7 +247,11 @@ SIM_VISION_NOISE_STD_DEG: float = 0.5  # desvio-padrão do ruído de ângulo (gr
 # Modelo de mundo — [ref: Seção 2 do mega-prompt]
 # ---------------------------------------------------------------------------
 # Mapa padrão — selecionável por .env/CLI/UI.
-DEFAULT_MAP: str = os.getenv("MAP", "corredor_pequeno")
+# HARDCODED (2026-07-07): mapa REAL medido da arena (80x160, april_tag_id
+# preenchidos). Sem env — o MAP= do .env apontava para o mapa antigo sem
+# april_tag_id e o robô real não resolvia nenhuma tag contra o mapa.
+# Troca em runtime continua possível: POST /maps/load/<nome>.
+DEFAULT_MAP: str = "corredor_6tags_80x160"
 
 # Diretório dos mapas
 MAPS_DIR: Path = Path(__file__).resolve().parent.parent / "maps"
