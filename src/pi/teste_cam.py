@@ -83,20 +83,6 @@ def _build_detector():
     return detector
 
 
-def _calibration_image_size() -> tuple[int, int] | None:
-    """Resolução usada na CALIBRAÇÃO (a única em que os intrínsecos valem)."""
-    from app.vision.calibration import CalibrationError, load_intrinsics
-
-    try:
-        intr = load_intrinsics(config.CAMERA_INTRINSICS_PATH)
-    except CalibrationError:
-        return None
-    size = getattr(intr, "image_size", None)
-    if size is None:
-        return None
-    return int(size[0]), int(size[1])
-
-
 def _open_camera() -> cv2.VideoCapture:
     """Abre a câmera FORÇANDO a resolução da calibração.
 
@@ -106,7 +92,9 @@ def _open_camera() -> cv2.VideoCapture:
     em 2026-07-07. Por isso a resolução da calibração tem prioridade sobre o
     config/env aqui.
     """
-    cal_size = _calibration_image_size()
+    from app.vision.calibration import calibration_image_size
+
+    cal_size = calibration_image_size()
     width, height = cal_size or (config.CAMERA_FRAME_WIDTH, config.CAMERA_FRAME_HEIGHT)
     if cal_size and cal_size != (config.CAMERA_FRAME_WIDTH, config.CAMERA_FRAME_HEIGHT):
         print(

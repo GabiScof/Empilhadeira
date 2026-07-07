@@ -65,14 +65,41 @@ class RealVisionSource:
         self._estimate = estimate or estimate_vision_state
         self._estimate_observations = estimate_observations or estimate_tag_observations
 
+        # Resolução: a da CALIBRAÇÃO tem prioridade sobre config/env — os
+        # intrínsecos só valem nela; capturar em outra produz z/x
+        # silenciosamente errados (armadilha vista na bancada, 2026-07-07).
+        from app.vision.calibration import calibration_image_size
+
+        cal_size = calibration_image_size()
+        width, height = cal_size or (config.CAMERA_FRAME_WIDTH, config.CAMERA_FRAME_HEIGHT)
+        if cal_size and cal_size != (config.CAMERA_FRAME_WIDTH, config.CAMERA_FRAME_HEIGHT):
+            logger.warning(
+                "Config/env pedia %dx%d, mas a calibração é %dx%d — usando a da calibração",
+                config.CAMERA_FRAME_WIDTH, config.CAMERA_FRAME_HEIGHT, width, height,
+            )
+
         self._capture = cv2.VideoCapture(config.CAMERA_INDEX)
-        self._capture.set(cv2.CAP_PROP_FRAME_WIDTH, config.CAMERA_FRAME_WIDTH)
-        self._capture.set(cv2.CAP_PROP_FRAME_HEIGHT, config.CAMERA_FRAME_HEIGHT)
+        self._capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        self._capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         self._cv2 = cv2
         self._last_detections: list = []
 
         if not self._capture.isOpened():
             raise RuntimeError(f"Câmera não abriu (índice {config.CAMERA_INDEX})")
+
+        real_w = int(self._capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+        real_h = int(self._capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        if (real_w, real_h) != (width, height):
+            msg = (
+                f"Câmera entregou {real_w}x{real_h} em vez dos {width}x{height} "
+                "da calibração — pose z/x da navegação sairia inválida. "
+                "Recalibre nessa resolução ou ajuste a câmera."
+            )
+            if config.REQUIRE_CAMERA_CALIBRATION:
+                self._capture.release()
+                raise RuntimeError(msg)
+            logger.error(msg)
+        logger.info("Câmera aberta a %dx%d (índice %d)", real_w, real_h, config.CAMERA_INDEX)
 
     def _detect(self) -> list:
         read_ok, frame = self._capture.read()

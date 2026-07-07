@@ -152,3 +152,17 @@ def load_intrinsics_or_none(path: Path | None = None) -> CameraIntrinsics | None
 def is_calibrated(path: Path | None = None) -> bool:
     """Retorna ``True`` se há uma calibração utilizável no caminho dado."""
     return load_intrinsics_or_none(path) is not None
+
+
+def calibration_image_size(path: Path | None = None) -> tuple[int, int] | None:
+    """Resolução (largura, altura) em que a câmera foi CALIBRADA, se anotada.
+
+    Os intrínsecos fx/fy/cx/cy só valem nessa resolução: capturar em outra
+    produz z/x silenciosamente errados. Quem abre a câmera deve preferir este
+    tamanho ao do config/env (armadilha vista na bancada em 2026-07-07:
+    default 1280x720 com calibração 640x480).
+    """
+    intr = load_intrinsics_or_none(path)
+    if intr is None or intr.image_size is None:
+        return None
+    return int(intr.image_size[0]), int(intr.image_size[1])
