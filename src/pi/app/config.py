@@ -130,9 +130,14 @@ CAMERA_PARAMS: tuple[float, float, float, float] = (
     CAMERA_CY,
 )
 
-# PROVISÓRIO — TODO(equipe): confirmar (x, y, z) em cm.
-# Sem offset até a equipe medir a posição relativa câmera-garfo.
-CAMERA_TO_FORK_OFFSET_CM: tuple[float, float, float] = (0.0, -14.2, 25.5)
+# Offset câmera→garfo em cm, SOMADO à leitura (pose.py: z_cm += offset_z).
+# A lente fica ~25,5 cm ATRÁS da ponta do garfo → a distância garfo→tag é
+# MENOR que a lente→tag → offset_z NEGATIVO. (Com +25.5 o z reportado saía
+# ~2x a distância real — visto na bancada 2026-07-07: o ZREF/dock passariam
+# longe.) Após o offset, z_cm = distância da PONTA DO GARFO até a tag; o
+# ZREF_CM/standoff referem-se a ela. y (-14.2 = desnível vertical) é ignorado
+# pelo contrato. Validar: tag a 15 cm da ponta do garfo → z_cm ≈ 15.
+CAMERA_TO_FORK_OFFSET_CM: tuple[float, float, float] = (0.0, -14.2, -25.5)
 
 # Inclinação da câmera para BAIXO, em graus (0 = nivelada). A câmera fica no
 # topo do trilho do garfo, acima das tags, e precisa olhar para baixo para
