@@ -9,6 +9,6 @@
     { "position_id": "P3", "x_m": 0.75, "y_m": 1.45, "wall": "top",   "yaw_deg": 270 },
     { "position_id": "P4", "x_m": 0.75, "y_m": 0.05, "wall": "bottom","yaw_deg": 90 }
   ],
-  "tag_size_m": 0.05,
+  "tag_size_m": 0.04,
   "tag_family": "tag25h9"
 }

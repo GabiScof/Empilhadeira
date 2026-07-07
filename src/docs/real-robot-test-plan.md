@@ -42,10 +42,8 @@ Estado consolidado (atualizado 2026-07-06):
   pulsos/volta por ruído). Decodificação agora é a COMPLETA x4 (CHANGE nas
   duas fases, tabela de transição em `encoders.cpp`) → `ENCODER_PPR=1440`;
   sinais validados na bancada (`ENC_ESQ_INV=true`, `ENC_DIR_INV=true`).
-  O modo malha aberta (`OPEN_LOOP`) foi **REMOVIDO do
-  firmware** — o PID está sempre ativo. No runbook abaixo a Trilha A fica só
-  como histórico; siga a **Trilha B** e ignore menções a `OPEN_LOOP` (a
-  constante não existe mais no código).
+  O firmware é **sempre malha fechada** (PID ativo; a antiga flag `OPEN_LOOP`
+  não existe mais no código).
 
 ---
 
@@ -116,248 +114,17 @@ sudo usermod -aG dialout,video $USER
 # 5. Descobrir porta do ESP32 e IP do Pi (anote os dois)
 ls /dev/ttyUSB* /dev/ttyACM*
 hostname -I
+
+# 6. Criar o .env do backend (uma vez; precisa existir ANTES da câmera, item 1.4)
+cp .env.example .env
+# edite o .env:  SIM=0 · REQUIRE_CAMERA_CALIBRATION=1
+#   CAMERA_FRAME_WIDTH=640 · CAMERA_FRAME_HEIGHT=480  (TEM que bater com a calibração)
+#   MAP=corredor_6tags_80x200 · SERIAL_PORT=<a porta do passo 5>
 ```
 
 **Regra de ouro da porta serial:** só UM programa pode usar a UART por vez.
 `pio device monitor`, `bench_setpoint.py` e o backend brigam pela mesma porta —
 **sempre feche um antes de abrir o outro** (erro típico: `Device or resource busy`).
-
----
-
-## RUNBOOK PASSO A PASSO
-
-> ⚠️ **ATUALIZAÇÃO 2026-07-06:** os encoders funcionam e o modo malha aberta
-> (`OPEN_LOOP`) foi **removido do firmware** — o PID está sempre ativo. A
-> Trilha A abaixo fica como registro histórico do bring-up: os passos dela que
-> não envolvem `OPEN_LOOP` (A2, A4–A9) continuam válidos como referência de
-> comandos, mas **o caminho atual é: A-passos já verdes + Trilha B inteira**.
-> Onde um passo mandar editar `OPEN_LOOP` no config.h, ignore — não existe mais.
->
-> **Convenção de terminal em cada passo:**
-> **[MAC]** terminal no seu Mac · **[PI]** terminal SSH no Raspberry Pi ·
-> **[CEL]** navegador do celular · **[MÃO]** ação física na bancada/robô.
-> Cada passo traz **comando → Esperado → Testar → Se falhar**.
->
-> Contexto histórico (por que a Trilha A existiu): com encoder morto, a malha
-> PID via `medido≈0`, o integral saturava e as rodas iam a duty máximo — a
-> malha aberta destravou a teleoperação enquanto o hardware do encoder era
-> consertado. Problema resolvido; código removido.
-
----
-
-### PRÉ — uma vez, vale para as duas trilhas
-
-**PRÉ.1 [PI]** Anotar porta serial do ESP32 e IP do Pi (usados o tempo todo):
-```bash
-ls /dev/ttyUSB* /dev/ttyACM*     # → anote (ex.: /dev/ttyUSB0)
-hostname -I                      # → anote o IP do Pi (ex.: 192.168.0.10)
-```
-**PRÉ.2 [MAC]** Anotar o IP do Mac (só o modo DEV precisa):
-```bash
-ipconfig getifaddr en0           # Wi-Fi; en1/en... se for outra interface
-```
-**PRÉ.3 [PI]** `.env` do backend (`~/Empilhadeira/src/.env`, base no `.env.example`):
-```bash
-SIM=0
-REQUIRE_CAMERA_CALIBRATION=1
-CAMERA_FRAME_WIDTH=640
-CAMERA_FRAME_HEIGHT=480
-MAP=corredor_6tags_80x200
-SERIAL_PORT=/dev/ttyUSB0         # a porta do PRÉ.1
-```
-> **Regra de ouro da serial:** só UM programa por vez na UART. `pio device
-> monitor`, `bench_setpoint.py` e o backend brigam pela mesma porta — feche um
-> (Ctrl-C) antes de abrir o outro (erro típico: `Device or resource busy`).
-
----
-
-## TRILHA A — histórico (era "sem encoder"; hoje o firmware é sempre PID)
-
-### A1 [PI] — Gravar o firmware
-```bash
-cd ~/Empilhadeira/src/firmware && source ../.venv/bin/activate
-pio run                 # 1ª vez baixa o toolchain — tem que dar SUCCESS
-pio run -t upload       # travou em "Connecting..."? segurar o botão BOOT do ESP32
-```
-- **Esperado:** `SUCCESS` na compilação e `Writing... / Hash of data verified` no upload.
-- **Se falhar:** não grava = GPIO 12 puxado HIGH (strapping) → desconectar o
-  driver do 12 e regravar; `pio` não achado = faltou `source ../.venv/bin/activate`.
-
-### A2 [PI] — Ver sensores no monitor (robô suspenso, rodas no ar)
-```bash
-pio device monitor -b 115200
-```
-- **Esperado:** JSON a ~20 Hz com `|az|≈9.8–11` (MPU sente a gravidade). No
-  nosso chassi o MPU está montado com o eixo z para baixo → **`az` sai
-  NEGATIVO (~-11)** — é normal; o GyroCalibrator detecta eixo/sinal no boot.
-- **Testar (só o que NÃO depende do encoder):** [MÃO] inclinar o chassi →
-  `ax/ay/az` mudam. **Pule** os checks de sinal/PPR do encoder (`enc.*` pode ficar 0).
-- **Se falhar:** lixo no monitor = baudrate errado; nada = TX/RX invertidos ou
-  cabo só-carga. **Feche o monitor com Ctrl-C** antes do próximo passo.
-
-### A3 [PI] — Motores na bancada (RODAS NO AR, fonte 12 V ligada)
-```bash
-cd ~/Empilhadeira/src && source .venv/bin/activate
-python3 scripts/bench_setpoint.py --w-esq 2 --w-dir 2 --seconds 5
-python3 scripts/bench_setpoint.py --garfo subir --seconds 2
-# use --port /dev/ttyACM0 se essa for a porta do PRÉ.1
-```
-- **Esperado:** `[OK] ... Enviando w_esq=2 w_dir=2 ...` e linhas
-  `enc esq=... dir=... rad/s | mpu az=.. gz=..`. Em malha aberta com encoder
-  morto o `enc` sai 0 — **normal**; o que importa é a roda girar.
-- **Testar:**
-  1. [MÃO] **Um lado por vez** (`--w-esq 2 --w-dir 0` → só a esquerda; espelho
-     para a direita) e **para FRENTE**. Lado errado = canais do L298n trocados
-     (remapeados no `config.h` em 2026-07-06); sentido errado = `MOTOR_*_INV`.
-  2. [MÃO] `--garfo subir` **sobe** (senão `FORK_INV=true`). **Soltar antes do fim
-     do curso mecânico** (sem fim-de-curso montado).
-  3. **Watchdog:** Ctrl-C com as rodas girando → param **< 200 ms**. Reprovou = pare.
-- **Se falhar:** `[FALHA] Nenhum frame` = baudrate/TX-RX/CRC; não gira = fonte
-  desligada ou jumper ENA/ENB ainda no L298n.
-- **Pule** o check "`enc.* ≈ +2.0`" — é a malha fechando, só existe na Trilha B.
-
-### A4 [PI] — Câmera (via SSH, headless automático)
-```bash
-cd ~/Empilhadeira/src/pi && python3 teste_cam.py
-```
-- **Esperado:** `[OK] Detector criado com calibração da câmera.` +
-  `[OK] Câmera aberta (índice 0, 640x480)` + linhas `N tag(s): [ids]`.
-- **Testar:** [MÃO] tag a **30,0 cm** → `z` entre 28,5–31,5 cm (fita métrica);
-  tag a **15 cm** (standoff) ainda detecta; anotar distância máxima de detecção.
-- **Se falhar:** `[AVISO] Câmera não calibrada` = JSON de calibração fora do
-  lugar; `z` fora da faixa = resolução de captura ≠ calibração (640×480) ou
-  `APRILTAG_SIZE_CM`/`tag_size_m` errado. **Ctrl-C** para sair.
-
-### A5 [PI] — Subir o backend
-```bash
-cd ~/Empilhadeira/src && ./scripts/run_pi.sh
-```
-- **Esperado (nesta ordem):** `Modo REAL (hardware)` → `Serial loop (REAL)
-  iniciado` → `Detector criado com calibração`.
-- **Se faltar:** `Modo REAL` ausente = `.env` não carregou ou `SIM≠0`; `Serial
-  loop` ausente = porta errada/ocupada (fechou monitor e bench?) ou grupo
-  `dialout` sem relogar; `Detector` ausente = calibração quebrada (voltar A4).
-- Deixe rodando neste terminal. **Deixe o robô imóvel ~3 s** agora: o
-  GyroCalibrator usa a gravidade p/ achar o eixo vertical, sinal do yaw e bias.
-
-### A6 [MAC] — Frontend, MODO DEV (itera rápido; a página vem do Mac)
-```bash
-# no .env DO MAC:  VITE_PI_WS_URL=ws://<IP_DO_PI>:8000/ws     (IP do PRÉ.1)
-cd src/frontend && npm install       # 1ª vez só
-npm run dev                          # expõe na rede (host:true), porta 5173
-```
-- **[CEL]** abrir `http://<IP_DO_MAC>:5173` (IP do PRÉ.2).
-- **Esperado:** app carrega e conecta (indicador de conexão verde/telemetria fluindo).
-- **Se falhar:** não conecta = `VITE_PI_WS_URL` errado ou não reiniciou o
-  `npm run dev` após editar o `.env` (a env é lida na partida).
-
-### A7 [CEL] — Validar telemetria e teleoperação MANUAL
-- **Testar telemetria (~20 Hz):**
-  - [MÃO] inclinar o robô → bloco `imu` mexe.
-  - [MÃO] tag na frente da câmera → `visao.detectado = true`.
-  - Campo `rodas`/`enc` fica ~0 (encoder morto) — **esperado** nesta trilha.
-- **Testar MANUAL (robô no chão, área livre, [MÃO] no PARADO):**
-  - Joystick à frente devagar → **anda** (proporcional ao talo).
-  - Ré → anda para trás; giro no lugar → gira.
-  - **Só julgue SENTIDO** (frente/ré/giro). **NÃO** julgue "anda reto": sem
-    correção por roda ele pode derivar — isso é da Trilha B.
-- **NÃO clicar em AUTOMATICO nesta trilha** (autonomia depende de odometria).
-
-### A8 [CEL] — Os dois watchdogs (andando de verdade)
-1. [MÃO] desplugar o USB do ESP32 com o robô andando → para **< 200 ms**.
-2. [MÃO] desligar o Wi-Fi do celular andando → para **< ~400 ms**
-   (`COMMAND_WATCHDOG_MS`).
-
-### A9 [MAC]/[PI] — Modo OPERAÇÃO (demo sem Node no Pi)
-```bash
-# [MAC] buildar e copiar os estáticos:
-cd src/frontend && npm run build
-rsync -av dist/ pi@<IP_DO_PI>:~/Empilhadeira/src/frontend/dist/
-# [PI] reiniciar o backend (Ctrl-C no de A5 e subir de novo):
-cd ~/Empilhadeira/src && ./scripts/run_pi.sh
-```
-- **Esperado:** log do backend mostra `Frontend estático montado de ...`.
-- **[CEL]** abrir `http://<IP_DO_PI>:8000/` — uma porta só; sem `VITE_PI_WS_URL`
-  o front conecta em `ws://<host da página>:8000/ws`, que já é o Pi. Repetir A7 (MANUAL).
-- **Checar de outra máquina:** `curl http://<IP_DO_PI>:8000/maps/current` →
-  `corredor_6tags_80x200`.
-
-### ✅ PORTÃO A (histórico, era "sem encoder")
-Firmware grava · MPU @20 Hz (`|az|≈9.8–11`, negativo no nosso chassi) · motores no lado e sentido certos ·
-garfo com carga · watchdog bench < 200 ms · câmera com `z` na fita · backend com
-os 3 logs · telemetria no celular · **MANUAL dirigível** · os dois watchdogs
-andando · modo OPERAÇÃO servido pelo Pi (`Frontend estático montado`).
-
----
-
-## TRILHA B — COM ENCODER (malha fechada) · fechar o robô COMPLETO
-
-> Pré-requisito: **PORTÃO A verde** e o encoder já lendo (fiação nos GPIO 23/15
-> e 32/33 conferida no item 1.1 — todos com pull-up interno, sem resistor
-> externo). Aqui só re-rodamos os gates que dependem do
-> encoder; comunicação, garfo, câmera e OPERAÇÃO já foram provados na Trilha A.
-
-### B1 [PI] — Gravar o firmware atual (PID sempre ativo)
-```bash
-cd ~/Empilhadeira/src/firmware && source ../.venv/bin/activate
-pio run -t upload
-```
-- **Esperado:** `SUCCESS` + upload verificado. O PID fecha a malha (não há mais
-  flag de malha aberta — o firmware é sempre malha fechada).
-
-### B2 [PI] — Encoder: sinal e PPR (monitor, rodas no ar)
-```bash
-pio device monitor -b 115200
-```
-- **Testar:**
-  1. [MÃO] girar cada roda **para frente** → `enc.esq`/`enc.dir` **positivos**.
-     Negativo → inverter o `ENC_*_INV` no `config.h`, regravar (B1). Já validado
-     na bancada 2026-07-06 (`ENC_ESQ_INV=true`, `ENC_DIR_INV=true`) — re-rodar
-     só confirma. Esquerdo sempre zero → fiação do 1.1.
-  2. [MÃO] **1 volta exata** → ~1440 contagens (decodificação x4; 10 voltas →
-     ~14400). Diferente → ajustar `ENCODER_PPR` (firmware) **e**
-     `EMU_ENCODER_PPR` (pi/app/config.py). Validado 2026-07-06. **Ctrl-C** ao fim.
-
-### B3 [PI] — Malha fechando: comando → motor → encoder
-```bash
-cd ~/Empilhadeira/src && source .venv/bin/activate
-python3 scripts/bench_setpoint.py --w-esq 2 --w-dir 2 --seconds 5
-```
-- **Esperado:** agora `enc esq/dir` impresso **≈ +2.0 rad/s** (o PID persegue o
-  setpoint), oscilando em degraus de ~0.44 rad/s (resolução da medida: x4 a
-  100 Hz). Ficou longe/oscilando forte → sintonia PID (item 3.1, Ziegler-Nichols).
-- **Antes do teste conjunto, um lado por vez** (`--w-esq 2 --w-dir 0` → SÓ a
-  esquerda; espelho para a direita) — detecta canais trocados, que o teste
-  conjunto mascara (validado 2026-07-06).
-- **Testar:** Ctrl-C com rodas girando → param **< 200 ms** (watchdog, agora com PID ativo).
-
-### B4 [PI]/[MAC]/[CEL] — Subir o stack e revalidar MANUAL com malha fechada
-- [PI] `./scripts/run_pi.sh` (mesmos 3 logs da A5) · [MAC] `npm run dev` ·
-  [CEL] abrir e ficar em MANUAL.
-- **Testar retidão (o que a Trilha A não podia):**
-  - Frente devagar → **anda reto**. Curva suave = PPR/raio desigual (anotar p/ 3.1);
-    vira no lugar = inversão de um lado (voltar a A3/B2).
-  - Ré → reto para trás. Giro no lugar → gira **sem transladar**.
-  - Parado → heading da telemetria **estável** (senão o gyro não calibrou; deixar
-    imóvel ~3 s no boot).
-
-### B5 [CEL] — Odometria e visão dirigindo MANUAL
-1. [MÃO] 1 m reto medido com fita → a pose no painel avança ~1 m (erro grande =
-   `WHEEL_RADIUS_R_CM`/`ENCODER_PPR`).
-2. [MÃO] 360° no lugar → heading volta ~ao mesmo valor (erro = `WHEEL_BASE_L_CM` ou gyro).
-3. [MÃO] aproximar de tag → `z_cm` cai suave e bate com a fita em 60/30/15 cm.
-
-### B6 — Fechar os números e liberar a autonomia
-- Gravar em `config.py`/`config.h` os valores medidos: `WHEEL_BASE_L_CM`,
-  `WHEEL_RADIUS_R_CM`, `CAMERA_TO_FORK_OFFSET_CM`, `APRILTAG_SIZE_CM`
-  (= `tag_size_m` do mapa); sintonizar PID se B4 oscilou (item 3.1).
-- **Só então** seguir para a **FASE 3** (autonomia/EKF/missão) — todos os itens
-  dela dependem da odometria provada em B5.
-
-### ✅ PORTÃO B (com encoder)
-Encoders positivos p/ frente e ~1440 ppr (x4) · `enc ≈ +2.0` fechando a malha ·
-watchdog < 200 ms com PID · **anda reto** · odometria ~1 m e heading ~360° ·
-visão confere com a fita → **libera a FASE 3**.
 
 ---
 
@@ -441,8 +208,11 @@ Validações com fita métrica:
    alternativa anotada em `_alternativa_zephyr` no JSON e repetir.)
 2. Tag a 15 cm (standoff da navegação) → ainda detecta.
 3. Anotar a distância máxima de detecção (< ~1,5 m compromete tags distantes).
-4. Medir a tag impressa com paquímetro — mapa declara `tag_size_m: 0.05`;
-   se diferente, corrigir no mapa E em `APRILTAG_SIZE_CM`.
+4. Tamanho da tag = **4 cm** (0,04 m), agora consistente nos três lugares:
+   `config.APRILTAG_SIZE_CM = 4.0`, `tag_size_m: 0.04` nos mapas e o default de
+   `vision/detector.py`. Conferir com paquímetro: se a tag impressa NÃO for
+   4 cm, o `z` sai proporcionalmente errado — reimprimir a 4 cm, ou atualizar os
+   TRÊS ao valor real antes do 3.2.
 5. **Sinal do x_cm** (convenção do projeto = a do simulador): tag deslocada à
    **ESQUERDA** do centro da imagem → `x_cm` **POSITIVO** (o `pose.py` nega o
    x do frame OpenCV desde 2026-07-06; se vier negativo, a negação se perdeu —
@@ -590,7 +360,7 @@ Dirigir MANUAL pelo corredor 80×200 olhando a pose no painel:
 > pick/place. Se o dock funciona, a parte de navegação da missão funciona.
 > [ref: docs/dock-to-tag.md]
 
-Pré-requisitos: Portão B (odometria provada) e 3.4 razoável (o dock executa
+Pré-requisitos: Portão 2 (odometria provada) e 3.4 razoável (o dock executa
 pela pose do EKF). Robô a ~50–80 cm de UMA tag, arena aberta, mapa carregado
 (para a vista de cima em `/demo`).
 
@@ -605,11 +375,11 @@ pela pose do EKF). Robô a ~50–80 cm de UMA tag, arena aberta, mapa carregado
 3. **Use o modo default `line_of_sight`** — não depende da convenção de yaw
    da tag. O modo `tag_normal` (quadrar com a face) SÓ depois de validar o
    sinal do `pitch_deg` (check 6 do 1.4) e o
-   `DOCK_PITCH_TO_TAG_YAW_OFFSET_RAD` (default π = convenção do SIMULADOR; no
-   hardware real provavelmente 0.0 — calibrar no config).
+   `DOCK_PITCH_TO_TAG_YAW_OFFSET_RAD` (default **0.0** = convenção do robô REAL;
+   o SIMULADOR usa π. Se a aproximação chegar espelhada, inverta no config).
 4. Segurança: cobrir a tag durante o DOCKING **não** para (ver 3.3 item 1) —
    validar que PARADO na UI e os dois watchdogs interrompem o dock.
-5. Erro sistemático de posição final = odometria (voltar ao B5/3.1) — o dock
+5. Erro sistemático de posição final = odometria (voltar ao 2.4/3.1) — o dock
    herda a qualidade dela; não mexa em parâmetro do dock antes de fechar a
    odometria.
 
