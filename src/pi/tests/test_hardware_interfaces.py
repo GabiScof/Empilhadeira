@@ -80,10 +80,14 @@ class _FakeDetection:
 
 
 class TestObservations:
-    def test_estimate_tag_observations(self):
+    def test_estimate_tag_observations(self, monkeypatch):
+        from app import config
         from app.hardware.interfaces import TagObservation
         from app.vision.pose import estimate_tag_observations
 
+        # Este teste valida a NEGAÇÃO do x, não o tilt — fixa tilt=0 para não
+        # depender do valor calibrado da bancada (28.4°).
+        monkeypatch.setattr(config, "CAMERA_TILT_DEG", 0.0)
         dets = [_FakeDetection(3, 0.02, 0.0, 0.35), _FakeDetection(5, -0.1, 0.0, 0.6)]
         obs = estimate_tag_observations(dets)
         assert len(obs) == 2
