@@ -135,16 +135,27 @@ def test_plans_single_forward_when_aligned():
     assert abs(docker.segments[0].value - 0.85) < 1e-6
 
 
-def test_plans_ninety_degree_turn_when_lateral():
-    """Tag lateral → rota inclui uma curva de ~90° (o 'passinho' discreto)."""
+def test_plans_direct_turn_then_forward_when_lateral():
+    """Tag na diagonal → rota DIRETA: girar para ENCARAR a tag e ir reto.
+
+    (Era Manhattan — alinhar eixo X do mundo, depois Y — mas no dock o frame
+    do mundo é arbitrário e o robô girava para direções sem relação com a
+    tag; trocado pela rota direta em 2026-07-07.)
+    """
     docker = TagDocker(standoff_m=0.15, min_detections=1, mode="line_of_sight")
-    # Tag à frente e à esquerda: z=1m, x=0.5m.
+    # Tag à frente e à esquerda: z=1m, x=0.5m → bearing = atan2(0.5, 1.0).
     vision = VisionState(detectado=True, z_cm=100.0, x_cm=50.0, pitch_deg=0.0)
     docker.step(vision, robot_x=0.0, robot_y=0.0, robot_theta=0.0, dt=0.05)
 
     assert docker.state == DockState.DOCKING
-    turns = [s for s in docker.segments if s.type == SegmentType.TURN]
-    assert any(abs(abs(s.value) - math.pi / 2) < 1e-6 for s in turns)
+    bearing = math.atan2(0.5, 1.0)
+    dist = math.hypot(1.0, 0.5) - 0.15
+    types = [s.type for s in docker.segments]
+    # Girar para encarar, andar reto — sem "L" nem giro final (line_of_sight
+    # já termina de frente para a tag).
+    assert types == [SegmentType.TURN, SegmentType.FORWARD]
+    assert abs(docker.segments[0].value - bearing) < 1e-6
+    assert abs(docker.segments[1].value - dist) < 1e-6
 
 
 def test_tag_normal_mode_uses_face_normal():
@@ -278,10 +289,13 @@ def test_closed_loop_dock_reaches_tag():
     rx, ry, _ = sim._pose_m()
     gx, gy, _ = docker.goal
     assert math.hypot(rx - gx, ry - gy) < 0.05  # chegou a <5 cm do standoff
-    # E fez o "passinho" discreto: pelo menos uma curva de 90°.
-    assert any(
-        s.type == SegmentType.TURN and abs(abs(s.value) - math.pi / 2) < 0.05
-        for s in docker.segments
+    # E a rota é DIRETA (2026-07-07): girar para encarar → andar reto,
+    # sem "L" de Manhattan (no máximo TURN, FORWARD e um TURN final).
+    types = [s.type for s in docker.segments]
+    assert types in (
+        [SegmentType.FORWARD],
+        [SegmentType.TURN, SegmentType.FORWARD],
+        [SegmentType.TURN, SegmentType.FORWARD, SegmentType.TURN],
     )
 
 

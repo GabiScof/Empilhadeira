@@ -1,9 +1,11 @@
 """Dock-to-tag: aproxima UMA tag avulsa por segmentos discretos (FORWARD/TURN).
 
 Modo independente da missão, mirado no robô REAL. O robô vê uma tag, deriva um
-ponto de parada em frente a ela (standoff) e planeja uma rota de segmentos
-(avança / gira 90°) executada pelo `SegmentExecutor` — a MESMA malha externa da
-missão, NÃO o servo contínuo do navegador legado.
+ponto de parada em frente a ela (standoff) e planeja uma rota DIRETA de
+segmentos — girar para ENCARAR o alvo e andar reto (TURN → FORWARD) —
+executada pelo `SegmentExecutor`, a MESMA malha externa da missão, NÃO o
+servo contínuo do navegador legado. A câmera é usada UMA vez (no plano);
+a execução é 100% odometria/EKF.
 
 **Diferença para o navegador legado (`NavigationController`):**
 - Legado: recalcula (v, ω) todo frame a partir da tag → servo contínuo reativo.
@@ -31,7 +33,7 @@ import math
 from enum import StrEnum
 
 from app import config
-from app.control.path_planner import Segment, plan_route
+from app.control.path_planner import Segment, SegmentType
 from app.control.segment_executor import ExecutorState, SegmentExecutor
 from app.models import VisionState
 
@@ -280,17 +282,13 @@ class TagDocker:
             "x_cm": round(vision.x_cm, 1) if vision.x_cm is not None else None,
         }
 
-        # world=None força o planejador Manhattan (avança / gira 90°), o
-        # "passinho" discreto — independente de qualquer grafo de mapa carregado.
-        segments = plan_route(
-            start_x=robot_x,
-            start_y=robot_y,
-            start_heading=robot_theta,
-            goal_x=goal[0],
-            goal_y=goal[1],
-            goal_heading=goal[2],
-            world=None,
-        )
+        # Rota DIRETA (2026-07-07): girar para ENCARAR o alvo e andar reto —
+        # TURN → FORWARD (→ TURN final se a estratégia pedir heading distinto).
+        # O Manhattan (alinha eixo X do MUNDO, depois Y) serve ao corredor da
+        # missão, mas no dock o frame do mundo é arbitrário: o robô girava
+        # para direções sem relação com a tag e fazia "L"s com pernas de
+        # centímetros — a estranheza vista na bancada.
+        segments = self._plan_direct(robot_x, robot_y, robot_theta, goal)
         self._segments = segments
         self._executor.load_route(segments)
 
@@ -306,6 +304,53 @@ class TagDocker:
                 goal[0], goal[1], math.degrees(goal[2]), len(segments),
             )
         return 0.0, 0.0
+
+    @staticmethod
+    def _plan_direct(
+        x: float, y: float, theta: float, goal: tuple[float, float, float]
+    ) -> list[Segment]:
+        """Rota direta ao alvo: TURN (encarar) → FORWARD (→ TURN final).
+
+        No line_of_sight o heading final É o rumo do trajeto, então o TURN
+        final degenera para ~0 e some — sobra girar e ir, o movimento natural
+        de "parar em frente à tag".
+        """
+        gx, gy, gheading = goal
+        dx, dy = gx - x, gy - y
+        dist = math.hypot(dx, dy)
+
+        segments: list[Segment] = []
+        heading = theta
+        if dist > 0.01:
+            bearing = math.atan2(dy, dx)
+            turn1 = _wrap(bearing - theta)
+            if abs(turn1) > 0.02:
+                segments.append(Segment(
+                    type=SegmentType.TURN,
+                    value=turn1,
+                    target_x=x,
+                    target_y=y,
+                    target_heading=bearing,
+                ))
+            segments.append(Segment(
+                type=SegmentType.FORWARD,
+                value=dist,
+                target_x=gx,
+                target_y=gy,
+                target_heading=bearing,
+            ))
+            heading = bearing
+
+        final_turn = _wrap(gheading - heading)
+        if abs(final_turn) > 0.02:
+            segments.append(Segment(
+                type=SegmentType.TURN,
+                value=final_turn,
+                target_x=gx,
+                target_y=gy,
+                target_heading=gheading,
+            ))
+        return segments
 
     def _compute_goal(
         self, vision: VisionState, robot_x: float, robot_y: float, robot_theta: float
