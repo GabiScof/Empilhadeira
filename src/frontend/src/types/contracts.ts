@@ -103,6 +103,13 @@ export interface DockInfo {
   detection_streak: number;
   min_detections: number;
   goal: number[] | null; // [x_m, y_m, heading_rad]
+  plan: Array<{
+    type: string; // forward | turn
+    value: number; // m (forward) ou rad (turn)
+    target_x: number;
+    target_y: number;
+    target_heading: number;
+  }>;
   planned_from: { z_cm: number | null; x_cm: number | null } | null;
   executor_state: string | null;
   seg_index: number;

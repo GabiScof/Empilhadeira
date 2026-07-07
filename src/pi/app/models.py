@@ -189,6 +189,7 @@ class DockInfo(BaseModel):
     detection_streak: int = Field(0, description="Detecções consecutivas (SEEKING).")
     min_detections: int = Field(3, description="Detecções exigidas para planejar.")
     goal: list[float] | None = Field(None, description="Alvo planejado [x_m, y_m, heading_rad].")
+    plan: list[dict] = Field(default_factory=list, description="Rota completa planejada (segmentos).")
     planned_from: dict | None = Field(None, description="Leitura z_cm/x_cm usada no plano.")
     executor_state: str | None = Field(None, description="Estado do executor de segmentos.")
     seg_index: int = Field(0, description="Índice do segmento em execução.")

@@ -305,8 +305,15 @@ NAV_HEADING_TOL_RAD: float = 0.07  # ~4° — folga p/ o piso de ω não oscilar
 # proporcional comanda velocidades minúsculas perto do alvo e o chão engole
 # (roda zumbe, robô parado, dock "lento/fraco" até estourar timeout). Fora da
 # tolerância, nunca comandar abaixo disto:
-NAV_MIN_V_MS: float = 0.07        # ~2.6 rad/s de roda — vence o atrito no reto
+NAV_MIN_V_MS: float = 0.09        # ~3.3 rad/s de roda — acima da zona stick-slip
 NAV_MIN_OMEGA_RADS: float = 1.0   # giro no lugar (skid) exige mais torque
+
+# TETO do giro no lugar (só segmentos TURN) — bancada 2026-07-07: girar a
+# 2,5 rad/s derrapa as rodas (skid), a odometria conta rotação que não houve
+# e o θ do EKF sai errado → o AVANÇO seguinte nasce torto e corrige em arco
+# ("não parece curva discreta"). Janela estreita 1,0–1,6 rad/s = giro
+# consistente: nem trava (piso) nem derrapa (teto).
+NAV_TURN_MAX_OMEGA_RADS: float = 1.6
 
 NAV_FALLBACK_V_MS: float = 0.08  # velocidade fixa quando K_DIST=0 (fallback de segurança)
 NAV_FALLBACK_OMEGA_RADS: float = 1.0  # vel. angular fixa quando K_HEADING=0 (fallback)

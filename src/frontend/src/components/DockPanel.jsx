@@ -111,6 +111,35 @@ export default function DockPanel({ apiBase, telemetry }) {
                     rad/s
                   </div>
                 )}
+                {dock?.plan?.length > 0 && (
+                  <div className="mt-1 border-l-2 border-slate-600 pl-2 space-y-0.5">
+                    {dock.plan.map((seg, i) => {
+                      const isCurrent =
+                        dockState === "DOCKING" && i === (dock?.seg_index ?? -1);
+                      const isDone =
+                        dockState === "DONE" || i < (dock?.seg_index ?? 0);
+                      const label =
+                        seg.type === "turn"
+                          ? `GIRO ${((seg.value * 180) / Math.PI).toFixed(0)}° → ${((seg.target_heading * 180) / Math.PI).toFixed(0)}°`
+                          : `AVANÇO ${(seg.value * 100).toFixed(0)}cm → (${seg.target_x?.toFixed(2)}, ${seg.target_y?.toFixed(2)})m`;
+                      return (
+                        <div
+                          key={i}
+                          className={
+                            isCurrent
+                              ? "text-amber-300 font-bold"
+                              : isDone
+                                ? "text-green-500/70 line-through"
+                                : "text-slate-400"
+                          }
+                        >
+                          {i + 1}. {label}
+                          {isCurrent && " ◀"}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                 {dockState === "FAULT" && (
                   <div className="text-red-400">
                     executor {dock?.executor_state} — timeout no passo{" "}

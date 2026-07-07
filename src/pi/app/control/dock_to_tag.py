@@ -336,6 +336,7 @@ class TagDocker:
             "goal": (
                 [round(v, 3) for v in self._goal] if self._goal else None
             ),
+            "plan": [s.to_dict() for s in self._segments],
             "planned_from": self._planned_from,
             "executor_state": ex.get("state"),
             "seg_index": ex.get("segment_index", 0),

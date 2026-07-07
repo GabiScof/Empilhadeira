@@ -40,6 +40,7 @@ HEADING_TOL_RAD: float = config.NAV_HEADING_TOL_RAD  # tolerância de heading (r
 
 MIN_V_MS: float = config.NAV_MIN_V_MS  # piso anti atrito estático (reto)
 MIN_OMEGA_RADS: float = config.NAV_MIN_OMEGA_RADS  # piso anti atrito (giro)
+TURN_MAX_OMEGA_RADS: float = config.NAV_TURN_MAX_OMEGA_RADS  # teto anti derrapagem (giro)
 
 MAX_SEGMENT_TIME_S: float = config.NAV_MAX_SEGMENT_TIME_S  # timeout por segmento
 
@@ -204,7 +205,11 @@ class SegmentExecutor:
         if abs(omega) < MIN_OMEGA_RADS:
             omega = MIN_OMEGA_RADS * (1.0 if heading_error > 0 else -1.0)
 
-        omega = max(-self._max_omega, min(self._max_omega, omega))
+        # Teto anti derrapagem: giro no lugar rápido escorrega as rodas e
+        # corrompe o θ da odometria (o avanço seguinte nasce torto). Janela
+        # estreita piso–teto = giro consistente do início ao fim.
+        turn_cap = min(self._max_omega, TURN_MAX_OMEGA_RADS)
+        omega = max(-turn_cap, min(turn_cap, omega))
 
         return 0.0, omega
 
