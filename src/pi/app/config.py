@@ -139,9 +139,11 @@ CAMERA_PARAMS: tuple[float, float, float, float] = (
 # +25.5 o z saía ~2x a distância real.) Após o offset, z_cm = distância da
 # PONTA DO GARFO até a tag; ZREF_CM/standoff referem-se a ela. y (desnível
 # vertical) é ignorado pelo contrato.
-# CÂMERA NOVA (2026-07-07): lente avançou 4,2 cm em direção à ponta do garfo
-# → 25,5 - 4,2 = 21,3. Validar: tag a 15 cm da ponta do garfo → z_cm ≈ 15.
-CAMERA_TO_FORK_OFFSET_CM: tuple[float, float, float] = (0.0, -14.2, -21.3)
+# AJUSTE EMPÍRICO NA BANCADA (2026-07-07): com -21,3 o z zerava com a tag a
+# 8 cm da ponta do garfo (medida geométrica ≠ referência real da lente) →
+# -21,3 + 8 = -13,3. Validar: tag a 30 cm da ponta do garfo → z_cm ≈ 30;
+# encostada na ponta → z_cm ≈ 0.
+CAMERA_TO_FORK_OFFSET_CM: tuple[float, float, float] = (0.0, -14.2, -13.3)
 
 # Inclinação da câmera para BAIXO, em graus (0 = nivelada). A câmera fica no
 # topo do trilho do garfo, acima das tags, e precisa olhar para baixo para
