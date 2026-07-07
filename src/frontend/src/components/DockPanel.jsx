@@ -74,6 +74,60 @@ export default function DockPanel({ apiBase, telemetry }) {
             )}
           </div>
 
+          {/* Debug ao vivo: o que o robô está fazendo agora, com números */}
+          <div className="mt-2 font-mono text-[11px] text-slate-300 space-y-0.5">
+            {dockState === "SEEKING" && (
+              <div>
+                detecções {dock?.detection_streak ?? 0}/{dock?.min_detections ?? 3}
+                {telemetry?.visao?.detectado
+                  ? ` · vendo tag ${telemetry.visao.id}: z ${telemetry.visao.z_cm?.toFixed(0)}cm x ${telemetry.visao.x_cm > 0 ? "+" : ""}${telemetry.visao.x_cm?.toFixed(0)}cm`
+                  : " · nenhuma tag na imagem"}
+              </div>
+            )}
+            {dockState !== "SEEKING" && (
+              <>
+                {dock?.planned_from && (
+                  <div>
+                    plano feito com: z {dock.planned_from.z_cm}cm · x{" "}
+                    {dock.planned_from.x_cm > 0 ? "+" : ""}
+                    {dock.planned_from.x_cm}cm
+                  </div>
+                )}
+                {dock?.goal && (
+                  <div>
+                    alvo: ({dock.goal[0]?.toFixed(2)}, {dock.goal[1]?.toFixed(2)})m ·{" "}
+                    {((dock.goal[2] * 180) / Math.PI).toFixed(0)}°
+                  </div>
+                )}
+                {dockState === "DOCKING" && (
+                  <div>
+                    passo {Math.min((dock?.seg_index ?? 0) + 1, dock?.seg_total ?? 0)}/
+                    {dock?.seg_total ?? 0}
+                    {dock?.seg_type
+                      ? ` (${dock.seg_type === "turn" ? "GIRO" : "AVANÇO"})`
+                      : ""}
+                    {" · "}t {dock?.seg_elapsed_s?.toFixed(1)}s
+                    {" · "}rodas {dock?.w_esq?.toFixed(1)}/{dock?.w_dir?.toFixed(1)}{" "}
+                    rad/s
+                  </div>
+                )}
+                {dockState === "FAULT" && (
+                  <div className="text-red-400">
+                    executor {dock?.executor_state} — timeout no passo{" "}
+                    {(dock?.seg_index ?? 0) + 1} ({dock?.seg_type}): a odometria não
+                    fechou o segmento
+                  </div>
+                )}
+              </>
+            )}
+            {telemetry?.ekf && (
+              <div className="opacity-60">
+                pose: ({telemetry.ekf.x_m?.toFixed(2)}, {telemetry.ekf.y_m?.toFixed(2)}
+                )m · {telemetry.ekf.theta_deg?.toFixed(0)}°
+              </div>
+            )}
+          </div>
+
           {estado !== "AUTOMATICO" && (
             <p className="text-xs text-amber-400 mt-2">
               Agora selecione <b>AUTOMATICO</b> e mostre uma tag ao robô.

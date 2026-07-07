@@ -99,6 +99,18 @@ export interface DockInfo {
   state: string; // SEEKING | DOCKING | DONE | FAULT
   mode: string; // line_of_sight | tag_normal
   segments: number;
+  // Debug ao vivo (o que o robô está fazendo agora):
+  detection_streak: number;
+  min_detections: number;
+  goal: number[] | null; // [x_m, y_m, heading_rad]
+  planned_from: { z_cm: number | null; x_cm: number | null } | null;
+  executor_state: string | null;
+  seg_index: number;
+  seg_total: number;
+  seg_type: string | null; // forward | turn
+  seg_elapsed_s: number;
+  w_esq: number; // rad/s comandado agora
+  w_dir: number;
 }
 
 export interface DetectedTag {

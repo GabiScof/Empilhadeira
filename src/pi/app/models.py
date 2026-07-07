@@ -176,12 +176,27 @@ class NavigationInfo(BaseModel):
 
 
 class DockInfo(BaseModel):
-    """Estado do dock-to-tag (aproximação por segmentos a 1 tag) para telemetria."""
+    """Estado do dock-to-tag (aproximação por segmentos a 1 tag) para telemetria.
+
+    Inclui o detalhe fino do que o robô está fazendo AGORA (segmento atual,
+    alvo, rodas comandadas) — feedback ao vivo para debug no frontend.
+    """
 
     enabled: bool = Field(False, description="Se o dock está ligado (opt-in do operador).")
     state: str = Field("SEEKING", description="SEEKING / DOCKING / DONE / FAULT.")
     mode: str = Field("line_of_sight", description="Estratégia de alvo.")
     segments: int = Field(0, description="Segmentos na rota planejada.")
+    detection_streak: int = Field(0, description="Detecções consecutivas (SEEKING).")
+    min_detections: int = Field(3, description="Detecções exigidas para planejar.")
+    goal: list[float] | None = Field(None, description="Alvo planejado [x_m, y_m, heading_rad].")
+    planned_from: dict | None = Field(None, description="Leitura z_cm/x_cm usada no plano.")
+    executor_state: str | None = Field(None, description="Estado do executor de segmentos.")
+    seg_index: int = Field(0, description="Índice do segmento em execução.")
+    seg_total: int = Field(0, description="Total de segmentos da rota.")
+    seg_type: str | None = Field(None, description="Tipo do segmento atual (forward/turn).")
+    seg_elapsed_s: float = Field(0.0, description="Tempo no segmento atual (s).")
+    w_esq: float = Field(0.0, description="Roda esquerda comandada agora (rad/s).")
+    w_dir: float = Field(0.0, description="Roda direita comandada agora (rad/s).")
 
 
 class DetectedTag(BaseModel):

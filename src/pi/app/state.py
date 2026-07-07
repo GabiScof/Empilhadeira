@@ -193,14 +193,9 @@ class SharedState:
             m_dict = self.mission.to_dict()
             mission_info = MissionInfo(**m_dict)
 
-            # Dock-to-tag info
+            # Dock-to-tag info — repassa o detalhe fino inteiro (debug ao vivo)
             dock_dict = self.docker.to_dict()
-            dock_info = DockInfo(
-                enabled=self.dock_enabled,
-                state=dock_dict["state"],
-                mode=dock_dict["mode"],
-                segments=dock_dict["segments"],
-            )
+            dock_info = DockInfo(enabled=self.dock_enabled, **dock_dict)
 
             # Navigation info
             exec_dict = self.segment_executor.to_dict()

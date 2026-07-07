@@ -169,6 +169,9 @@ class TagDocker:
         self._detection_streak = 0
         self._segments: list[Segment] = []
         self._goal: tuple[float, float, float] | None = None
+        # Telemetria fina (debug ao vivo no frontend):
+        self._last_w: tuple[float, float] = (0.0, 0.0)
+        self._planned_from: dict | None = None  # leitura z/x usada no plano
 
     @property
     def state(self) -> DockState:
@@ -212,6 +215,8 @@ class TagDocker:
         self._detection_streak = 0
         self._segments = []
         self._goal = None
+        self._last_w = (0.0, 0.0)
+        self._planned_from = None
 
     def step(
         self,
@@ -229,24 +234,29 @@ class TagDocker:
             dt: intervalo desde o último tick (s).
         """
         if self._state in (DockState.DONE, DockState.FAULT):
+            self._last_w = (0.0, 0.0)
             return 0.0, 0.0
 
         if self._state == DockState.SEEKING:
-            return self._seek(vision, robot_x, robot_y, robot_theta)
+            self._last_w = self._seek(vision, robot_x, robot_y, robot_theta)
+            return self._last_w
 
         # DOCKING: executa a rota planejada via EKF.
         if self._executor.state == ExecutorState.ROUTE_DONE:
             self._state = DockState.DONE
             logger.info("Dock concluído — robô em frente à tag")
+            self._last_w = (0.0, 0.0)
             return 0.0, 0.0
         if self._executor.state == ExecutorState.TIMEOUT:
             self._state = DockState.FAULT
             logger.warning("Dock FAULT — timeout de segmento")
+            self._last_w = (0.0, 0.0)
             return 0.0, 0.0
 
-        return self._executor.step(
+        self._last_w = self._executor.step(
             x=robot_x, y=robot_y, theta=robot_theta, dt=dt
         )
+        return self._last_w
 
     def _seek(
         self, vision: VisionState, robot_x: float, robot_y: float, robot_theta: float
@@ -265,6 +275,10 @@ class TagDocker:
             self._detection_streak = 0
             return 0.0, 0.0
         self._goal = goal
+        self._planned_from = {
+            "z_cm": round(vision.z_cm, 1) if vision.z_cm is not None else None,
+            "x_cm": round(vision.x_cm, 1) if vision.x_cm is not None else None,
+        }
 
         # world=None força o planejador Manhattan (avança / gira 90°), o
         # "passinho" discreto — independente de qualquer grafo de mapa carregado.
@@ -310,13 +324,24 @@ class TagDocker:
         )
 
     def to_dict(self) -> dict:
-        """Serialização leve para log/debug (não faz parte do contrato de telemetria)."""
+        """Serialização para telemetria/debug — o que o robô está fazendo AGORA."""
+        ex = self._executor.to_dict()
+        seg = ex.get("current_segment") or {}
         return {
             "state": self._state.value,
             "mode": self._mode,
             "detection_streak": self._detection_streak,
+            "min_detections": self._min_detections,
             "segments": len(self._segments),
             "goal": (
                 [round(v, 3) for v in self._goal] if self._goal else None
             ),
+            "planned_from": self._planned_from,
+            "executor_state": ex.get("state"),
+            "seg_index": ex.get("segment_index", 0),
+            "seg_total": ex.get("total_segments", 0),
+            "seg_type": seg.get("type"),
+            "seg_elapsed_s": ex.get("elapsed_s", 0.0),
+            "w_esq": round(self._last_w[0], 2),
+            "w_dir": round(self._last_w[1], 2),
         }
