@@ -185,13 +185,23 @@ class DockInfo(BaseModel):
 
 
 class DetectedTag(BaseModel):
-    """Tag detectada para telemetria."""
+    """Tag detectada para telemetria.
+
+    ``x_m``/``y_m`` é a posição da tag no MUNDO: a do mapa quando a tag é
+    conhecida (``in_map=True``); senão, a posição ESTIMADA a partir da pose do
+    EKF + leitura relativa (útil para conferir a colocação física das tags).
+    ``z_cm``/``x_cm`` é a leitura relativa crua (convenção do projeto:
+    x positivo = tag à ESQUERDA).
+    """
 
     tag_id: int
     position_id: str | None = None
     x_m: float
     y_m: float
     quality: float = 1.0
+    z_cm: float | None = None
+    x_cm: float | None = None
+    in_map: bool = True
 
 
 Telemetry.model_rebuild()

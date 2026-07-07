@@ -133,38 +133,42 @@ class SimVisionSource:
 
 
 def _feed_ekf_from_detections(state: SharedState, detections: list) -> None:
-    """Alimenta o EKF com correções de tags detectadas."""
-    if state.world_model is None:
-        return
+    """Alimenta o EKF com correções de tags detectadas.
 
+    Também publica em ``state.detected_tags_cache`` TODAS as tags vistas (para
+    a telemetria), inclusive as fora do mapa/sem mapa carregado — nesses casos
+    a posição no mundo é ESTIMADA da pose do EKF + leitura relativa
+    (``in_map=False``), o que ajuda a conferir a colocação física das tags.
+    """
     detected_cache: list[DetectedTag] = []
+    robot_heading = state.ekf.theta
 
     for det in detections:
         tag_spec = None
         position_id = getattr(det, 'position_id', None)
         tag_id = getattr(det, 'tag_id', -1)
 
-        if position_id:
-            tag_spec = state.world_model.get_tag_by_position_id(position_id)
-            if tag_spec and tag_id >= 0:
-                state.world_model.resolve_tag_id(tag_id, position_id)
+        if state.world_model is not None:
+            if position_id:
+                tag_spec = state.world_model.get_tag_by_position_id(position_id)
+                if tag_spec and tag_id >= 0:
+                    state.world_model.resolve_tag_id(tag_id, position_id)
 
-        if tag_spec is None and tag_id >= 0:
-            tag_spec_by_id = state.world_model.get_position_for_tag_id(tag_id)
-            if tag_spec_by_id is not None:
-                tag_spec = tag_spec_by_id
+            if tag_spec is None and tag_id >= 0:
+                tag_spec_by_id = state.world_model.get_position_for_tag_id(tag_id)
+                if tag_spec_by_id is not None:
+                    tag_spec = tag_spec_by_id
+
+        z_m = getattr(det, 'z_m', 0.0)
+        x_m_rel = getattr(det, 'x_m', 0.0)
+        yaw_rad = getattr(det, 'yaw_rad', 0.0)
+        quality = getattr(det, 'quality', 1.0)
+
+        dist = math.sqrt(z_m**2 + x_m_rel**2)
+        bearing_relative = math.atan2(x_m_rel, z_m)
+        bearing_world = robot_heading + bearing_relative
 
         if tag_spec is not None:
-            z_m = getattr(det, 'z_m', 0.0)
-            x_m_rel = getattr(det, 'x_m', 0.0)
-            yaw_rad = getattr(det, 'yaw_rad', 0.0)
-            quality = getattr(det, 'quality', 1.0)
-
-            robot_heading = state.ekf.theta
-            dist = math.sqrt(z_m**2 + x_m_rel**2)
-            bearing_relative = math.atan2(x_m_rel, z_m)
-            bearing_world = robot_heading + bearing_relative
-
             observed_x = tag_spec.x_m - dist * math.cos(bearing_world)
             observed_y = tag_spec.y_m - dist * math.sin(bearing_world)
 
@@ -177,14 +181,23 @@ def _feed_ekf_from_detections(state: SharedState, detections: list) -> None:
                 observed_theta=observed_theta,
                 quality=quality,
             )
+            world_x, world_y, in_map = tag_spec.x_m, tag_spec.y_m, True
+        else:
+            # Tag fora do mapa (ou sem mapa): posição estimada pela pose atual.
+            world_x = state.ekf.x + dist * math.cos(bearing_world)
+            world_y = state.ekf.y + dist * math.sin(bearing_world)
+            in_map = False
 
-            detected_cache.append(DetectedTag(
-                tag_id=tag_id,
-                position_id=position_id,
-                x_m=tag_spec.x_m,
-                y_m=tag_spec.y_m,
-                quality=quality,
-            ))
+        detected_cache.append(DetectedTag(
+            tag_id=tag_id,
+            position_id=position_id,
+            x_m=round(world_x, 3),
+            y_m=round(world_y, 3),
+            quality=quality,
+            z_cm=round(z_m * 100.0, 1),
+            x_cm=round(x_m_rel * 100.0, 1),
+            in_map=in_map,
+        ))
 
     state.detected_tags_cache = detected_cache
 

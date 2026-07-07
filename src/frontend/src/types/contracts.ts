@@ -104,9 +104,12 @@ export interface DockInfo {
 export interface DetectedTag {
   tag_id: number;
   position_id: string | null;
-  x_m: number;
+  x_m: number; // posição no mundo: do mapa (in_map) ou estimada da pose do EKF
   y_m: number;
   quality: number;
+  z_cm: number | null; // leitura relativa: distância à frente
+  x_cm: number | null; // leitura relativa: positivo = tag à ESQUERDA
+  in_map: boolean;
 }
 
 export interface TelemetryExtended extends Telemetry {

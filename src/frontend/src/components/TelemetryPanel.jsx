@@ -135,6 +135,30 @@ export default function TelemetryPanel({ telemetry, connected, worldState }) {
         />
       </div>
 
+      {telemetry?.detected_tags?.length > 0 && (
+        <div>
+          <p className="text-xs text-slate-400 mb-1">
+            Tags à vista ({telemetry.detected_tags.length})
+          </p>
+          <div className="flex flex-col gap-0.5 font-mono text-xs">
+            {telemetry.detected_tags.map((t) => (
+              <div
+                key={`${t.tag_id}-${t.position_id ?? ""}`}
+                className={t.in_map ? "text-slate-200" : "text-amber-300"}
+              >
+                ID {t.tag_id}
+                {t.position_id ? ` (${t.position_id})` : ""}
+                {t.z_cm != null && ` · z ${t.z_cm.toFixed(0)}cm`}
+                {t.x_cm != null &&
+                  ` · x ${t.x_cm > 0 ? "+" : ""}${t.x_cm.toFixed(0)}cm`}
+                {` · (${t.x_m.toFixed(2)}, ${t.y_m.toFixed(2)})m`}
+                {t.in_map ? "" : " · fora do mapa"}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {wheelHistory.length > 2 && (
         <div>
           <p className="text-xs text-slate-400 mb-1">Velocidade das rodas</p>
