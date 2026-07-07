@@ -222,14 +222,14 @@ Estes valores existem em **dois lugares** e devem ser **consistentes** entre sim
 | Parâmetro | Sim (`config.py`) | Real (`config.h` + medição) | Confiança |
 |-----------|-------------------|-------------------------------|-----------|
 | `WHEEL_BASE_L_CM` / `WHEELBASE_M` | 15,0 cm | Medir no chassi | ⚠️ Provisório |
-| `WHEEL_RADIUS_R_CM` | 2,8 cm | Medir roda NXT | ⚠️ Provisório |
+| `WHEEL_RADIUS_R_CM` | 2,7 cm | Medição da equipe 2026-07-06; confirmar por rolagem | ⚠️ Confirmar |
 | `ENCODER_PPR` | 1440 (360 ciclos × 4 da quadratura) | 1 volta manual ≈ 1440 contagens | ✅ Validado na bancada 2026-07-06 |
 | PID Kp/Ki/Kd | `EMU_PID_*` | `config.h` — **mesmos valores iniciais** | ✅ Transferir como starting point |
 | `SETPOINT_TIMEOUT_MS` | 200 ms | 200 ms | ✅ Idêntico |
 | `ZREF_CM` / `TAG_APPROACH_STANDOFF_M` | 15 cm | Ajustar se garfo/câmera diferirem | ⚠️ Validar no chão |
 | Ganhos navegação `NAV_*` | Tunados em sim | Re-tunar — dinâmica real difere | ⚠️ Starting point |
 | Ganhos EKF `EKF_Q_*`, `EKF_R_*` | Tunados para ruído sim | Re-tunar para ruído real | ⚠️ Starting point |
-| `APRILTAG_SIZE_CM` | 5,0 cm | Medir tag impressa | ⚠️ Medir |
+| `APRILTAG_SIZE_CM` | 4,0 cm | Conferir tag impressa com paquímetro | ⚠️ Conferir |
 | Protocolo serial 115200, 20 Hz | Emulado | UART real | ✅ Idêntico |
 
 **Resumo:** o protocolo, a arquitetura de controle e os ganhos iniciais **viajam** para

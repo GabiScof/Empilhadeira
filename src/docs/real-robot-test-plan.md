@@ -10,20 +10,27 @@
 Docs relacionados: [`hardware-bring-up.md`](./hardware-bring-up.md) (fiação/pinos),
 [`hardware-deployment.md`](./hardware-deployment.md), [`camera-calibration.md`](./camera-calibration.md).
 
-## STATUS — o que falta (foto de 2026-07-06, fim do dia)
+## STATUS — o que falta (foto de 2026-07-07, fim do dia)
 
 Feito ✅: encoders (x4, sinais, PPR 1440, isolamento ok) · canais/sentido dos
 motores (um lado por vez) · PID convergindo na bancada · watchdog serial
 < 200 ms · telemetria/CRC/MPU sãos · fixes de sinal (manual + visão) no código
 · **v_máx medida: 24 cm/s → config 19** · raio ajustado p/ 2,7 cm (medição da
-equipe) · dock-to-tag e /world-state implementados (verdes em teste de unidade).
+equipe; falta confirmar por rolagem) · **tilt da câmera medido: 28,4°**
+(2026-07-07; `pose.py` rotaciona a pose → z = distância HORIZONTAL) · **offset
+câmera→garfo assinado: (0, -14.2, -25.5)** (lente ATRÁS da ponta do garfo →
+z do offset NEGATIVO; validar com fita) · `FORK_DUTY` 180→220 (levanta com
+carga) · dock-to-tag e /world-state implementados (verdes em teste de unidade).
 
 Falta, na ordem:
+- [ ] **Recalibrar a câmera** (cx/cy anômalos — cx=399 ≈ 800/2 sugere fotos em
+      resolução errada; possivelmente com a webcam nova Logitech 1080p,
+      capturando 640×480, foco travado) **+ re-validar z/x depois**
 - [ ] **2.1** manual completo no chão (reto, ré, joystick à direita→direita,
       giro anti-horário→heading aumenta, talo baixo anotado)
 - [ ] **3.1** medições restantes: raio por ROLAGEM (confirmar o 2,7), bitola
-      (+ refino pelo 360°), **ω máx cronometrado** (1 volta), offset
-      câmera→garfo, tag no paquímetro (4 cm?)
+      (+ refino pelo 360°), **ω máx cronometrado** (1 volta), validar o offset
+      câmera→garfo assinado (-25,5), tag no paquímetro (4 cm?)
 - [ ] **1.4 checks 5 e 6**: sinal do `x_cm` (tag à esquerda → positivo) e do
       `pitch_deg` — últimas convenções não validadas no hardware
 - [ ] **1.2 check 5**: sinal do `gz` no giro à mão (anotar p/ o EKF)
@@ -38,8 +45,10 @@ Estado consolidado (atualizado 2026-07-06):
   que estaciona em frente a UMA tag por segmentos (testado no 3.4b) e endpoint
   `GET /world-state` que faz a tela `/demo` desenhar o Arena no hardware
   (pose do EKF + mapa). Desligado por padrão; ver `docs/dock-to-tag.md`.
-- Calibração: `pi/calibracao/camera_intrinsics.json` ✅ — OpenCV, **640×480**,
-  erro de reprojeção 0,144 px (fotos em `roboticaMengo/imagens/`)
+- Calibração: `pi/calibracao/camera_intrinsics.json` ⚠️ **recalibração em
+  andamento** — a calibração OpenCV atual (**640×480**, erro de reprojeção
+  0,144 px, fotos em `roboticaMengo/imagens/`) tem cx/cy anômalos
+  (cx=399 ≈ 800/2 e cy=273 para 640×480 sugerem fotos em resolução errada)
 - Captura deve rodar em **640×480** (`CAMERA_FRAME_WIDTH/HEIGHT` no `.env`)
 - Pinagem firmware conferida na bancada; fim-de-curso desabilitado (-1)
 - **2026-07-06: canais dos MOTORES estavam trocados na fiação** (canal A
@@ -292,7 +301,9 @@ a câmera olha para baixo e o z do AprilTag sai na HIPOTENUSA, não na
 horizontal (erro que explode de perto: +66% a 15 cm com 20 cm de desnível).
 0. Medir e configurar o tilt (`CAMERA_TILT_DEG` no config, positivo = para
    baixo): tag centralizada NA IMAGEM → tilt = atan(Δh/d), onde Δh = desnível
-   lente↔centro da tag e d = distância horizontal. Depois de setar o tilt,
+   lente↔centro da tag e d = distância horizontal. **✅ MEDIDO 2026-07-07:
+   lente a 29,5 cm do chão, centro da tag a 15,3 cm, d = 26,3 cm → Δh = 14,2 →
+   tilt = 28,4° gravado.** Depois de setar o tilt,
    **recalibrar o `CAMERA_TO_FORK_OFFSET_CM`** (offset medido sem compensação
    absorveu o erro da hipotenusa). Atenção ao SINAL do offset z: câmera ATRÁS
    da ponta do garfo → offset z NEGATIVO (o código soma; reportado deve
@@ -412,7 +423,8 @@ com o robô "parado"); calibrar balançando = bias ruim = heading derivando.
 | Talo baixo (~20%) | Pode demorar ~1–2 s para partir ou nem partir | **Esperado, não é bug**: duty baixo não vence o atrito estático; o integral do PID acumula devagar. Anotar o menor talo que anda → informa a sintonia do 3.1 (subir Ki ajuda a partida) |
 
 ### 2.2 Garfo com carga
-Vazio, depois com o pallet real. Não sobe = `FORK_DUTY` 180→220 e regravar.
+Vazio, depois com o pallet real. `FORK_DUTY` já subiu 180→220 na bancada
+(2026-07-06/07) para levantar com carga; se ainda não subir, aumentar mais e regravar.
 **Sempre soltar antes do limite mecânico** (sem fim-de-curso!). Worm gear segura parado.
 
 ### 2.3 Os dois watchdogs (andando de verdade)
@@ -445,8 +457,11 @@ Como medir cada um (todos vão em `config.py`; os `_M`/SI derivam sozinhos):
    `L_real = L_config · X/360`.
 3. `APRILTAG_SIZE_CM` — paquímetro no quadrado PRETO da tag impressa (sem a
    borda branca); igual nos três lugares (config, mapa, detector — hoje 4 cm).
-4. `CAMERA_TO_FORK_OFFSET_CM` — calibrar pelo resultado: tag exatamente
-   centrada a 15,0 cm da ponta do GARFO → offset é o que falta para
+4. `CAMERA_TO_FORK_OFFSET_CM` — **medido na bancada 2026-07-07: (0, -14.2,
+   -25.5)** — a lente fica ~25,5 cm ATRÁS da ponta do garfo, e o `pose.py`
+   SOMA o offset → z do offset NEGATIVO; depois do offset, `z_cm` = distância
+   da PONTA DO GARFO até a tag (referência do `ZREF_CM`/standoff). Validar
+   pelo resultado: tag exatamente centrada a 15,0 cm da ponta do GARFO →
    `z_cm=15.0` e `x_cm=0.0`; conferir sinal movendo a tag 5 cm à esquerda
    (`x_cm ≈ +5`).
 5. `MAX_LINEAR_SPEED` / `MAX_ANGULAR_SPEED` — talo cheio: cronometrar 2 m

@@ -225,7 +225,7 @@ Se os switches forem NC (Normally Closed), trocar `FORK_LIMIT_ACTIVE_LEVEL` para
 | `LEDC_FREQ_HZ`         | 20000  | Hz      | Acima da faixa audível                        |
 | `LEDC_RESOLUTION_BITS` | 8      | bits    | 256 níveis (0-255)                            |
 | `ENCODER_PPR`          | 1440   | contagens | Lego NXT 53787: 360 ciclos de quadratura/volta × 4 (decodificação x4) |
-| `FORK_DUTY`            | 180    | 0-255   | ~70% — suficiente para worm gear              |
+| `FORK_DUTY`            | 220    | 0-255   | ~86% — subiu de 180 na bancada 2026-07-06/07 p/ levantar com carga |
 | `FORK_LIMIT_ACTIVE_LEVEL` | LOW | -       | Switch NO + pullup                            |
 | `MPU6050_ADDR`         | 0x68   | -       | AD0=GND (padrão)                              |
 
@@ -426,9 +426,10 @@ cd src/firmware && pio run
 
 1. Colocar o pallet no garfo.
 2. Comandar "subir" → garfo sobe com a carga?
-   - Sim: `FORK_DUTY = 180` está adequado.
-   - Não sobe: aumentar para 200 ou 220.
-   - Sobe muito rápido: diminuir para 150.
+   - Sim: `FORK_DUTY = 220` está adequado (valor da bancada 2026-07-06/07;
+     era 180 e não levantava com carga).
+   - Não sobe: aumentar para 240 ou 255.
+   - Sobe muito rápido/brusco: diminuir gradualmente.
 3. Parar → a carga se mantém? (O worm gear deve segurar.)
 4. Descer → desce suavemente?
 
@@ -527,7 +528,7 @@ Itens que podem precisar de ajuste após testes com o hardware real:
 | ENCODER_PPR = 1440 correto? | `config.h` | **Validado 2026-07-06** (1 volta ≈ 1440; 10 voltas ≈ 14400) |
 | Sentido dos motores (IN1/IN2) | `config.h` | **Validado 2026-07-06** — canais A/B remapeados (ESQ=27/26/25, DIR=12/14/13) com `MOTOR_ESQ_INV=false`/`MOTOR_DIR_INV=true` |
 | Ganhos PID (Kp=20, Ki=5, Kd=1) | `config.h` | **Sintonizar com Ziegler-Nichols** |
-| FORK_DUTY = 180 adequado? | `config.h` | **Testar com carga real** |
+| FORK_DUTY = 220 adequado? | `config.h` | **Ajustado na bancada 2026-07-06/07** (180→220 p/ levantar com carga); revalidar com o pallet real |
 | Tipo dos switches (NO ou NC?) | `config.h` (`FORK_LIMIT_ACTIVE_LEVEL`) | **Confirmar na montagem** |
 | BMS digital? | `main.cpp` / `config.h` | `has_bms = false` até definir |
 | Faixa do giroscópio (±250°/s suficiente?) | `main.cpp` (configurar REG do MPU) | Provavelmente sim |

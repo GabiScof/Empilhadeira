@@ -372,12 +372,12 @@ Framing: `{"w_esq":1.5,"w_dir":1.5,"garfo":"parar"}*a3\n`
 | Item | Valor atual | Ação no robô |
 |------|-------------|--------------|
 | PID Kp/Ki/Kd | 20/5/1 | Ziegler-Nichols |
-| WHEEL_BASE, WHEEL_RADIUS | 15 cm, 2.8 cm | Medir |
+| WHEEL_BASE, WHEEL_RADIUS | 15 cm, 2.7 cm (medição da equipe 2026-07-06) | Confirmar raio por rolagem; medir bitola |
 | ENCODER_PPR | 1440 (x4) | Validado 2026-07-06 (1 volta ≈ 1440) |
 | ZREF / standoff | 15 cm | Medir distância real |
 | NAV_K*, EKF_Q/R | Tunados em sim | Re-tunar |
-| APRILTAG_SIZE | 5 cm | Paquímetro |
-| CAMERA_TO_FORK_OFFSET | (0,0,0) | Medir posição relativa |
+| APRILTAG_SIZE | 4 cm | Conferir com paquímetro |
+| CAMERA_TO_FORK_OFFSET | (0, -14.2, -25.5) — medido na bancada 2026-07-07 (lente atrás da ponta do garfo → z negativo) | Validar com fita (tag a 15 cm da ponta → z≈15) |
 | Convenção yaw em pose.py | Derivada de pitch | Validar vs câmera real |
 | COMMAND_WATCHDOG_MS | 400 ms | Validar RTT Wi-Fi |
 
@@ -385,7 +385,7 @@ Framing: `{"w_esq":1.5,"w_dir":1.5,"garfo":"parar"}*a3\n`
 
 | Item | Estado | Ação |
 |------|--------|------|
-| `camera_intrinsics.json` | fx/fy/cx/cy = null | Calibração xadrez |
+| `camera_intrinsics.json` | ⚠️ recalibração em andamento — calibrado em 640×480 (0,144 px), mas cx/cy anômalos (cx=399 ≈ 800/2 sugere fotos em resolução errada) | Recalibrar (foco travado, capturar em 640×480) e re-validar z/x |
 | Mapa arena real | Só mapas sim | Medir e criar JSON |
 | Teste UART Pi↔ESP32 | Nunca rodou | Conectar USB, validar frames |
 | Teste câmera real | Nunca rodou | Tag visível, detecção OK |
@@ -486,8 +486,8 @@ SERIAL_BAUDRATE=115200
 # Câmera
 CAMERA_INDEX=0
 REQUIRE_CAMERA_CALIBRATION=1    # 0 só para debug sem calibração
-CAMERA_FRAME_WIDTH=1280
-CAMERA_FRAME_HEIGHT=720
+CAMERA_FRAME_WIDTH=640      # TEM que bater com a resolução da calibração;
+CAMERA_FRAME_HEIGHT=480     # vision_loop/teste_cam forçam o image_size do JSON
 
 # Mapa
 MAP=arena_real_medida

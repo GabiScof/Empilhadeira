@@ -227,7 +227,8 @@ subir/descer/parar`), repassado ao ESP32 no campo `garfo` do setpoint.
 
 ### Comportamento no Firmware
 
-- Duty fixo `FORK_DUTY = 180` (~70%) enquanto o comando estiver ativo
+- Duty fixo `FORK_DUTY = 220` (~86%) enquanto o comando estiver ativo
+  (subiu de 180 na bancada 2026-07-06/07 para levantar com carga)
 - Fim-de-curso (quando instalado) corta o motor **localmente** em ~10 ms
   (próximo ciclo PID) — **hoje desabilitado com -1 em `config.h`**
 - Worm gear retém carga sem PWM de manutenção
@@ -325,7 +326,7 @@ python -m app.main
 |-----------|------|--------------|
 | Kp, Ki, Kd | `firmware/config.h` | Ziegler-Nichols (ver `firmware/README.md` §4.2) |
 | `SETPOINT_TIMEOUT_MS = 200` | `firmware/config.h` | Validar watchdog desconectando USB |
-| `FORK_DUTY = 180` | `firmware/config.h` | Testar com carga real no garfo |
+| `FORK_DUTY = 220` | `firmware/config.h` | Ajustado na bancada 2026-07-06/07 (180→220 p/ levantar com carga); revalidar com o pallet real |
 
 ### Visão / AprilTag
 

@@ -44,7 +44,7 @@ Arquivos JSON em `pi/maps/`. Schema validado por Pydantic (`map_schema.py`).
       "yaw_deg": 0            // orientação da tag (graus)
     }
   ],
-  "tag_size_m": 0.05,        // tamanho físico da tag impressa (metros)
+  "tag_size_m": 0.04,        // tamanho físico da tag impressa (metros)
   "tag_family": "tag25h9"    // família de tags
 }
 ```

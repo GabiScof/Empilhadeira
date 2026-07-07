@@ -24,13 +24,17 @@ def get_all_detections(self) -> list[TagObservation]   # todas as tags p/ fusão
 
 A `RealVisionSource` já está implementada. O que a equipe precisa fechar:
 
-1. **Calibrar a câmera.** Gere `pi/calibracao/camera_intrinsics.json` com `fx, fy,
-   cx, cy` (ver [camera-calibration.md](./camera-calibration.md)). Enquanto os
-   valores estiverem `null`, `RealVisionSource()` falha no boot com mensagem clara
-   (controlado por `REQUIRE_CAMERA_CALIBRATION`; os intrínsecos placeholder de
-   `config.py` **não** servem para o hardware real).
-2. **Medir o offset câmera→garfo** (`CAMERA_TO_FORK_OFFSET_CM`) — aplicado em
-   `pose.py`. Sem isso, há erro sistemático de alguns cm.
+1. **Recalibrar a câmera.** `pi/calibracao/camera_intrinsics.json` está preenchido
+   (640×480, erro 0,144 px), mas ⚠️ **suspeito** — cx=399 ≈ 800/2 sugere fotos em
+   resolução errada; recalibração em andamento (ver
+   [camera-calibration.md](./camera-calibration.md)). Enquanto os valores estiverem
+   `null`, `RealVisionSource()` falha no boot com mensagem clara (controlado por
+   `REQUIRE_CAMERA_CALIBRATION`; os intrínsecos placeholder de `config.py` **não**
+   servem para o hardware real).
+2. **Validar o offset câmera→garfo** (`CAMERA_TO_FORK_OFFSET_CM`) — medido na
+   bancada 2026-07-07: `(0, -14.2, -25.5)`, z NEGATIVO (lente ~25,5 cm ATRÁS da
+   ponta do garfo; `pose.py` SOMA o offset). Depois do offset, `z_cm` = distância
+   da ponta do garfo até a tag. Validar: tag a 15 cm da ponta → `z_cm` ≈ 15.
 3. **Validar a convenção de `yaw_rad`** em `estimate_tag_observations` (`pose.py`)
    contra o frame real — marcado `TODO(equipe)`. A correção de **posição** do EKF
    não depende disso; só a de **heading**.

@@ -451,10 +451,10 @@ else:
 | **Modo** | `SIM` (env `SIM=1`) | ✅ | Setar `SIM=0` |
 | **Rede** | `WS_HOST`, `WS_PORT`, `TELEMETRY_HZ=20`, `CONTROL_HZ=20` | ✅ | Manter |
 | **Serial** | `SERIAL_PORT=/dev/ttyUSB0`, `SERIAL_BAUDRATE=115200`, `SERIAL_HZ=20` | ✅ | Confirmar porta após `ls /dev/tty*` |
-| **Cinemática** | `WHEEL_BASE_L_CM=15`, `WHEEL_RADIUS_R_CM=2.8` | ⚠️ Provisório | **Medir** L e r reais com paquímetro |
-| **Velocidade** | `MAX_LINEAR_SPEED=30 cm/s`, `MAX_ANGULAR_SPEED=3 rad/s` | ⚠️ | Validar se motores atingem |
+| **Cinemática** | `WHEEL_BASE_L_CM=15`, `WHEEL_RADIUS_R_CM=2.7` (medição da equipe 2026-07-06) | ⚠️ Confirmar | Confirmar r por rolagem; medir L |
+| **Velocidade** | `MAX_LINEAR_SPEED=19 cm/s` (medido 24 na bancada 2026-07-06, gravado a 80%), `MAX_ANGULAR_SPEED=2.5 rad/s` (derivado; provisório) | ⚠️ | Cronometrar o giro p/ fechar o angular |
 | **Navegação legada** | `NAV_KZ`, `NAV_KX`, `NAV_KP_PITCH`, `ZREF_CM=15` | ⚠️ | Re-tunar com dados reais |
-| **Visão** | `APRILTAG_FAMILY=tag25h9`, `APRILTAG_SIZE_CM=5`, intrínsecos, `CAMERA_TO_FORK_OFFSET_CM` | ❌ | **Calibrar câmera** e **medir offset** |
+| **Visão** | `APRILTAG_FAMILY=tag25h9`, `APRILTAG_SIZE_CM=4`, intrínsecos, `CAMERA_TO_FORK_OFFSET_CM=(0,-14.2,-25.5)`, `CAMERA_TILT_DEG=28.4` | ⚠️ | **Recalibrar câmera** (cx/cy anômalos) e validar offset/tilt medidos (bancada 2026-07-06/07) |
 | **EKF** | `EKF_Q_XY`, `EKF_Q_THETA`, `EKF_R_XY`, `EKF_R_THETA`, gate=3 | ⚠️ | Re-tunar com dados reais |
 | **Emulador** | `EMU_*` (PID, motor, ruído, arena) | — | Não usado no real |
 | **Missão** | `MISSION_SEED`, `TAG_APPROACH_STANDOFF_M=0.15` | ⚠️ | Ajustar standoff conforme comprimento do garfo |
@@ -530,9 +530,9 @@ class VisionSource(Protocol):
 
 **No SIM:** `SyntheticVision` calcula geometria exata + ruído configurável (blur, drop, range).  
 **No real, definir:**
-1. **Calibrar câmera** → `camera_intrinsics.json` com `fx, fy, cx, cy`
-2. **Medir `APRILTAG_SIZE_CM`** com paquímetro
-3. **Medir `CAMERA_TO_FORK_OFFSET_CM`** — distância da lente ao ponto de referência do garfo
+1. **Recalibrar câmera** → `camera_intrinsics.json` (a calibração atual está suspeita: cx/cy anômalos). O `vision_loop` força a resolução de captura para o `image_size` do JSON de calibração — capturar em resolução diferente invalida fx/fy/cx/cy
+2. **Conferir `APRILTAG_SIZE_CM`** (atual 4 cm) com paquímetro
+3. **Validar `CAMERA_TO_FORK_OFFSET_CM`** — medido na bancada 2026-07-07: (0, -14.2, -25.5); z negativo (lente atrás da ponta do garfo)
 4. **Validar convenção `yaw_rad`** em `pose.py` — o pitch do PnP vira yaw no plano; precisa validar com câmera real
 
 ### 4.7 Serial Loop
@@ -984,7 +984,7 @@ SAÍDA:    Cinemática direta/inversa em SI
 | `diff_drive_step(x,y,θ, w_left, w_right, dt)` | pose + speeds + dt | `(x,y,θ)` nova | Integração de pose |
 | `rad_per_pulse()` | — | float | Resolução angular por pulso de encoder |
 
-**No SIM:** `WHEELBASE_M=0.15`, `WHEEL_RADIUS_M=0.028`.  
+**No SIM:** `WHEELBASE_M=0.15`, `WHEEL_RADIUS_M=0.027`.  
 **No real, definir:**
 1. **Medir `WHEEL_BASE_L_CM`** — distância entre centros das rodas, com paquímetro
 2. **Medir `WHEEL_RADIUS_R_CM`** — raio da roda (não o diâmetro!)
@@ -1012,7 +1012,7 @@ SAÍDA:    Cinemática direta/inversa em SI
     { "id": "W1", "x_m": 0.50, "y_m": 0.30 }
   ],
   "edges": [["start", "W1"], ["W1", "P1"]],
-  "tag_size_m": 0.05,
+  "tag_size_m": 0.04,
   "tag_family": "tag25h9"
 }
 ```
@@ -1026,7 +1026,7 @@ SAÍDA:    Cinemática direta/inversa em SI
 | `tags[]` | TagSpec[] | sim (≥1) | Posição e orientação de cada AprilTag |
 | `waypoints[]` | WaypointSpec[] | não | Nós do grafo para A* |
 | `edges[]` | string[][] | não | Arestas do grafo |
-| `tag_size_m` | float | não (default 0.05) | Tamanho físico da tag |
+| `tag_size_m` | float | não (default 0.04) | Tamanho físico da tag |
 
 **No real, definir:** criar pelo menos 1 mapa medido da arena real.
 
@@ -1057,8 +1057,10 @@ ENTRADA:  caminho para camera_intrinsics.json
 SAÍDA:    CameraIntrinsics(fx, fy, cx, cy, dist_coeffs, image_size, reprojection_error)
 ```
 
-**Estado atual:** JSON tem `fx=null, fy=null, cx=null, cy=null`.  
-**No real, definir:** calibrar com padrão xadrez (OpenCV `calibrateCamera()` ou 3DF Zephyr):
+**Estado atual:** JSON calibrado (OpenCV, 640×480, erro 0,144 px), mas ⚠️ **recalibração
+em andamento** — cx=399/cy=273 são anômalos para 640×480 (cx ≈ 800/2 sugere fotos em
+resolução errada). `vision_loop`/`teste_cam` forçam a captura para o `image_size` do JSON.  
+**No real, definir:** recalibrar com padrão xadrez (OpenCV `calibrateCamera()` ou 3DF Zephyr):
 1. Imprimir tabuleiro 9×6
 2. Capturar 20+ fotos em ângulos variados
 3. Rodar calibração → salvar JSON
@@ -1077,16 +1079,26 @@ SAÍDA 2:  list[TagObservation] (todas as tags: z_m, x_m, yaw_rad, quality)
 | `estimate_tag_observations(detections)` | detecções | `list[TagObservation]` | Correção EKF multi-tag |
 | `rotation_matrix_to_euler_angles(R)` | 3×3 matrix | `(roll, pitch, yaw)°` | Auxiliar |
 
-**Detalhe importante:** aplica `CAMERA_TO_FORK_OFFSET_CM` em x/z para compensar a posição relativa da câmera ao garfo.
+**Detalhes importantes:**
+- **Tilt da câmera:** `pose.py` rotaciona a pose por `CAMERA_TILT_DEG` (28,4°,
+  medido na bancada 2026-07-07) **antes** de extrair z/x/pitch — o `z` do
+  contrato é a distância **HORIZONTAL**, não a hipotenusa do eixo óptico.
+- **Offset câmera→garfo:** aplica `CAMERA_TO_FORK_OFFSET_CM` (SOMA) em x/z.
+  Medido na bancada 2026-07-07: `(0, -14.2, -25.5)` — a lente fica ~25,5 cm
+  ATRÁS da ponta do garfo, por isso o z do offset é NEGATIVO. Depois do
+  offset, `z_cm` = distância da PONTA DO GARFO até a tag (é a referência do
+  `ZREF_CM`/standoff).
 
 **Sinal do x (corrigido 2026-07-06):** o frame óptico OpenCV/AprilTag tem x
 positivo = tag à DIREITA, o oposto da convenção do projeto/simulador
-(`x_cm` positivo = tag à ESQUERDA). `pose.py` **nega o x na fronteira** —
-sem isso a navegação autônoma viraria para longe da tag. Validar no robô:
-tag deslocada à esquerda da câmera → `x_cm` positivo.
+(`x_cm`/`x_m` positivo = tag à ESQUERDA). `pose.py` **nega o x na fronteira**
+em TODOS os caminhos reais — tanto no `VisionState` (`x_cm`) quanto no
+`TagObservation`/EKF (`x_m`); o x refere-se ao CENTRO da tag. Sem a negação a
+navegação autônoma viraria para longe da tag. Validar no robô: tag deslocada
+à esquerda da câmera → `x_cm` positivo.
 
 **No real, definir:**
-1. **`CAMERA_TO_FORK_OFFSET_CM`** — offset da câmera ao ponto de referência
+1. **`CAMERA_TO_FORK_OFFSET_CM`** — validar o valor medido (tag a 15 cm da ponta do garfo → `z_cm` ≈ 15)
 2. **Convenção yaw** — a implementação usa pitch como proxy para yaw no plano (funciona para tag na parede). Validar com câmera real.
 
 ### 4.21 Comunicação serial — protocolo e CRC
@@ -1263,7 +1275,7 @@ SAÍDA:    sinais GPIO (direção) + duty PWM (velocidade)
 |--------|---------|-------|--------|
 | `motorSetWheelEsq(u)` | float | GPIO + PWM | u>0: IN1=H,IN2=L; u<0: IN1=L,IN2=H; duty=min(\|u\|, 255) |
 | `motorSetWheelDir(u)` | float | GPIO + PWM | Idem |
-| `motorSetFork(cmd)` | ForkCommand | GPIO + PWM | SUBIR: se não no topo; DESCER: se não na base; duty fixo 180 |
+| `motorSetFork(cmd)` | ForkCommand | GPIO + PWM | SUBIR: se não no topo; DESCER: se não na base; duty fixo 220 |
 | `motorsStop()` | — | — | Todas as saídas LOW, duty 0 |
 
 **Por que L298n?** Driver H-bridge simples e barato; suporta até 2A por canal; controle bidirecional com 2 pinos de direção + 1 PWM.
@@ -1272,7 +1284,7 @@ SAÍDA:    sinais GPIO (direção) + duty PWM (velocidade)
 1. Verificar que motores giram na direção esperada — **validado 2026-07-06**
    (`MOTOR_ESQ_INV=false`, `MOTOR_DIR_INV=true`; testar sempre UM lado por vez —
    o teste conjunto mascara canais A/B trocados)
-2. Verificar se `FORK_DUTY=180` é suficiente para subir o garfo com pallet
+2. `FORK_DUTY=220` — subiu de 180 na bancada 2026-07-06/07 para levantar com carga; revalidar com o pallet real
 
 ### Encoders — `encoders.h/cpp`
 
@@ -1422,7 +1434,7 @@ class SerialTransport(Protocol):
 
 | Item | Estado | Ação | Responsável |
 |------|--------|------|-------------|
-| **Calibração da câmera** | `camera_intrinsics.json` com valores `null` | Calibrar com padrão xadrez → gerar `fx, fy, cx, cy` | Equipe |
+| **Calibração da câmera** | ⚠️ recalibração em andamento — calibrado 640×480 (0,144 px), mas cx/cy anômalos (cx=399 ≈ 800/2) | Recalibrar com padrão xadrez (capturar em 640×480, foco travado) e re-validar z/x | Equipe |
 | **Mapa da arena real** | Só mapas de simulação | Medir arena, posição das tags, criar JSON | Equipe |
 | **Teste UART Pi↔ESP32** | Nunca executado | Conectar USB, `pio device monitor`, validar frames | Equipe |
 | **Teste câmera real** | Nunca executado | Tag visível, detecção OK, z_cm/x_cm plausíveis | Equipe |
@@ -1433,11 +1445,11 @@ class SerialTransport(Protocol):
 | Item | Valor atual (provisório) | Ação | Impacto se não fizer |
 |------|--------------------------|------|---------------------|
 | `WHEEL_BASE_L_CM` | 15 cm | Medir com paquímetro | Cinemática errada → robô curva demais/pouco |
-| `WHEEL_RADIUS_R_CM` | 2.8 cm | Medir com paquímetro | Velocidade calculada errada |
+| `WHEEL_RADIUS_R_CM` | 2.7 cm (medição da equipe 2026-07-06) | Confirmar por rolagem | Velocidade calculada errada |
 | `ENCODER_PPR` | 1440 (validado 2026-07-06) | 1 volta ≈ 1440 contagens (x4) | Odometria com escala errada |
 | `PID Kp/Ki/Kd` | 20/5/1 | Ziegler-Nichols | Motor oscila ou responde devagar |
-| `APRILTAG_SIZE_CM` | 5 cm | Paquímetro | Escala da pose PnP errada |
-| `CAMERA_TO_FORK_OFFSET_CM` | (0,0,0) | Medir | Erro sistemático de posicionamento |
+| `APRILTAG_SIZE_CM` | 4 cm | Conferir com paquímetro | Escala da pose PnP errada |
+| `CAMERA_TO_FORK_OFFSET_CM` | (0, -14.2, -25.5) — medido na bancada 2026-07-07 | Validar (tag a 15 cm da ponta do garfo → z≈15) | Erro sistemático de posicionamento |
 | `ZREF_CM` (distância de parada) | 15 cm | Medir comprimento do garfo | Para longe/perto demais |
 | `EKF_Q_*`, `EKF_R_*` | Tunados em sim | Gravar log + re-tunar | Filtro diverge ou converge devagar |
 | `NAV_K_DIST`, `NAV_K_HEADING` | Tunados em sim | Testar no chão | Robô oscila ou converge devagar |

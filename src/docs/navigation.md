@@ -171,9 +171,9 @@ entre waypoints do mapa.
 | `NAV_K_DIST` | 0 | — | Ganho distância → v *(TODO)* |
 | `NAV_K_HEADING` | 0 | — | Ganho heading → ω *(TODO)* |
 | `WHEELBASE_M` | 0.15 | m | Distância entre rodas |
-| `WHEEL_RADIUS_M` | 0.028 | m | Raio da roda |
-| `MAX_LINEAR_SPEED_MS` | 0.30 | m/s | Saturação de v |
-| `MAX_ANGULAR_SPEED_RADS` | 3.0 | rad/s | Saturação de ω |
+| `WHEEL_RADIUS_M` | 0.027 | m | Raio da roda (medição da equipe 2026-07-06; confirmar por rolagem) |
+| `MAX_LINEAR_SPEED_MS` | 0.19 | m/s | Saturação de v (medido na bancada 2026-07-06: 24 cm/s a talo cheio; gravado a 80%) |
+| `MAX_ANGULAR_SPEED_RADS` | 2.5 | rad/s | Saturação de ω (derivado do teto físico 2·24/15 ≈ 3,2 × 0,8; provisório até cronometrar o giro) |
 
 ## Testes
 

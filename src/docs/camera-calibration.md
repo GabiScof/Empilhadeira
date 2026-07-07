@@ -7,12 +7,20 @@ A estimativa de pose da AprilTag (`pupil-apriltags`, família `tag25h9`) exige o
 distorção. Eles são produzidos pela calibração e salvos em
 [`../pi/calibracao/camera_intrinsics.json`](../pi/calibracao/camera_intrinsics.json).
 
-> **Estado atual (2026-07-03): CALIBRADO.** O arquivo contém a calibração OpenCV
-> feita com 28 fotos **640×480** de `roboticaMengo/imagens/` (erro de reprojeção
-> 0,144 px). A captura em operação **tem** que rodar em 640×480
-> (`CAMERA_FRAME_WIDTH/HEIGHT` no `.env`). Existe uma calibração alternativa
-> (Zephyr, fx=fy=833) anotada no próprio JSON — o teste de fita métrica a 30 cm
-> (ver `real-robot-test-plan.md` §1.4) decide qual fica.
+> **Estado atual (2026-07-07): ⚠️ RECALIBRAÇÃO EM ANDAMENTO.** O arquivo contém a
+> calibração OpenCV feita com 28 fotos **640×480** de `roboticaMengo/imagens/`
+> (erro de reprojeção 0,144 px), mas os valores estão **suspeitos**: cx=399 e
+> cy=273 são anômalos para 640×480 — cx é exatamente 800/2, o que sugere fotos
+> tiradas em resolução errada. A equipe vai recalibrar (possivelmente com a
+> webcam nova Logitech 1080p), **capturando em 640×480 e com foco travado**, e
+> re-validar z/x com fita métrica depois. A captura em operação **tem** que rodar
+> na resolução da calibração: `vision_loop` e `teste_cam` **forçam** o
+> `image_size` anotado no JSON de calibração (os defaults
+> `CAMERA_FRAME_WIDTH/HEIGHT=640/480` do config são só fallback) — capturar em
+> resolução diferente invalida fx/fy/cx/cy silenciosamente (armadilha vista na
+> bancada). Existe uma calibração alternativa (Zephyr, fx=fy=833) anotada no
+> próprio JSON — o teste de fita métrica a 30 cm (ver `real-robot-test-plan.md`
+> §1.4) decide qual fica.
 
 ## Opção A — Checkerboard (xadrez) com OpenCV
 
@@ -50,4 +58,6 @@ definir a câmera. **`TODO(equipe)`**.
 ```
 
 > A resolução de calibração deve casar com a resolução usada em operação; caso
-> contrário `fx/fy/cx/cy` precisam ser reescalados.
+> contrário `fx/fy/cx/cy` precisam ser reescalados. Em operação isso é garantido
+> por código: `vision_loop`/`teste_cam` forçam a captura para o `image_size` do
+> JSON de calibração.
