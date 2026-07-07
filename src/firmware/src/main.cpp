@@ -117,9 +117,17 @@ static void mpuWake() {
  *   TEMP_OUT_H/L,
  *   GYRO_XOUT_H/L, GYRO_YOUT_H/L, GYRO_ZOUT_H/L
  *
- * @return true se a leitura veio completa e com dados vivos; false se o I2C
- *         falhou ou o sensor esta dormindo (tudo zero — fisicamente impossivel
- *         com o acelerometro ligado, que sempre mostra gravidade + ruido).
+ * @return true se a leitura veio completa e com dados vivos; false em duas
+ *         falhas observadas na bancada (2026-07-06, modo display), com
+ *         assinaturas DISTINTAS no stream:
+ *           - Barramento I2C caiu: requestFrom nao entrega 14 bytes
+ *             ([E][Wire.cpp] Error 263). Retorna false ANTES de tocar os
+ *             campos → frame sai com o default da struct, inclusive temp_c=0.
+ *           - Sensor dormindo: I2C entrega 14 bytes TODOS zero (fisicamente
+ *             impossivel com o acelerometro ligado, que sempre mostra
+ *             gravidade + ruido). Os campos ja foram escritos como 0 e
+ *             temp_c = 0/340 + 36.53 = 36.53 → essa e a assinatura no stream.
+ *         Em ambos o loop() auto-recupera via mpuWake() (ver abaixo).
  */
 static bool readMpu(Sensors& s) {
   Wire.beginTransmission(MPU6050_ADDR);

@@ -140,6 +140,10 @@ Pinos (config.h, conferidos 2026-07-06): ESQ 27/26/25 (canal B) · DIR 12/14/13 
 - [ ] GND comum em estrela (fonte, 2× L298n, ESP32, Pi, MPU)
 - [ ] Multímetro na saída dos encoders NXT: > 3,3 V → level shifter/divisor
 - [ ] Fim-de-curso: **nada ligado** (desabilitado com -1 — esperado)
+- [ ] **Recomendado (quando der):** migrar a alimentação dos encoders dos GPIOs
+      2/4 para os pinos 3V3/GND reais da placa e setar `PIN_ENC_POWER_VCC/GND
+      = -1` no config.h — GPIO fornece pouca corrente E o GPIO 2 é strapping de
+      boot (atrapalha a gravação; ver troubleshooting do 1.2)
 
 ### 1.2 Firmware: compilar, gravar, ver sensores (no Pi, ESP32 no USB do Pi)
 
@@ -160,12 +164,71 @@ Checks de sensor (na mão, sem motor):
    2026-07-06: `ENC_ESQ_INV=true`, `ENC_DIR_INV=true`).
    Esquerdo sempre zero → fiação do 1.1.
 2. 1 volta exata → ~1440 contagens (x4; senão ajustar `ENCODER_PPR` nos dois configs).
-3. Inclinar o chassi → `ax/ay/az` mudam.
+3. **Isolamento entre encoders:** girar SÓ uma roda → o `enc` da outra fica
+   **cravado em 0** (contar junto = cross-talk/fio trocado entre encoders).
+4. **Simetria esq/dir:** empurrar o robô ~1 m em linha reta no chão → as duas
+   colunas positivas e parecidas (±5%). Diferença sistemática = raio/PPR
+   desigual → vai aparecer como curva suave no 2.1; anotar para o 3.1.
+5. **Cadeia de yaw (encoders × gyro):** girar o robô no lugar, à mão,
+   ANTI-horário (visto de cima) → `enc.esq` negativo, `enc.dir` positivo, e
+   `gz` com sinal consistente durante o giro — **anotar o sinal do gz** (com o
+   MPU de z para baixo, espere gz NEGATIVO no anti-horário). Valida a coerência
+   encoder↔gyro antes do EKF, sem backend.
+6. Inclinar o chassi → `ax/ay/az` mudam; deitar de lado → |g|≈10–11 migra de
+   eixo (cada eixo vivo).
 
-Erros: lixo no monitor = baudrate; nada = TX/RX invertidos ou cabo só-carga;
-não grava = GPIO 12 puxado HIGH (desconectar driver e regravar).
+Erros: lixo no monitor = baudrate; nada = TX/RX invertidos ou cabo só-carga.
+**Gravação falhando** (visto 2026-07-06: `Serial data stream stopped` /
+`chip stopped responding`), na ordem: (a) repetir segurando o botão BOOT no
+"Connecting..."; (b) **desconectar o fio do GPIO 2** (VCC dos encoders —
+strapping de boot) e regravar; (c) desligar a fonte 12 V/L298n durante a
+gravação (GPIO 12 no IN do driver + ruído na USB); (d) `upload_speed = 115200`
+no platformio.ini; (e) trocar o cabo USB / plugar direto no Pi.
 
 **Feche o `pio device monitor` (Ctrl-C) antes do próximo passo** — a porta é uma só.
+
+#### Resultados — modo display (robô ~fixo, sem motor), 2026-07-06
+
+Caracterização do stream cru (`enc`/`mpu`) em 4 poses. **Todas as convenções
+de sinal do firmware/Pi foram CONFIRMADAS** — nenhum ajuste de sinal foi
+necessário; valida os fixes de giro de `a4bffcf`.
+
+- **Repouso, chassi nivelado (Z p/ baixo):** `az ≈ -10.7` domina (faixa
+  -9.5…-12.2 com ruído/vibração), `ax`/`ay ≈ 0`. `|g| ≈ 10.7` — ~9% acima de
+  9.81. Como roll/pitch e a auto-orientação usam RAZÕES de eixos (`atan2`), essa
+  escala alta é **cosmética**, não afeta heading nem tilt; fica anotada mas não
+  recalibrada (uma pose limpa só não fecha calibração de 6 pontos).
+- **Bias de taxa-zero do giroscópio (parado):** `gz ≈ 0` (±0.5 °/s) → bias de
+  **yaw desprezível**, o `GyroCalibrator` o absorve. `gx ≈ -2.7`, `gy ≈ -1.0`
+  °/s têm bias fixo, mas só entram no Kalman de roll/pitch (corrigido pelo
+  acelerômetro, sem drift acumulado). Ver nota de melhoria abaixo.
+- **Giro no lugar HORÁRIO (visto de cima):** `enc.esq` **+**, `enc.dir` **−**,
+  `gz` **POSITIVO** (~+45…+64 °/s no pico).
+- **Giro no lugar ANTI-HORÁRIO:** `enc.esq` **−**, `enc.dir` **+**, `gz`
+  **NEGATIVO** (~-50…-65 °/s). Bate com §1.2.5 (“gz NEGATIVO no anti-horário”)
+  e com a convenção do EKF: `up = -Z` ⇒ `yaw = -gz`, logo anti-horário ⇒ `yaw`
+  positivo = θ crescente. ✅
+- **Deitado de lado p/ a DIREITA:** a gravidade migra p/ o eixo **−Y**
+  (`ay ≈ -9` domina). Cada eixo “vivo” conforme §1.2.6. ✅
+- **Tombo p/ TRÁS:** a gravidade migra p/ o eixo **+X** (`ax ≈ +9…+10.7`
+  domina, `az → ~-2`). ✅
+
+**Falhas do MPU observadas durante o teste** (duas assinaturas DISTINTAS no
+stream — úteis p/ diagnóstico futuro):
+- `mpu` tudo-zero com **`temp_c` = 36.53** (bursts durante os giros): o sensor
+  DORMIU (I2C respondeu 14 bytes zerados; `temp = 0/340 + 36.53`). `readMpu`
+  retorna false e o firmware **auto-recupera** re-enviando `mpuWake()` após ~1 s
+  (20 leituras mortas @20 Hz).
+- `mpu` tudo-zero com **`temp_c` = 0** + `[E][Wire.cpp:499] requestFrom():
+  i2cWriteReadNonStop returned Error 263` (no fim, após o tombo): o BARRAMENTO
+  I2C caiu (0 bytes; struct `Sensors` fica no default, `temp_c=0`). Recupera
+  igual, mas é sintoma de contato/EMI — reassentar o MPU e afastar do L298n.
+  Se persistir, considerar `Wire.setTimeout()`/reinício do barramento.
+
+**Melhoria pendente (não-bloqueante):** o Kalman (`pi/app/control/kalman.py`)
+alimenta `u = [gx, gy]` CRUS; com bias ~-2.7/-1.0 °/s o acelerômetro corrige em
+regime, mas seria mais limpo remover o bias por-eixo (o `GyroCalibrator` já mede
+`g_mean` parado — expor `gx/gy` bias). Requer teste próprio; deixado como TODO.
 
 ### 1.3 Motores em bancada (RODAS NO AR — fonte 12 V ligada)
 
@@ -288,6 +351,9 @@ Subir o backend e **deixar o robô imóvel ~3 s**. O GyroCalibrator usa a gravid
 para detectar o eixo vertical, o sinal do yaw e o bias (a posição do MPU no chassi
 não importa, desde que um eixo fique vertical; > 10° de inclinação gera aviso no log).
 Robô mexendo no boot = calibração adiada até a primeira parada.
+**Chão firme e ninguém tocando no robô nesses 3 s** — os pneus macios deixam o
+chassi balançando (visto no monitor em 2026-07-06: accel/gyro ondulando ~1 Hz
+com o robô "parado"); calibrar balançando = bias ruim = heading derivando.
 
 ### 2.1 Joystick
 
@@ -299,6 +365,7 @@ Robô mexendo no boot = calibração adiada até a primeira parada.
 | Giro no lugar | Gira sem transladar | cinemática/wheelbase — anotar |
 | Giro anti-horário | Heading da telemetria **aumenta** (θ anti-horário positivo) | sinal do gyro/odometria — conferir GyroCalibrator e convenção antes do EKF (3.4) |
 | Parado | Heading da telemetria **estável** | gyro não calibrou (2.0) |
+| Talo baixo (~20%) | Pode demorar ~1–2 s para partir ou nem partir | **Esperado, não é bug**: duty baixo não vence o atrito estático; o integral do PID acumula devagar. Anotar o menor talo que anda → informa a sintonia do 3.1 (subir Ki ajuda a partida) |
 
 ### 2.2 Garfo com carga
 Vazio, depois com o pallet real. Não sobe = `FORK_DUTY` 180→220 e regravar.
@@ -322,11 +389,28 @@ visão confere com fita.
 ## FASE 3 — Autonomia e preparação para o desafio
 
 ### 3.1 Fechar os números (pré-requisito)
-1. Medir e gravar em `config.py`: `WHEEL_BASE_L_CM`, `WHEEL_RADIUS_R_CM`,
-   `CAMERA_TO_FORK_OFFSET_CM`, `APRILTAG_SIZE_CM` (= `tag_size_m` do mapa).
-2. PID se necessário (se 2.1 oscilou/mole): Ziegler-Nichols em `config.h` —
+Como medir cada um (todos vão em `config.py`; os `_M`/SI derivam sozinhos):
+1. `WHEEL_RADIUS_R_CM` — **teste de rolagem**, não paquímetro: marca no pneu,
+   empurrar reto até EXATAS 5 voltas da roda, medir a distância →
+   `r = dist / (5·2π)`. Com o peso do robô (pneu esmaga). Medir as DUAS rodas;
+   >2% de diferença explica curva suave — usar a média.
+2. `WHEEL_BASE_L_CM` — vão INTERNO entre pneus + UMA largura de pneu (= centro
+   a centro). Refinar com o 2.4: girou 360° físicos e o heading reportou X° →
+   `L_real = L_config · X/360`.
+3. `APRILTAG_SIZE_CM` — paquímetro no quadrado PRETO da tag impressa (sem a
+   borda branca); igual nos três lugares (config, mapa, detector — hoje 4 cm).
+4. `CAMERA_TO_FORK_OFFSET_CM` — calibrar pelo resultado: tag exatamente
+   centrada a 15,0 cm da ponta do GARFO → offset é o que falta para
+   `z_cm=15.0` e `x_cm=0.0`; conferir sinal movendo a tag 5 cm à esquerda
+   (`x_cm ≈ +5`).
+5. `MAX_LINEAR_SPEED` / `MAX_ANGULAR_SPEED` — talo cheio: cronometrar 2 m
+   retos (`v = 200/t`) e 1 volta no lugar (`ω = 2π/t`); gravar ~80% do medido
+   (folga para o PID). Sanidade: teto físico ≈ 12.25·r ≈ 34 cm/s.
+6. PID se necessário (se 2.1 oscilou/mole): Ziegler-Nichols em `config.h` —
    Ki=Kd=0; subir Kp até oscilar (Ku); medir período Tu; Kp=0.6·Ku, Ki=2·Kp/Tu,
-   Kd=Kp·Tu/8; regravar.
+   Kd=Kp·Tu/8; regravar. Lembrete: os ganhos foram acertados na BANCADA (roda
+   no ar); no chão a carga muda a dinâmica — overshoot de ~10% já visto a
+   8 rad/s deve piorar com carga.
 
 ### 3.2 Primeira autonomia: aproximação reativa (1 tag, arena aberta)
 Robô a ~60 cm da tag, alinhado, fora do corredor. 1 clique em AUTOMATICO:
@@ -408,3 +492,26 @@ correspondente (3.2 navegação, 3.4 localização).
 - [ ] Iluminação testada com `teste_cam` (reflexo na tag = reposicionar/foscar)
 - [ ] 1 volta manual + 1 missão completa de aquecimento antes da valendo
 - [ ] Plano B ensaiado: missão inteira em MANUAL se a autonomia falhar
+
+---
+
+## PRONTUÁRIO — problemas prováveis e como reconhecê-los
+
+Previsões baseadas no que já vimos na bancada (2026-07-06). Quando algo der
+errado, procure o sintoma aqui ANTES de debugar do zero.
+
+| Sintoma | Causa provável | Ação |
+|---|---|---|
+| Robô não parte com talo baixo, ou dá tranco ao partir | Atrito estático + duty baixo; integral lento | Esperado. Anotar limiar; sintonia 3.1 (Ki) |
+| Anda reto na bancada, curva no chão | Raio efetivo desigual entre pneus (carga esmaga diferente) | Teste de rolagem por roda (3.1 item 1), usar média; persistindo, anotar |
+| Overshoot/oscilação de velocidade no chão | Ganhos PID acertados com roda no ar | Ziegler-Nichols (3.1 item 6) |
+| Robô "amolece" ao longo da sessão; missão mais lenta | Bateria caindo (PID satura antes) | Medir tensão sob carga; recarregar; 3.6 |
+| Heading deriva parado, ou giro conta errado | Gyro calibrado com robô balançando no boot | Reboot do backend com robô em chão firme (2.0) |
+| Para sozinho no meio da demo e volta | Wi-Fi com RTT > 400 ms → `COMMAND_WATCHDOG` | Testar rede do local; IP fixo; ficar perto do AP (3.6) |
+| FACE gira para o lado errado / dock `tag_normal` espelhado | Convenção do `pitch_deg` da câmera real nunca validada | Check 6 do 1.4; `DOCK_PITCH_TO_TAG_YAW_OFFSET_RAD` |
+| `z_cm` sistematicamente proporcional ao errado | Tag impressa ≠ 4 cm, ou captura ≠ 640×480 da calibração | Checks 1 e 4 do 1.4 |
+| Dock/missão param fora do lugar, pior a cada curva | Escorregamento nas curvas de 90° (odometria degrada) | Piso menos liso / curvas mais lentas; fechar 2.4 antes de culpar o dock |
+| Gravação do firmware falha (`chip stopped responding`) | GPIO 2 (VCC encoder) / 12 V ligado / cabo | Sequência (a)–(e) no troubleshooting do 1.2 |
+| Encoder falha só com motores ligados | Alimentação por GPIO 2/4 no limite de corrente + ruído | Migrar para 3V3/GND reais (checklist 1.1) |
+| `Device or resource busy` na serial | Monitor, bench e backend disputando a UART | Fechar um antes de abrir o outro (regra de ouro) |
+| Uma roda satura e a outra morre, alternando | Canais de motor trocados (malhas PID cruzadas) | Um lado por vez (1.3 item 1); remapear `PIN_MOTOR_*` |

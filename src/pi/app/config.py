@@ -61,12 +61,15 @@ WHEEL_BASE_L_CM: float = 15.0
 # Roda Lego NXT ~56 mm de diâmetro → r ≈ 2.8 cm.
 WHEEL_RADIUS_R_CM: float = 2.7
 
-# PROVISÓRIO — TODO(equipe): confirmar — v máx (cm/s).
-# Conservador para ambiente interno controlado.
-MAX_LINEAR_SPEED: float = 30.0
+# MEDIDO NA BANCADA (2026-07-06): 100 cm em 4,16 s a talo cheio no chão
+# → v_máx real = 24,0 cm/s. Gravado a ~80% (folga p/ o PID corrigir e p/ a
+# bateria cair sem saturar). Remedir se trocar bateria/pneus/carga.
+MAX_LINEAR_SPEED: float = 19.0
 
-# PROVISÓRIO — TODO(equipe): confirmar — ω máx (rad/s).
-MAX_ANGULAR_SPEED: float = 3.0
+# DERIVADO do v medido — PROVISÓRIO até cronometrar o giro (3.1 do test plan):
+# teto físico ω = 2·v_máx/L = 2·24/15 ≈ 3,2 rad/s → 80% ≈ 2,5.
+# Confirmar com 1 volta no lugar cronometrada (ω = 2π/t) e ajustar.
+MAX_ANGULAR_SPEED: float = 2.5
 
 # ---------------------------------------------------------------------------
 # Navegação automática — [ref: Seção 3 e 7]
