@@ -140,11 +140,19 @@ CAMERA_PARAMS: tuple[float, float, float, float] = (
 # +25.5 o z saía ~2x a distância real.) Após o offset, z_cm = distância da
 # PONTA DO GARFO até a tag; ZREF_CM/standoff referem-se a ela. y (desnível
 # vertical) é ignorado pelo contrato.
-# AJUSTE EMPÍRICO NA BANCADA (2026-07-07): com -21,3 o z zerava com a tag a
-# 8 cm da ponta do garfo (medida geométrica ≠ referência real da lente) →
-# -21,3 + 8 = -13,3. Validar: tag a 30 cm da ponta do garfo → z_cm ≈ 30;
-# encostada na ponta → z_cm ≈ 0.
-CAMERA_TO_FORK_OFFSET_CM: tuple[float, float, float] = (0.0, -14.2, -13.3)
+# REMONTAGEM 2026-07-07 (2ª vez): lente a 10 cm da ponta da garra →
+# offset z = -10. Validar com a fita: tag a 30 cm da ponta → z_cm ≈ 30;
+# encostada na ponta → z_cm ≈ 0. (Histórico: -21,3 geométrico → -13,3
+# empírico na montagem anterior.)
+CAMERA_TO_FORK_OFFSET_CM: tuple[float, float, float] = (0.0, -14.2, -10.0)
+
+# Braço de alavanca lente→EIXO DAS RODAS, em cm (positivo = lente à FRENTE
+# do eixo). Usado pela correção do EKF por tag: a distância medida é DA
+# LENTE, mas a pose corrigida é do CENTRO do robô — sem converter, cada
+# avistamento puxa a pose ~este tanto na direção errada (viés sistemático).
+# MEDIDO 2026-07-07: lente→IMU = 18 cm, ASSUMINDO o IMU no meio do eixo das
+# rodas — CONFIRMAR; se o IMU não estiver no eixo, medir lente→eixo direto.
+LENS_TO_AXLE_FORWARD_CM: float = 18.0
 
 # Inclinação da câmera para BAIXO, em graus (0 = nivelada). A câmera fica no
 # topo do trilho do garfo, acima das tags, e precisa olhar para baixo para
@@ -157,13 +165,16 @@ CAMERA_TO_FORK_OFFSET_CM: tuple[float, float, float] = (0.0, -14.2, -13.3)
 # em graus. (Ou inclinômetro do celular apoiado no corpo da câmera.)
 # Depois de definir o tilt, RECALIBRAR o CAMERA_TO_FORK_OFFSET_CM (offset
 # medido sem compensação absorve o erro da hipotenusa e só vale numa distância).
-# MEDIDO NA BANCADA (2026-07-07) para a CÂMERA NOVA, tag centralizada na
+# REMONTADA 2026-07-07 (2ª vez): equipe mediu 30° para baixo. Validar com
+# a fita (tag a 30 cm da ponta do garfo → z≈30; a 15 → z≈15) e, se desviar,
+# refazer a medição da tag centralizada: tilt = atan(Δh/d).
+# (Medição anterior, câmera na posição antiga, tag centralizada na
 # imagem: lente a 27,0 cm do chão · centro da tag a 15,3 cm · d = 27,9 cm
 #   → Δh = 11,7 cm → tilt = atan(11,7/27,9) = 22,7°.
-# (Montagem anterior/câmera antiga: 28,4° — lente estava a 29,5 cm.)
+#  resultava 22,7°; câmera antiga: 28,4°.)
 # Incidência no standoff de 15 cm: atan(11,7/15) ≈ 38° — confortável (< 45°).
 # Validar: tag a 30 cm horizontais da ponta do garfo → z≈30; a 15 → z≈15.
-CAMERA_TILT_DEG: float = 22.7
+CAMERA_TILT_DEG: float = 30.0
 
 CAMERA_INTRINSICS_PATH: Path = (
     Path(__file__).resolve().parent.parent / "calibracao" / "camera_intrinsics.json"

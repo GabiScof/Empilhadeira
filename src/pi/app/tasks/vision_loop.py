@@ -196,8 +196,18 @@ def _feed_ekf_from_detections(state: SharedState, detections: list) -> None:
         bearing_world = robot_heading + bearing_relative
 
         if tag_spec is not None:
-            observed_x = tag_spec.x_m - dist * math.cos(bearing_world)
-            observed_y = tag_spec.y_m - dist * math.sin(bearing_world)
+            # tag − dist·direção = posição da LENTE (a medida é da lente).
+            lens_x = tag_spec.x_m - dist * math.cos(bearing_world)
+            lens_y = tag_spec.y_m - dist * math.sin(bearing_world)
+
+            # Braço de alavanca lente→eixo (2026-07-07): a pose do EKF é o
+            # CENTRO do robô (eixo das rodas); a lente fica
+            # LENS_TO_AXLE_FORWARD_CM à frente dele. Sem esta conversão, cada
+            # correção puxava a pose ~18 cm na direção errada — viés da ordem
+            # do próprio standoff num corredor de 80 cm.
+            fwd_m = config.LENS_TO_AXLE_FORWARD_CM / 100.0
+            observed_x = lens_x - fwd_m * math.cos(robot_heading)
+            observed_y = lens_y - fwd_m * math.sin(robot_heading)
 
             observed_theta = tag_spec.yaw_rad - yaw_rad - math.pi
             observed_theta = math.atan2(math.sin(observed_theta), math.cos(observed_theta))
