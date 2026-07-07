@@ -5,6 +5,15 @@ EKF, world model ou asyncio): abre a câmera, detecta AprilTags e mostra o víde
 com as tags desenhadas. Serve para validar rapidamente que a câmera abre, que a
 calibração carrega e que as tags são reconhecidas.
 
+A saída imprime a ``VisionState`` COMPLETA (z_cm / x_cm / pitch_deg) calculada
+pelo MESMO pipeline que o backend usa (``estimate_vision_state`` em
+app/vision/pose.py, com a negação do x do frame OpenCV e o offset
+câmera→garfo) — ou seja, o que aparece aqui é exatamente o que a navegação vai
+consumir. Convenções (validar nos checks do 1.4 do real-robot-test-plan):
+  - z_cm: distância à frente (fita métrica confere).
+  - x_cm: POSITIVO = tag à ESQUERDA do centro da imagem.
+  - pitch_deg: rotação da tag no eixo vertical (anotar sinal — check 6).
+
 Uso:
     python teste_cam.py                # abre janela com o vídeo
     HEADLESS=1 python teste_cam.py     # sem janela (só imprime no terminal, p/ Pi via SSH)
@@ -21,6 +30,7 @@ import cv2
 import numpy as np
 
 from app import config
+from app.vision.pose import estimate_vision_state
 
 
 def _check_cv2_videoio() -> None:
@@ -114,6 +124,7 @@ def main() -> None:
 
     detector = _build_detector()
     cap = _open_camera()
+    frame_count = 0
 
     print("Rodando. " + ("Ctrl+C para sair." if headless else "'q' ou ESC para sair."))
     try:
@@ -126,16 +137,37 @@ def main() -> None:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             detections = detector.detect(gray)
 
+            # VisionState pelo pipeline REAL do backend (pose.py): melhor tag,
+            # x já na convenção do projeto (positivo = esquerda) e offset
+            # câmera→garfo aplicado. É o que a navegação consome.
+            vision = estimate_vision_state(detections)
+
+            frame_count += 1
             if headless:
-                if detections:
-                    ids = ", ".join(str(d.tag_id) for d in detections)
-                    print(f"{len(detections)} tag(s): {ids}")
+                # ~4 linhas/s para não inundar o terminal via SSH.
+                if vision.detectado and frame_count % 5 == 0:
+                    others = (
+                        f"  (+{len(detections) - 1} tag(s))"
+                        if len(detections) > 1
+                        else ""
+                    )
+                    print(
+                        f"id={vision.id}  z={vision.z_cm:6.1f}cm  "
+                        f"x={vision.x_cm:+6.1f}cm  pitch={vision.pitch_deg:+6.1f}°"
+                        f"{others}"
+                    )
                 continue
 
             for det in detections:
                 _draw_detection(frame, det)
+            hud = f"tags: {len(detections)}"
+            if vision.detectado:
+                hud += (
+                    f"  id={vision.id} z={vision.z_cm:.1f}cm "
+                    f"x={vision.x_cm:+.1f}cm pitch={vision.pitch_deg:+.1f}"
+                )
             cv2.putText(
-                frame, f"tags: {len(detections)}", (10, 30),
+                frame, hud, (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 200, 255), 2,
             )
 
