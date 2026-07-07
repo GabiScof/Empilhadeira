@@ -10,6 +10,28 @@
 Docs relacionados: [`hardware-bring-up.md`](./hardware-bring-up.md) (fiação/pinos),
 [`hardware-deployment.md`](./hardware-deployment.md), [`camera-calibration.md`](./camera-calibration.md).
 
+## STATUS — o que falta (foto de 2026-07-06, fim do dia)
+
+Feito ✅: encoders (x4, sinais, PPR 1440, isolamento ok) · canais/sentido dos
+motores (um lado por vez) · PID convergindo na bancada · watchdog serial
+< 200 ms · telemetria/CRC/MPU sãos · fixes de sinal (manual + visão) no código
+· **v_máx medida: 24 cm/s → config 19** · raio ajustado p/ 2,7 cm (medição da
+equipe) · dock-to-tag e /world-state implementados (verdes em teste de unidade).
+
+Falta, na ordem:
+- [ ] **2.1** manual completo no chão (reto, ré, joystick à direita→direita,
+      giro anti-horário→heading aumenta, talo baixo anotado)
+- [ ] **3.1** medições restantes: raio por ROLAGEM (confirmar o 2,7), bitola
+      (+ refino pelo 360°), **ω máx cronometrado** (1 volta), offset
+      câmera→garfo, tag no paquímetro (4 cm?)
+- [ ] **1.4 checks 5 e 6**: sinal do `x_cm` (tag à esquerda → positivo) e do
+      `pitch_deg` — últimas convenções não validadas no hardware
+- [ ] **1.2 check 5**: sinal do `gz` no giro à mão (anotar p/ o EKF)
+- [ ] **2.2** garfo com carga · **2.3** watchdogs andando · **2.4** odometria
+      (1 m e 360°)
+- [ ] **Fase 3 inteira nunca rodou no hardware**: 3.2 reativa → 3.3 segurança
+      → 3.4 EKF corredor → 3.4b dock → 3.5 missão 3× → 3.6 dia D
+
 Estado consolidado (atualizado 2026-07-06):
 - Mapa real: `pi/maps/corredor_6tags_80x200.json` ✅ (valida no schema)
 - **2026-07-06: dock-to-tag (opt-in) + vista de cima no robô real** — novo modo
@@ -406,6 +428,9 @@ Como medir cada um (todos vão em `config.py`; os `_M`/SI derivam sozinhos):
 5. `MAX_LINEAR_SPEED` / `MAX_ANGULAR_SPEED` — talo cheio: cronometrar 2 m
    retos (`v = 200/t`) e 1 volta no lugar (`ω = 2π/t`); gravar ~80% do medido
    (folga para o PID). Sanidade: teto físico ≈ 12.25·r ≈ 34 cm/s.
+   **✅ LINEAR MEDIDO 2026-07-06:** 100 cm em 4,16 s → 24,0 cm/s →
+   `MAX_LINEAR_SPEED = 19.0` gravado. **Falta o ANGULAR** (1 volta
+   cronometrada); enquanto isso vale 2,5 rad/s derivado do teto físico.
 6. PID se necessário (se 2.1 oscilou/mole): Ziegler-Nichols em `config.h` —
    Ki=Kd=0; subir Kp até oscilar (Ku); medir período Tu; Kp=0.6·Ku, Ki=2·Kp/Tu,
    Kd=Kp·Tu/8; regravar. Lembrete: os ganhos foram acertados na BANCADA (roda
