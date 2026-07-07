@@ -377,7 +377,13 @@ Robô mexendo no boot = calibração adiada até a primeira parada.
 chassi balançando (visto no monitor em 2026-07-06: accel/gyro ondulando ~1 Hz
 com o robô "parado"); calibrar balançando = bias ruim = heading derivando.
 
-### 2.1 Joystick
+### 2.1 Joystick e botões de comando exato
+
+> Para os testes de RETIDÃO e GIRO use o painel **"Comando exato"** (D-pad
+> abaixo do joystick, adicionado 2026-07-06): os botões enviam vetores puros
+> (Frente = ω exatamente 0; Gira = v exatamente 0) com heartbeat automático —
+> tiram a mão trêmula da equação. Escala 30/60/100% da velocidade máxima.
+> O joystick analógico continua valendo para dirigibilidade geral.
 
 | Teste | Esperado | Se falhar |
 |---|---|---|
@@ -398,6 +404,8 @@ Vazio, depois com o pallet real. Não sobe = `FORK_DUTY` 180→220 e regravar.
 2. Desligar Wi-Fi do celular andando → para **< ~400 ms** (`COMMAND_WATCHDOG_MS`).
 
 ### 2.4 Sanidade de odometria e visão (dirigindo manual)
+Use os botões de **Comando exato** (2.1) — reta e giro puros deixam o teste
+reproduzível:
 1. 1 m reto medido com fita → pose avança ~1 m (erro grande = `WHEEL_RADIUS`/PPR).
 2. 360° no lugar → heading volta ~ao mesmo valor (erro grande = `WHEEL_BASE` ou gyro).
 3. Aproximar de tag → `z_cm` cai suave e bate com a fita em 60/30/15 cm.

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import { useWebSocket } from "./ws/useWebSocket.js";
 import ModeSelector from "./components/ModeSelector.jsx";
 import Joystick from "./components/Joystick.jsx";
+import DPad from "./components/DPad.jsx";
 import ForkControl from "./components/ForkControl.jsx";
 import TelemetryPanel from "./components/TelemetryPanel.jsx";
 import SafetyAlert from "./components/SafetyAlert.jsx";
@@ -95,6 +96,10 @@ function OperatorPage() {
       />
       <DockPanel apiBase={API_BASE} telemetry={telemetry} />
       <Joystick
+        onMove={handleJoystick}
+        disabled={currentState !== "MANUAL" || !connected}
+      />
+      <DPad
         onMove={handleJoystick}
         disabled={currentState !== "MANUAL" || !connected}
       />
