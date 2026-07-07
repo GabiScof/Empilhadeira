@@ -8,6 +8,7 @@ import ForkControl from "./components/ForkControl.jsx";
 import TelemetryPanel from "./components/TelemetryPanel.jsx";
 import SafetyAlert from "./components/SafetyAlert.jsx";
 import DockPanel from "./components/DockPanel.jsx";
+import MissionPanel from "./components/MissionPanel.jsx";
 import DemoPage from "./pages/DemoPage.jsx";
 import MapPage from "./pages/MapPage.jsx";
 
@@ -95,6 +96,7 @@ function OperatorPage() {
         disabled={!connected}
       />
       <DockPanel apiBase={API_BASE} telemetry={telemetry} />
+      <MissionPanel apiBase={API_BASE} telemetry={telemetry} worldState={null} />
       <Joystick
         onMove={handleJoystick}
         disabled={currentState !== "MANUAL" || !connected}
