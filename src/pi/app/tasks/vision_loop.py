@@ -202,12 +202,20 @@ def _feed_ekf_from_detections(state: SharedState, detections: list) -> None:
             observed_theta = tag_spec.yaw_rad - yaw_rad - math.pi
             observed_theta = math.atan2(math.sin(observed_theta), math.cos(observed_theta))
 
-            state.ekf.correct_apriltag(
-                observed_x=observed_x,
-                observed_y=observed_y,
-                observed_theta=observed_theta,
-                quality=quality,
-            )
+            # DOCK em execução: NÃO corrigir o EKF por tag. O dock planeja a
+            # rota no frame odométrico do instante do plano e executa nele;
+            # uma correção no meio (tag fisicamente fora da posição do mapa,
+            # ex.: teste de bancada) TELEPORTA a pose → o executor persegue um
+            # alvo num frame que já não existe → curvas tortas e "engasgos"
+            # (visto na bancada 2026-07-07). A missão continua corrigindo
+            # normalmente — lá as tags estão nas posições do mapa.
+            if not state.docker.is_docking:
+                state.ekf.correct_apriltag(
+                    observed_x=observed_x,
+                    observed_y=observed_y,
+                    observed_theta=observed_theta,
+                    quality=quality,
+                )
             world_x, world_y, in_map = tag_spec.x_m, tag_spec.y_m, True
         else:
             # Tag fora do mapa (ou sem mapa): posição estimada pela pose atual.
