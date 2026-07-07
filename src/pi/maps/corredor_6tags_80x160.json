@@ -1,15 +1,69 @@
 {
   "name": "corredor_6tags_80x160",
-  "arena": { "width_m": 0.80, "height_m": 1.60, "origin": "bottom_left" },
-  "start_pose": { "x_m": 0.40, "y_m": 0.10, "theta_deg": 90 },
-  "home_pose":  { "x_m": 0.40, "y_m": 0.10, "theta_deg": 90 },
+  "arena": {
+    "width_m": 0.8,
+    "height_m": 1.6,
+    "origin": "bottom_left"
+  },
+  "start_pose": {
+    "x_m": 0.4,
+    "y_m": 0.1,
+    "theta_deg": 90
+  },
+  "home_pose": {
+    "x_m": 0.4,
+    "y_m": 0.1,
+    "theta_deg": 90
+  },
   "tags": [
-    { "position_id": "L1", "april_tag_id": 3, "x_m": 0.00, "y_m": 0.825, "wall": "left",  "yaw_deg": 0   },
-    { "position_id": "L2", "april_tag_id": 1, "x_m": 0.00, "y_m": 1.200, "wall": "left",  "yaw_deg": 0   },
-    { "position_id": "L3", "april_tag_id": 2, "x_m": 0.00, "y_m": 1.575, "wall": "left",  "yaw_deg": 0   },
-    { "position_id": "R1", "april_tag_id": 4, "x_m": 0.80, "y_m": 0.825, "wall": "right", "yaw_deg": 180 },
-    { "position_id": "R2", "april_tag_id": 5, "x_m": 0.80, "y_m": 1.200, "wall": "right", "yaw_deg": 180 },
-    { "position_id": "R3", "april_tag_id": 0, "x_m": 0.80, "y_m": 1.575, "wall": "right", "yaw_deg": 180 }
+    {
+      "position_id": "L1",
+      "april_tag_id": 3,
+      "x_m": 0.0,
+      "y_m": 0.825,
+      "wall": "left",
+      "yaw_deg": 0
+    },
+    {
+      "position_id": "L2",
+      "april_tag_id": 4,
+      "x_m": 0.0,
+      "y_m": 1.2,
+      "wall": "left",
+      "yaw_deg": 0
+    },
+    {
+      "position_id": "L3",
+      "april_tag_id": 7,
+      "x_m": 0.0,
+      "y_m": 1.575,
+      "wall": "left",
+      "yaw_deg": 0
+    },
+    {
+      "position_id": "R1",
+      "april_tag_id": 0,
+      "x_m": 0.8,
+      "y_m": 0.825,
+      "wall": "right",
+      "yaw_deg": 180
+    },
+    {
+      "position_id": "R2",
+      "april_tag_id": 5,
+      "x_m": 0.8,
+      "y_m": 1.2,
+      "wall": "right",
+      "yaw_deg": 180
+    },
+    {
+      "position_id": "R3",
+      "april_tag_id": 1,
+      "x_m": 0.8,
+      "y_m": 1.575,
+      "wall": "right",
+      "yaw_deg": 180
+    }
   ],
   "tag_size_m": 0.04,
   "tag_family": "tag25h9"

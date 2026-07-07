@@ -30,7 +30,7 @@
       "y_m": 1.0,
       "wall": "left",
       "yaw_deg": 0,
-      "april_tag_id": 1
+      "april_tag_id": 4
     },
     {
       "position_id": "L3",
@@ -38,7 +38,7 @@
       "y_m": 0.4,
       "wall": "left",
       "yaw_deg": 0,
-      "april_tag_id": 2
+      "april_tag_id": 7
     },
     {
       "position_id": "R1",
@@ -46,7 +46,7 @@
       "y_m": 1.6,
       "wall": "right",
       "yaw_deg": 180,
-      "april_tag_id": 4
+      "april_tag_id": 0
     },
     {
       "position_id": "R2",
@@ -62,7 +62,7 @@
       "y_m": 0.4,
       "wall": "right",
       "yaw_deg": 180,
-      "april_tag_id": 0
+      "april_tag_id": 1
     }
   ],
   "tag_size_m": 0.04,
