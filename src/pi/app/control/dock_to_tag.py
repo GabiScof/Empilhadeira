@@ -39,6 +39,10 @@ from app.models import VisionState
 
 logger = logging.getLogger(__name__)
 
+# Re-visão no estado DONE: trajeto mínimo para justificar replanejar (tag
+# nova/movida). Abaixo disto é a própria tag do estacionamento — ignora.
+_REPLAN_MIN_TRAVEL_M: float = 0.10
+
 
 def _wrap(a: float) -> float:
     """Normaliza ângulo para [-π, π]."""
@@ -235,8 +239,20 @@ class TagDocker:
             robot_x, robot_y, robot_theta: pose atual do EKF (m, m, rad).
             dt: intervalo desde o último tick (s).
         """
-        if self._state in (DockState.DONE, DockState.FAULT):
+        if self._state == DockState.FAULT:
             self._last_w = (0.0, 0.0)
+            return 0.0, 0.0
+
+        if self._state == DockState.DONE:
+            # RE-VISÃO (2026-07-07): estacionado, continua olhando. Se uma tag
+            # aparecer pedindo um trajeto novo relevante (> _REPLAN_MIN_TRAVEL
+            # — tag nova colocada, tag movida, robô empurrado), volta a
+            # planejar sozinho, sem precisar sair do AUTOMATICO.
+            self._last_w = (0.0, 0.0)
+            self._seek(
+                vision, robot_x, robot_y, robot_theta,
+                min_travel_m=_REPLAN_MIN_TRAVEL_M,
+            )
             return 0.0, 0.0
 
         if self._state == DockState.SEEKING:
@@ -261,9 +277,20 @@ class TagDocker:
         return self._last_w
 
     def _seek(
-        self, vision: VisionState, robot_x: float, robot_y: float, robot_theta: float
+        self,
+        vision: VisionState,
+        robot_x: float,
+        robot_y: float,
+        robot_theta: float,
+        *,
+        min_travel_m: float = 0.0,
     ) -> tuple[float, float]:
-        """Acumula detecções e, ao estabilizar, planeja a rota. Fica parado."""
+        """Acumula detecções e, ao estabilizar, planeja a rota. Fica parado.
+
+        ``min_travel_m`` > 0 (re-visão no DONE): só replaneja se o trajeto
+        novo for relevante — evita loop de replanejamento pela própria tag
+        onde ele acabou de estacionar.
+        """
         if not vision.detectado:
             self._detection_streak = 0
             return 0.0, 0.0
@@ -276,19 +303,28 @@ class TagDocker:
         if goal is None:
             self._detection_streak = 0
             return 0.0, 0.0
+
+        if min_travel_m > 0.0:
+            travel = math.hypot(goal[0] - robot_x, goal[1] - robot_y)
+            if travel < min_travel_m:
+                self._detection_streak = 0
+                return 0.0, 0.0
+            logger.info(
+                "Dock re-visão: situação mudou (trajeto novo de %.2f m) — replanejando",
+                travel,
+            )
         self._goal = goal
         self._planned_from = {
             "z_cm": round(vision.z_cm, 1) if vision.z_cm is not None else None,
             "x_cm": round(vision.x_cm, 1) if vision.x_cm is not None else None,
         }
 
-        # Rota DIRETA (2026-07-07): girar para ENCARAR o alvo e andar reto —
-        # TURN → FORWARD (→ TURN final se a estratégia pedir heading distinto).
-        # O Manhattan (alinha eixo X do MUNDO, depois Y) serve ao corredor da
-        # missão, mas no dock o frame do mundo é arbitrário: o robô girava
-        # para direções sem relação com a tag e fazia "L"s com pernas de
-        # centímetros — a estranheza vista na bancada.
-        segments = self._plan_direct(robot_x, robot_y, robot_theta, goal)
+        # Passinho Manhattan NO FRAME DO ROBÔ (2026-07-07): avança, gira 90°,
+        # avança, gira e encara. (O plan_route Manhattan da missão alinha nos
+        # eixos do MAPA — na bancada o frame é arbitrário e o robô girava para
+        # direções sem relação com a tag; aqui as pernas são relativas ao rumo
+        # atual do robô.)
+        segments = self._plan_steps(robot_x, robot_y, robot_theta, goal)
         self._segments = segments
         self._executor.load_route(segments)
 
@@ -306,49 +342,68 @@ class TagDocker:
         return 0.0, 0.0
 
     @staticmethod
-    def _plan_direct(
+    def _plan_steps(
         x: float, y: float, theta: float, goal: tuple[float, float, float]
     ) -> list[Segment]:
-        """Rota direta ao alvo: TURN (encarar) → FORWARD (→ TURN final).
+        """Manhattan NO FRAME DO ROBÔ — o "passinho" clássico, sem o bug do frame.
 
-        No line_of_sight o heading final É o rumo do trajeto, então o TURN
-        final degenera para ~0 e some — sobra girar e ir, o movimento natural
-        de "parar em frente à tag".
+        Pernas alinhadas ao rumo ATUAL do robô (não aos eixos do mapa, que na
+        bancada são arbitrários e faziam o robô girar para direções sem relação
+        com a tag): AVANÇO (componente à frente) → GIRO ±90° → AVANÇO
+        (componente lateral) → GIRO final para encarar o alvo. Pernas < 1 cm
+        somem; alvo atrás do robô cai no fallback direto (girar e ir).
         """
         gx, gy, gheading = goal
-        dx, dy = gx - x, gy - y
-        dist = math.hypot(dx, dy)
+        dxw, dyw = gx - x, gy - y
+        cos_t, sin_t = math.cos(theta), math.sin(theta)
+        # Projeção no frame do robô: dz à frente, dlat positivo = esquerda.
+        dz = dxw * cos_t + dyw * sin_t
+        dlat = -dxw * sin_t + dyw * cos_t
 
         segments: list[Segment] = []
-        heading = theta
-        if dist > 0.01:
-            bearing = math.atan2(dy, dx)
+
+        if dz < -0.01:
+            # Alvo atrás (raro — FOV da câmera é frontal): rota direta.
+            bearing = math.atan2(dyw, dxw)
             turn1 = _wrap(bearing - theta)
             if abs(turn1) > 0.02:
                 segments.append(Segment(
-                    type=SegmentType.TURN,
-                    value=turn1,
-                    target_x=x,
-                    target_y=y,
-                    target_heading=bearing,
+                    type=SegmentType.TURN, value=turn1,
+                    target_x=x, target_y=y, target_heading=bearing,
                 ))
+            dist = math.hypot(dxw, dyw)
             segments.append(Segment(
-                type=SegmentType.FORWARD,
-                value=dist,
-                target_x=gx,
-                target_y=gy,
-                target_heading=bearing,
+                type=SegmentType.FORWARD, value=dist,
+                target_x=gx, target_y=gy, target_heading=bearing,
             ))
             heading = bearing
+        else:
+            heading = theta
+            px, py = x, y
+            if dz > 0.01:
+                px += dz * cos_t
+                py += dz * sin_t
+                segments.append(Segment(
+                    type=SegmentType.FORWARD, value=dz,
+                    target_x=px, target_y=py, target_heading=heading,
+                ))
+            if abs(dlat) > 0.01:
+                quarter = math.pi / 2 * (1.0 if dlat > 0 else -1.0)
+                heading = _wrap(heading + quarter)
+                segments.append(Segment(
+                    type=SegmentType.TURN, value=quarter,
+                    target_x=px, target_y=py, target_heading=heading,
+                ))
+                segments.append(Segment(
+                    type=SegmentType.FORWARD, value=abs(dlat),
+                    target_x=gx, target_y=gy, target_heading=heading,
+                ))
 
         final_turn = _wrap(gheading - heading)
         if abs(final_turn) > 0.02:
             segments.append(Segment(
-                type=SegmentType.TURN,
-                value=final_turn,
-                target_x=gx,
-                target_y=gy,
-                target_heading=gheading,
+                type=SegmentType.TURN, value=final_turn,
+                target_x=gx, target_y=gy, target_heading=gheading,
             ))
         return segments
 
