@@ -133,3 +133,30 @@ class TestGyroCalibrator:
         assert not cal.calibrated
         assert cal.bias_dps == 0.0
         assert cal.axis_label == "?"
+
+    def test_dead_frames_do_not_poison_boot_calibration(self):
+        """Frame morto do MPU (accel ~0, fisicamente impossível) é descartado.
+
+        Assinaturas documentadas no readMpu do firmware (2026-07-06): I2C caiu
+        (campos no default 0) ou sensor dormindo (14 bytes zero). Sem a guarda,
+        frames mortos no boot entram na média da gravidade e o eixo vertical
+        sai errado.
+        """
+        cal = _make(min_samples=4)
+        # 3 frames mortos no meio do ritual de boot: não contam como amostra.
+        _feed(cal, (0.0, 0.0, 0.0), (0.0, 0.0, 0.0), 3)
+        assert not cal.calibrated
+        # 4 frames vivos calibram normalmente, com o eixo certo.
+        _feed(cal, (0.0, 0.0, 0.0), (0.0, 0.0, G), 4)
+        assert cal.calibrated
+        assert cal.axis_label == "+Z"
+
+    def test_dead_frames_do_not_erode_tracked_bias(self):
+        cal = _make(min_samples=2, alpha=0.5)
+        _feed(cal, (0.0, 0.0, 2.0), (0.0, 0.0, G), 2)  # bias travado em 2°/s
+        assert cal.bias_dps == pytest.approx(2.0)
+        # Frames mortos parado: sem a guarda, yaw_raw=0 puxaria o bias p/ 0.
+        _feed(cal, (0.0, 0.0, 0.0), (0.0, 0.0, 0.0), 10)
+        assert cal.bias_dps == pytest.approx(2.0)
+        # E a saída durante o frame morto é 0 (EKF segue só com encoders).
+        assert cal.update((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), **STILL) == 0.0

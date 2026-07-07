@@ -167,11 +167,24 @@ class GyroCalibrator:
             w_*_cmd / w_*_meas: setpoint e medição das rodas (rad/s), p/ detectar parado.
         """
         gyro = np.asarray(gyro_xyz, dtype=float)
+        accel = np.asarray(accel_xyz, dtype=float)
+
+        # Frame MORTO do MPU (I2C caiu / sensor dormindo — assinaturas
+        # documentadas no readMpu do firmware, 2026-07-06): accel ~zero é
+        # fisicamente impossível com o sensor vivo (a gravidade sempre aparece,
+        # |a| ≈ 9.8–11). Sem esta guarda, frames mortos no boot contaminam a
+        # média da gravidade (eixo vertical sai errado) e, já calibrado,
+        # erodem o bias rastreado em direção a zero. Descarta o frame inteiro:
+        # não acumula, não rastreia, devolve 0 (o EKF segue só com encoders
+        # neste tick; o firmware auto-recupera o MPU em ~1 s via mpuWake).
+        if float(np.linalg.norm(accel)) < 2.0:
+            return 0.0
+
         stationary = self._is_stationary(w_left_cmd, w_right_cmd, w_left_meas, w_right_meas)
 
         if stationary:
             if not self._calibrated:
-                self._a_sum += np.asarray(accel_xyz, dtype=float)
+                self._a_sum += accel
                 self._g_sum += gyro
                 self._count += 1
                 if self._count >= self._min_samples:
