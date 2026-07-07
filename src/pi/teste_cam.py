@@ -83,20 +83,56 @@ def _build_detector():
     return detector
 
 
+def _calibration_image_size() -> tuple[int, int] | None:
+    """Resolução usada na CALIBRAÇÃO (a única em que os intrínsecos valem)."""
+    from app.vision.calibration import CalibrationError, load_intrinsics
+
+    try:
+        intr = load_intrinsics(config.CAMERA_INTRINSICS_PATH)
+    except CalibrationError:
+        return None
+    size = getattr(intr, "image_size", None)
+    if size is None:
+        return None
+    return int(size[0]), int(size[1])
+
+
 def _open_camera() -> cv2.VideoCapture:
-    """Abre a câmera no índice configurado e valida a abertura."""
+    """Abre a câmera FORÇANDO a resolução da calibração.
+
+    Os intrínsecos (fx/fy/cx/cy) só valem na resolução em que a câmera foi
+    calibrada. Capturar em outra (ex.: default 1280x720 quando o .env não foi
+    carregado) produz z/x silenciosamente errados — armadilha vista na bancada
+    em 2026-07-07. Por isso a resolução da calibração tem prioridade sobre o
+    config/env aqui.
+    """
+    cal_size = _calibration_image_size()
+    width, height = cal_size or (config.CAMERA_FRAME_WIDTH, config.CAMERA_FRAME_HEIGHT)
+    if cal_size and cal_size != (config.CAMERA_FRAME_WIDTH, config.CAMERA_FRAME_HEIGHT):
+        print(
+            f"[AVISO] Config/env pedia {config.CAMERA_FRAME_WIDTH}x"
+            f"{config.CAMERA_FRAME_HEIGHT}, mas a calibração é "
+            f"{cal_size[0]}x{cal_size[1]} — usando a da CALIBRAÇÃO."
+        )
+
     cap = cv2.VideoCapture(config.CAMERA_INDEX)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.CAMERA_FRAME_WIDTH)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.CAMERA_FRAME_HEIGHT)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
     if not cap.isOpened():
         raise RuntimeError(
             f"Câmera não abriu (índice {config.CAMERA_INDEX}). "
             "Verifique a conexão e as permissões de câmera do sistema."
         )
-    print(
-        f"[OK] Câmera aberta (índice {config.CAMERA_INDEX}, "
-        f"{config.CAMERA_FRAME_WIDTH}x{config.CAMERA_FRAME_HEIGHT})."
-    )
+
+    real_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    real_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    print(f"[OK] Câmera aberta (índice {config.CAMERA_INDEX}, {real_w}x{real_h}).")
+    if (real_w, real_h) != (width, height):
+        print(
+            f"[ERRO] A câmera NÃO aceitou {width}x{height} (entregou "
+            f"{real_w}x{real_h}) — os z/x abaixo NÃO são confiáveis. "
+            "Ajuste a resolução suportada ou recalibre nessa resolução."
+        )
     return cap
 
 
