@@ -145,7 +145,14 @@ CAMERA_TO_FORK_OFFSET_CM: tuple[float, float, float] = (0.0, -14.2, 25.5)
 # em graus. (Ou inclinômetro do celular apoiado no corpo da câmera.)
 # Depois de definir o tilt, RECALIBRAR o CAMERA_TO_FORK_OFFSET_CM (offset
 # medido sem compensação absorve o erro da hipotenusa e só vale numa distância).
-CAMERA_TILT_DEG: float = float(os.getenv("CAMERA_TILT_DEG", "0.0"))
+# MEDIDO NA BANCADA (2026-07-07), tag centralizada na imagem:
+#   lente a 29,5 cm do chão · centro da tag a 15,3 cm · d = 26,3 cm
+#   → Δh = 14,2 cm → tilt = atan(14,2/26,3) = 28,4°.
+# Validar: tag a 30 cm horizontais → z≈30; a 15 cm → z≈15 (fita métrica).
+# Nota: incidência no standoff de 15 cm = atan(14,2/15) ≈ 43° — no limite do
+# confortável p/ AprilTag; se a detecção falhar de perto, subir as tags na
+# parede (centro a ~20-25 cm) ou aumentar ZREF_CM.
+CAMERA_TILT_DEG: float = float(os.getenv("CAMERA_TILT_DEG", "28.4"))
 
 CAMERA_INTRINSICS_PATH: Path = (
     Path(__file__).resolve().parent.parent / "calibracao" / "camera_intrinsics.json"
