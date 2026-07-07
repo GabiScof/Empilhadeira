@@ -216,17 +216,15 @@ def test_reset_returns_to_seeking():
     assert docker.goal is None
 
 
-def test_disabled_by_default():
-    """Guarda-corpo: o default COMMITADO é DESLIGADO (opt-in).
+def test_enabled_by_default():
+    """Guarda-corpo: o default COMMITADO é LIGADO (decisão de 2026-07-07).
 
-    Se um dev força DOCK_TO_TAG no ambiente, o override é legítimo — pula.
+    O env desligado a cada restart derrubava o AUTOMATICO no caminho legado
+    ("tag perdida" imediato na bancada). O dock é o modo padrão do
+    AUTOMATICO-sem-missão; desligável em runtime via POST /dock/disable.
+    Valor hardcoded (sem env) — este teste protege contra regressão ao getenv.
     """
-    import os
-
-    import pytest
-    if os.getenv("DOCK_TO_TAG"):
-        pytest.skip("DOCK_TO_TAG forçado no ambiente")
-    assert config.DOCK_TO_TAG_ENABLED is False
+    assert config.DOCK_TO_TAG_ENABLED is True
 
 
 # ---------------------------------------------------------------------------

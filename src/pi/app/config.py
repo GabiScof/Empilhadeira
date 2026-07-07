@@ -162,7 +162,7 @@ CAMERA_TO_FORK_OFFSET_CM: tuple[float, float, float] = (0.0, -14.2, -13.3)
 # (Montagem anterior/câmera antiga: 28,4° — lente estava a 29,5 cm.)
 # Incidência no standoff de 15 cm: atan(11,7/15) ≈ 38° — confortável (< 45°).
 # Validar: tag a 30 cm horizontais da ponta do garfo → z≈30; a 15 → z≈15.
-CAMERA_TILT_DEG: float = float(os.getenv("CAMERA_TILT_DEG", "22.7"))
+CAMERA_TILT_DEG: float = 22.7
 
 CAMERA_INTRINSICS_PATH: Path = (
     Path(__file__).resolve().parent.parent / "calibracao" / "camera_intrinsics.json"
@@ -176,15 +176,15 @@ CAMERA_INDEX: int = 0
 # Defaults = resolução da CALIBRAÇÃO (câmera nova: 1280×720). São só fallback:
 # quem abre a câmera (vision_loop/teste_cam) força a resolução anotada no JSON
 # de calibração — capturar em outra invalida fx/fy/cx/cy silenciosamente.
-CAMERA_FRAME_WIDTH: int = int(os.getenv("CAMERA_FRAME_WIDTH", "1280"))
-CAMERA_FRAME_HEIGHT: int = int(os.getenv("CAMERA_FRAME_HEIGHT", "720"))
+CAMERA_FRAME_WIDTH: int = 1280
+CAMERA_FRAME_HEIGHT: int = 720
 
 # Decimação do detector AprilTag (1.0 = desligada). A detecção escala com o
 # nº de pixels: a 1280×720 no Pi, 2.0 corta ~4x o custo detectando nos quads
 # em meia-resolução (os cantos ainda são refinados em resolução cheia — a
 # precisão da pose quase não muda). Subir para 2.0 se o loop de visão ficar
 # lento (< ~15 fps) com a câmera 720p.
-APRILTAG_QUAD_DECIMATE: float = float(os.getenv("APRILTAG_QUAD_DECIMATE", "2.0"))
+APRILTAG_QUAD_DECIMATE: float = 2.0
 
 # Se True, o modo real exige calibração válida da câmera no boot (recomendado:
 # os intrínsecos placeholder de config NÃO servem para o hardware real).
@@ -329,7 +329,10 @@ TAG_APPROACH_STANDOFF_M: float = float(os.getenv("TAG_STANDOFF_M", "0.15"))
 # AUTOMATICO-sem-missão. Com DOCK_TO_TAG=0 o comportamento é idêntico ao atual.
 # [ref: docs/dock-to-tag.md]
 # ---------------------------------------------------------------------------
-DOCK_TO_TAG_ENABLED: bool = os.getenv("DOCK_TO_TAG", "0") == "1"
+# HARDCODED True (2026-07-07): o env desligado a cada restart derrubava o
+# AUTOMATICO no caminho legado ("tag perdida" imediato). Dock e o modo padrao
+# do AUTOMATICO-sem-missao; desligavel em runtime via POST /dock/disable.
+DOCK_TO_TAG_ENABLED: bool = True
 
 # Estratégia de alvo:
 #   "line_of_sight" (DEFAULT, real) — para no standoff em cima da linha de visão
