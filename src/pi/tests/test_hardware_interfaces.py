@@ -88,10 +88,12 @@ class TestObservations:
         obs = estimate_tag_observations(dets)
         assert len(obs) == 2
         assert all(isinstance(o, TagObservation) for o in obs)
-        # x_m/z_m vêm direto da translação (metros)
+        # z_m vem direto da translação; x_m é NEGADO na fronteira (frame óptico
+        # OpenCV: x positivo = direita; convenção do projeto/EKF: x positivo =
+        # esquerda — mesmo fix do estimate_vision_state, 2026-07-07).
         assert obs[0].tag_id == 3
         assert obs[0].z_m == pytest.approx(0.35)
-        assert obs[0].x_m == pytest.approx(0.02)
+        assert obs[0].x_m == pytest.approx(-0.02)
         assert 0.0 <= obs[0].quality <= 1.0
 
     def test_empty(self):
@@ -151,3 +153,52 @@ class TestSerialLoopReal:
         assert len(transport.sent) >= 1  # setpoint enviado
         # sensores alimentaram o estado
         assert state.last_sensors is not None
+
+
+class TestCameraTilt:
+    """Compensação da câmera inclinada (CAMERA_TILT_DEG) em pose.py.
+
+    A câmera no topo do trilho do garfo olha para baixo; o z do AprilTag sai
+    na hipotenusa. Com o tilt configurado, z/x devem virar distâncias
+    HORIZONTAIS (o desnível vai para o y, ignorado pelo contrato).
+    """
+
+    def test_tilt_zero_is_identity(self, monkeypatch):
+        from app import config
+        from app.vision.pose import estimate_vision_state
+
+        monkeypatch.setattr(config, "CAMERA_TILT_DEG", 0.0)
+        monkeypatch.setattr(config, "CAMERA_TO_FORK_OFFSET_CM", (0.0, 0.0, 0.0))
+        vs = estimate_vision_state([_FakeDetection(1, 0.0, 0.0, 0.30)])
+        assert vs.z_cm == pytest.approx(30.0)
+        assert vs.x_cm == pytest.approx(0.0)
+
+    def test_tilt_recovers_horizontal_distance(self, monkeypatch):
+        import math
+
+        from app import config
+        from app.vision.pose import estimate_vision_state
+
+        tilt = 20.0
+        monkeypatch.setattr(config, "CAMERA_TILT_DEG", tilt)
+        monkeypatch.setattr(config, "CAMERA_TO_FORK_OFFSET_CM", (0.0, 0.0, 0.0))
+        # Tag no CENTRO da imagem (sobre o eixo óptico), a 1.0 m HORIZONTAL:
+        # a câmera vê a hipotenusa L = 1/cos(20°).
+        slant = 1.0 / math.cos(math.radians(tilt))
+        vs = estimate_vision_state([_FakeDetection(1, 0.0, 0.0, slant)])
+        assert vs.z_cm == pytest.approx(100.0, abs=0.1)
+        assert vs.x_cm == pytest.approx(0.0, abs=1e-6)
+
+    def test_tilt_applies_to_ekf_observations_too(self, monkeypatch):
+        import math
+
+        from app import config
+        from app.vision.pose import estimate_tag_observations
+
+        tilt = 20.0
+        monkeypatch.setattr(config, "CAMERA_TILT_DEG", tilt)
+        slant = 0.5 / math.cos(math.radians(tilt))
+        obs = estimate_tag_observations([_FakeDetection(7, 0.0, 0.0, slant)])
+        assert obs[0].z_m == pytest.approx(0.5, abs=1e-3)
+        # x lateral não é afetado pelo tilt (rotação em torno do próprio x).
+        assert obs[0].x_m == pytest.approx(0.0, abs=1e-9)

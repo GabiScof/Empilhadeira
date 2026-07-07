@@ -41,6 +41,29 @@ def rotation_matrix_to_euler_angles(rotation_matrix: Any) -> tuple[float, float,
     return float(roll_deg), float(pitch_deg), float(yaw_deg)
 
 
+def _camera_to_level(pose_t: np.ndarray, pose_r: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Rotaciona a pose do frame da câmera (inclinada) para um frame nivelado.
+
+    A câmera fica no topo do trilho do garfo olhando para baixo por
+    ``CAMERA_TILT_DEG`` — o z do AprilTag sai ao longo do eixo óptico
+    (hipotenusa). Rotacionando por -tilt em torno do eixo x da câmera (x
+    aponta para a direita da imagem), z vira distância HORIZONTAL e o
+    desnível vai para o y (que o contrato ignora). Com tilt = 0, é identidade.
+    """
+    tilt = math.radians(config.CAMERA_TILT_DEG)
+    if abs(tilt) < 1e-9:
+        return pose_t, pose_r
+
+    c, s = math.cos(tilt), math.sin(tilt)
+    # p_level = M @ p_cam  (frame óptico: x direita, y baixo, z frente)
+    m = np.array([
+        [1.0, 0.0, 0.0],
+        [0.0, c, s],
+        [0.0, -s, c],
+    ])
+    return m @ pose_t, m @ pose_r
+
+
 def estimate_vision_state(detections: list[Any]) -> VisionState:
     """Converte detecções de AprilTag na `VisionState` do contrato.
 
@@ -60,6 +83,7 @@ def estimate_vision_state(detections: list[Any]) -> VisionState:
 
     pose_t = np.asarray(best_detection.pose_t).reshape(-1)
     pose_r = np.asarray(best_detection.pose_R)
+    pose_t, pose_r = _camera_to_level(pose_t, pose_r)
 
     x_m, _y_m, z_m = pose_t
     _roll_deg, pitch_deg, _yaw_deg = rotation_matrix_to_euler_angles(pose_r)
@@ -103,8 +127,14 @@ def estimate_tag_observations(detections: list[Any]) -> list[TagObservation]:
     for det in detections:
         pose_t = np.asarray(det.pose_t).reshape(-1)
         pose_r = np.asarray(det.pose_R)
+        pose_t, pose_r = _camera_to_level(pose_t, pose_r)
 
-        x_m, _y_m, z_m = (float(pose_t[0]), float(pose_t[1]), float(pose_t[2]))
+        # Mesma negação de x do estimate_vision_state: frame óptico OpenCV tem
+        # x positivo = DIREITA; a convenção do projeto (visão sintética, EKF,
+        # vision_loop: bearing = atan2(x, z) com θ anti-horário) é x positivo =
+        # ESQUERDA. Sem negar, as correções de posição do EKF por tag saem
+        # espelhadas lateralmente no hardware real (2026-07-07).
+        x_m, _y_m, z_m = (float(-pose_t[0]), float(pose_t[1]), float(pose_t[2]))
         _roll_deg, pitch_deg, _yaw_deg = rotation_matrix_to_euler_angles(pose_r)
 
         # Convenção do EKF: yaw_rad = (yaw_tag_mundo - theta_robô) - π.

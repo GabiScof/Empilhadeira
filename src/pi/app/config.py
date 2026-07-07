@@ -134,6 +134,19 @@ CAMERA_PARAMS: tuple[float, float, float, float] = (
 # Sem offset até a equipe medir a posição relativa câmera-garfo.
 CAMERA_TO_FORK_OFFSET_CM: tuple[float, float, float] = (0.0, -14.2, 25.5)
 
+# Inclinação da câmera para BAIXO, em graus (0 = nivelada). A câmera fica no
+# topo do trilho do garfo, acima das tags, e precisa olhar para baixo para
+# vê-las de perto — mas o z do AprilTag é medido ao longo do EIXO ÓPTICO
+# (hipotenusa), não na horizontal: sem compensação o erro cresce ao aproximar
+# (a 15 cm horizontais com 20 cm de desnível, +66%). pose.py rotaciona a pose
+# por este ângulo antes de extrair z/x/pitch → distâncias HORIZONTAIS reais.
+# COMO MEDIR: tag centralizada NA IMAGEM; medir a distância horizontal d e o
+# desnível Δh entre o centro da lente e o centro da tag → tilt = atan(Δh/d),
+# em graus. (Ou inclinômetro do celular apoiado no corpo da câmera.)
+# Depois de definir o tilt, RECALIBRAR o CAMERA_TO_FORK_OFFSET_CM (offset
+# medido sem compensação absorve o erro da hipotenusa e só vale numa distância).
+CAMERA_TILT_DEG: float = float(os.getenv("CAMERA_TILT_DEG", "0.0"))
+
 CAMERA_INTRINSICS_PATH: Path = (
     Path(__file__).resolve().parent.parent / "calibracao" / "camera_intrinsics.json"
 )

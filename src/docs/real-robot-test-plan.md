@@ -287,10 +287,26 @@ Via SSH ele detecta que não há display e entra em modo headless sozinho
 **Esperado:** `[OK] Detector criado com calibração` + `Câmera aberta (índice 0, 640x480)`
 + detecções com id/z.
 
-Validações com fita métrica:
-1. Tag a 30,0 cm → z entre 28,5–31,5 cm. Fora disso → resolução de captura ≠
-   calibração, ou `tag_size` errado. (Plano B: reverter para a calibração
-   alternativa anotada em `_alternativa_zephyr` no JSON e repetir.)
+**ANTES de tudo — câmera inclinada (montagem no topo do trilho do garfo):**
+a câmera olha para baixo e o z do AprilTag sai na HIPOTENUSA, não na
+horizontal (erro que explode de perto: +66% a 15 cm com 20 cm de desnível).
+0. Medir e configurar o tilt (`CAMERA_TILT_DEG` no config, positivo = para
+   baixo): tag centralizada NA IMAGEM → tilt = atan(Δh/d), onde Δh = desnível
+   lente↔centro da tag e d = distância horizontal. Depois de setar o tilt,
+   **recalibrar o `CAMERA_TO_FORK_OFFSET_CM`** (offset medido sem compensação
+   absorveu o erro da hipotenusa). Atenção ao SINAL do offset z: câmera ATRÁS
+   da ponta do garfo → offset z NEGATIVO (o código soma; reportado deve
+   DIMINUIR até a referência do garfo).
+0b. **Janela de visibilidade** (o motivo do tilt existir): aproximar a tag
+   devagar de 1 m até 10 cm lendo o teste_cam → anotar em que faixa a
+   detecção segura; a faixa TEM que cobrir [15 cm, distância máxima do
+   corredor]. Se perder a tag antes dos 15 cm, aumentar o tilt (e remedir).
+
+Validações com fita métrica (com o tilt já configurado):
+1. Tag a 30,0 cm HORIZONTAIS → z entre 28,5–31,5 cm. Fora disso → tilt/offset
+   errados, resolução de captura ≠ calibração, ou `tag_size` errado. Repetir a
+   15 cm — é onde o erro de tilt apareceria (~+60% se descompensado).
+   (Plano B: reverter para a calibração alternativa `_alternativa_zephyr`.)
 2. Tag a 15 cm (standoff da navegação) → ainda detecta.
 3. Anotar a distância máxima de detecção (< ~1,5 m compromete tags distantes).
 4. Tamanho da tag = **4 cm** (0,04 m), agora consistente nos três lugares:
