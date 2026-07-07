@@ -19,7 +19,7 @@ Uso:
     python teste_cam.py --janela       # FORÇA a janela (ignora HEADLESS do ambiente)
     python teste_cam.py --headless     # sem janela (só imprime no terminal, p/ SSH)
     HEADLESS=1 python teste_cam.py     # idem --headless, via ambiente
-    CAMERA_INDEX=1 python teste_cam.py # escolhe outra câmera
+    (índice da câmera: FIXADO em app/config.py — CAMERA_INDEX=1, sem env)
 
 Prioridade: flag de linha de comando > variável de ambiente. Se o HEADLESS=1
 ficou exportado no shell, `--janela` sobrepõe sem precisar mexer no ambiente.
