@@ -165,8 +165,11 @@ CAMERA_INTRINSICS_PATH: Path = (
 
 # Índice do dispositivo de câmera para cv2.VideoCapture (0 = /dev/video0).
 CAMERA_INDEX: int = int(os.getenv("CAMERA_INDEX", "0"))
-CAMERA_FRAME_WIDTH: int = int(os.getenv("CAMERA_FRAME_WIDTH", "1280"))
-CAMERA_FRAME_HEIGHT: int = int(os.getenv("CAMERA_FRAME_HEIGHT", "720"))
+# Defaults = resolução da CALIBRAÇÃO (640×480). São só fallback: quem abre a
+# câmera (vision_loop/teste_cam) força a resolução anotada no JSON de
+# calibração — capturar em outra invalida fx/fy/cx/cy silenciosamente.
+CAMERA_FRAME_WIDTH: int = int(os.getenv("CAMERA_FRAME_WIDTH", "640"))
+CAMERA_FRAME_HEIGHT: int = int(os.getenv("CAMERA_FRAME_HEIGHT", "480"))
 
 # Se True, o modo real exige calibração válida da câmera no boot (recomendado:
 # os intrínsecos placeholder de config NÃO servem para o hardware real).
@@ -199,8 +202,9 @@ EMU_MOTOR_TAU: float = 0.05  # constante de tempo 1ª ordem (s)
 EMU_MAX_DUTY: int = 255
 EMU_LEDC_RESOLUTION_BITS: int = 8
 
-# Garfo JGY-370-12V worm gear
-EMU_FORK_DUTY: int = 180
+# Garfo JGY-370-12V worm gear (espelha FORK_DUTY do firmware/config.h —
+# subiu 180→220 na bancada para levantar com carga)
+EMU_FORK_DUTY: int = 220
 EMU_FORK_SPEED: float = 2.0  # cm/s de deslocamento vertical — PROVISÓRIO — TODO(equipe): confirmar
 EMU_FORK_MIN_HEIGHT: float = 0.0  # cm
 EMU_FORK_MAX_HEIGHT: float = 10.0  # cm — PROVISÓRIO — TODO(equipe): confirmar

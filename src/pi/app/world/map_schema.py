@@ -68,9 +68,10 @@ class ArenaMap(BaseModel):
     waypoints: list[WaypointSpec] | None = None
     edges: list[list[str]] | None = None
     tag_size_m: float = Field(
-        0.05,
+        0.04,
         gt=0,
-        description="Tamanho físico da AprilTag (m). TODO(equipe): confirmar."
+        description="Tamanho físico da AprilTag (m). Tag real medida: 4 cm "
+        "(= APRILTAG_SIZE_CM; manter consistente).",
     )
     tag_family: str = Field("tag25h9", description="Família de tags.")
 

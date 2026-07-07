@@ -43,11 +43,12 @@ class AprilTagDetector:
         """
         self.tag_family: str = config.APRILTAG_FAMILY
 
-        # Valor de fallback até a equipe fechar APRILTAG_SIZE_CM.
+        # Fallback = 0.04 (tag real medida: 4 cm — mesmo valor de
+        # APRILTAG_SIZE_CM e do tag_size_m dos mapas; manter os três juntos).
         self.tag_size_m: float = (
             tag_size_m
             if tag_size_m is not None
-            else ((config.APRILTAG_SIZE_CM / 100.0) if config.APRILTAG_SIZE_CM is not None else 0.05)
+            else ((config.APRILTAG_SIZE_CM / 100.0) if config.APRILTAG_SIZE_CM is not None else 0.04)
         )
 
         if intrinsics is not None:
