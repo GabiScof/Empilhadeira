@@ -12,6 +12,7 @@ cada um no hardware real antes de usar em produção.
 
 from __future__ import annotations
 
+import math
 import os
 from pathlib import Path
 
@@ -371,14 +372,13 @@ DOCK_MIN_DETECTIONS: int = int(os.getenv("DOCK_MIN_DETECTIONS", "3"))
 # Offset da convenção de yaw (SÓ usado por DOCK_MODE="tag_normal"):
 #   tag_yaw_mundo = theta_robô + radianos(pitch_deg) + DOCK_PITCH_TO_TAG_YAW_OFFSET_RAD
 #
-# Default 0.0 = convenção da visão REAL (pose.py: yaw_tag_mundo = theta_robô +
-# radianos(pitch_deg)). ATENÇÃO: pose.py tem `TODO(equipe): validar convenção de
-# yaw` em aberto — meça com UMA tag de yaw conhecido antes de confiar. Se a
-# aproximação chegar espelhada, use π. (A visão sintética do SIM precisa de π.)
-# O modo default "line_of_sight" IGNORA este valor.
-DOCK_PITCH_TO_TAG_YAW_OFFSET_RAD: float = float(
-    os.getenv("DOCK_PITCH_TO_TAG_YAW_OFFSET_RAD", "0.0")
-)
+# HARDCODED π — CONVENÇÃO UNIFICADA (validada na bancada 2026-07-07): o
+# pitch da câmera real é NEGADO na fronteira (pose.py; medição: borda
+# esquerda da tag perto → câmera dava −38°, projeto exige +), o que o deixa
+# na MESMA convenção da visão sintética. Com isso o offset é π nos dois
+# mundos (tag de frente: pitch=0 → yaw da tag = θ_robô + π, apontando de
+# volta para o robô). O modo "line_of_sight" IGNORA este valor.
+DOCK_PITCH_TO_TAG_YAW_OFFSET_RAD: float = math.pi
 
 # ---------------------------------------------------------------------------
 # Missão — [ref: Seção 5 do mega-prompt]

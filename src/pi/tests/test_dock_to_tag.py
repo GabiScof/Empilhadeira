@@ -199,15 +199,37 @@ def test_done_replans_when_situation_changes():
 
 
 def test_tag_normal_mode_uses_face_normal():
-    """mode='tag_normal' roteia pela normal da face (alvo != line_of_sight)."""
+    """mode='tag_normal' estaciona sobre a NORMAL da face, encarando a tag.
+
+    Convenção UNIFICADA (2026-07-07): o pitch real é negado na fronteira
+    (pose.py) e o offset é π nos dois mundos — tag frontal (pitch=0) tem a
+    face apontando DE VOLTA para o robô, e o alvo fica standoff NA FRENTE
+    dela (não atrás, como o offset 0.0 antigo assumia).
+    """
     docker = TagDocker(standoff_m=0.15, min_detections=1, mode="tag_normal")
+    # Tag frontal a 1 m: alvo a 0.85 m, encarando a tag (heading 0).
     vision = VisionState(detectado=True, z_cm=100.0, x_cm=0.0, pitch_deg=0.0)
     docker.step(vision, robot_x=0.0, robot_y=0.0, robot_theta=0.0, dt=0.05)
     assert docker.state == DockState.DOCKING
-    # Com offset default (0.0), a tag "aponta" +x, então o standoff fica ALÉM da
-    # tag (1.15), distinto do line_of_sight (0.85) — prova que o ramo mudou.
     assert docker.goal is not None
-    assert abs(docker.goal[0] - 1.15) < 1e-6
+    assert abs(docker.goal[0] - 0.85) < 1e-6
+    assert abs(docker.goal[1]) < 1e-6
+    assert abs(_wrap(docker.goal[2])) < 1e-6  # encarando a tag (+x)
+
+    # Tag INCLINADA (pitch +30 = borda esquerda mais perto, convenção do
+    # projeto): a face gira 30° anti-horário → o alvo acompanha a NORMAL,
+    # saindo da linha de visão — o cenário "tag de lado" da missão.
+    docker2 = TagDocker(standoff_m=0.15, min_detections=1, mode="tag_normal")
+    tilted = VisionState(detectado=True, z_cm=100.0, x_cm=0.0, pitch_deg=30.0)
+    docker2.step(tilted, robot_x=0.0, robot_y=0.0, robot_theta=0.0, dt=0.05)
+    assert docker2.state == DockState.DOCKING
+    normal_dir = math.pi + math.radians(30.0)  # normal da face no mundo
+    exp_x = 1.0 + 0.15 * math.cos(normal_dir)
+    exp_y = 0.15 * math.sin(normal_dir)
+    assert abs(docker2.goal[0] - exp_x) < 1e-6
+    assert abs(docker2.goal[1] - exp_y) < 1e-6
+    # Heading final: de volta para a tag (normal + π).
+    assert abs(_wrap(docker2.goal[2] - math.radians(30.0))) < 1e-6
 
 
 # ---------------------------------------------------------------------------

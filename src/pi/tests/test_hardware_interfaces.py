@@ -206,3 +206,50 @@ class TestCameraTilt:
         assert obs[0].z_m == pytest.approx(0.5, abs=1e-3)
         # x lateral não é afetado pelo tilt (rotação em torno do próprio x).
         assert obs[0].x_m == pytest.approx(0.0, abs=1e-9)
+
+
+class TestPitchSignConvention:
+    """Pitch NEGADO na fronteira (validado na bancada 2026-07-07).
+
+    Medição: borda ESQUERDA da tag aproximando da câmera → Euler do frame
+    óptico dá pitch NEGATIVO; a convenção do projeto (sim/FACE/EKF/tag_normal)
+    exige POSITIVO nesse caso. pose.py nega nos DOIS caminhos.
+    """
+
+    @staticmethod
+    def _rot_pitch(deg):
+        import math
+
+        import numpy as np
+        p = math.radians(deg)
+        # Matriz cuja extração de Euler (rotation_matrix_to_euler_angles)
+        # devolve pitch=+deg (rotação em torno do eixo y da câmera).
+        return np.array([
+            [math.cos(p), 0.0, math.sin(p)],
+            [0.0, 1.0, 0.0],
+            [-math.sin(p), 0.0, math.cos(p)],
+        ])
+
+    def test_vision_state_pitch_negated(self, monkeypatch):
+        from app import config
+        from app.vision.pose import estimate_vision_state
+
+        monkeypatch.setattr(config, "CAMERA_TILT_DEG", 0.0)
+        monkeypatch.setattr(config, "CAMERA_TO_FORK_OFFSET_CM", (0.0, 0.0, 0.0))
+        det = _FakeDetection(1, 0.0, 0.0, 0.5)
+        det.pose_R = self._rot_pitch(30.0)  # câmera reportaria +30
+        vs = estimate_vision_state([det])
+        assert vs.pitch_deg == pytest.approx(-30.0, abs=1e-6)
+
+    def test_tag_observation_yaw_negated(self, monkeypatch):
+        import math
+
+        from app import config
+        from app.vision.pose import estimate_tag_observations
+
+        monkeypatch.setattr(config, "CAMERA_TILT_DEG", 0.0)
+        det = _FakeDetection(2, 0.0, 0.0, 0.5)
+        det.pose_R = self._rot_pitch(30.0)
+        obs = estimate_tag_observations([det])
+        # yaw_rad = radians(-pitch_câmera) - π
+        assert obs[0].yaw_rad == pytest.approx(math.radians(-30.0) - math.pi)

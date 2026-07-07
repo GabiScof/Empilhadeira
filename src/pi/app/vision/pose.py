@@ -101,12 +101,19 @@ def estimate_vision_state(detections: list[Any]) -> VisionState:
         x_cm += offset_x_cm
         z_cm += offset_z_cm
 
+    # Sinal do pitch NEGADO na fronteira (mesmo padrão do x): a Euler do
+    # frame óptico dá sinal oposto ao da convenção do projeto/simulador.
+    # VALIDADO NA BANCADA (2026-07-07): borda ESQUERDA da tag aproximando da
+    # câmera → câmera reporta pitch NEGATIVO (−38°); a convenção do projeto
+    # (visão sintética, FACE, EKF, tag_normal — giro anti-horário positivo)
+    # exige POSITIVO nesse caso. Com a negação, real e sim falam a mesma
+    # língua e o DOCK_PITCH_TO_TAG_YAW_OFFSET_RAD é π para os dois.
     return VisionState(
         detectado=True,
         id=int(best_detection.tag_id),
         z_cm=z_cm,
         x_cm=x_cm,
-        pitch_deg=float(pitch_deg),
+        pitch_deg=float(-pitch_deg),
     )
 
 
@@ -138,8 +145,10 @@ def estimate_tag_observations(detections: list[Any]) -> list[TagObservation]:
         _roll_deg, pitch_deg, _yaw_deg = rotation_matrix_to_euler_angles(pose_r)
 
         # Convenção do EKF: yaw_rad = (yaw_tag_mundo - theta_robô) - π.
-        # TODO(equipe): confirmar sinal/eixo contra o frame real da câmera.
-        yaw_rad = math.radians(float(pitch_deg)) - math.pi
+        # Pitch NEGADO na fronteira, como no estimate_vision_state — validado
+        # na bancada 2026-07-07 (borda esquerda da tag perto → câmera dá
+        # negativo; convenção do projeto/sim exige positivo).
+        yaw_rad = math.radians(float(-pitch_deg)) - math.pi
 
         quality = float(getattr(det, "decision_margin", 0.0))
         quality = max(0.0, min(1.0, quality / 100.0)) if quality else 1.0
