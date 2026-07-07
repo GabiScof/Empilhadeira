@@ -79,8 +79,8 @@ verde em simulação e testes de unidade.
 **Hardware:** Raspberry Pi + câmera USB · ESP32 · 2× ponte-H L298n · 2 motores
 Lego NXT 53787 (rodas) + motor JGY-370 12 V com rosca sem-fim (garfo) ·
 encoders de quadratura 1440 pulsos/volta (decodificação x4) · IMU MPU-6050
-(I2C) · arena real: corredor 0,80 × 2,00 m com 6 AprilTags
-(mapa `corredor_6tags_80x200.json`).
+(I2C) · arena real: corredor 0,80 × 1,60 m com 6 AprilTags
+(mapa `corredor_6tags_80x160.json`).
 
 ---
 
@@ -141,7 +141,7 @@ intrínsecos) → detecções {id, pose_R, pose_t} →
 A arena não é hardcoded: mapas JSON em `pi/maps/` declaram dimensões, tags
 (`position_id`, `x_m`, `y_m`, parede, `yaw_deg`), pose inicial, pose *home* e
 grafo opcional de waypoints. Trocar de arena = trocar um arquivo. O mapa real
-medido é `corredor_6tags_80x200.json` (0,80×2,00 m, tags L1–L3 e R1–R3).
+medido é `corredor_6tags_80x160.json` (0,80×1,60 m, tags L1–L3 e R1–R3).
 Schema validado por Pydantic (IDs únicos, tags dentro da arena, arestas do
 grafo válidas).
 
@@ -530,7 +530,7 @@ tag impressa fora de medida. Cada um com sintoma e ação já escritos.
 
 | Item | Valor |
 |---|---|
-| Arena real | corredor 0,80 × 2,00 m, 6 tags |
+| Arena real | corredor 0,80 × 1,60 m, 6 tags |
 | AprilTag | família tag25h9, **4 cm** |
 | Câmera | USB, **640×480**, fx=799,4 · fy=794,3 · cx=399,0 · cy=273,2, reproj. **0,144 px** (28 fotos, xadrez OpenCV) |
 | Loops no Pi | Vision 20 Hz · Serial 20 Hz · Control 20 Hz · Telemetria 20 Hz |

@@ -118,11 +118,15 @@ visão sintética. Em modo real, apenas o `WorldModel` em memória é atualizado
 | Mapa | Dimensões | Tags | Grafo | Descrição |
 |------|-----------|------|-------|-----------|
 | corredor_pequeno | 0.80×2.00 m | 3 | Não | Corredor estreito |
+| corredor_6tags | 0.60×3.00 m | 6 | Não | Corredor longo estreito |
+| **corredor_6tags_80x160** | **0.80×1.60 m** | **6** | Não | **Arena real medida** — tags na metade superior |
+| corredor_6tags_80x200 | 0.80×2.00 m | 6 | Não | Corredor antigo (dimensões anteriores) |
 | arena_media | 1.50×1.50 m | 4 | Não | Arena quadrada aberta |
 | arena_grande_com_grafo | 3.00×2.00 m | 6 | Sim (9 wp) | Arena grande com waypoints |
 
-> **Nota:** As coordenadas dos mapas de exemplo são **provisórias** e plausíveis.
-> Medidas reais devem ser inseridas quando a equipe medir a arena física.
+> **Nota:** `corredor_6tags_80x160` é o mapa da arena real. Tags coladas nas
+> paredes laterais (L1–L3 à esquerda, R1–R3 à direita), centros em y=0,825/1,20/1,575 m.
+> A metade inferior do corredor (y < 0,80 m) não tem tags — o robô parte de lá.
 
 ## Relação com Outros Módulos
 

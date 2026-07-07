@@ -1,11 +1,11 @@
 {
-  "_fonte": "roboticaMengo/calibration.py (OpenCV checkerboard) sobre roboticaMengo/imagens/*.jpg — 28 fotos 640x480, erro de reprojeção 0.144 px",
-  "_alternativa_zephyr": "fx=fy=833.107, cx=360.117, cy=273.161 (sem erro de reprojeção registrado) — se o teste de fita métrica a 30 cm ficar melhor com estes valores, reverter",
-  "fx": 799.3907361857031,
-  "fy": 794.2843064465196,
-  "cx": 399.03967921864864,
-  "cy": 273.1926221127301,
-  "dist_coeffs": [0.1682923535102056, -2.004182809671462, 0.0005851317963246992, 0.014928717086145455, 6.715647634037245],
-  "image_size": [640, 480],
-  "reprojection_error": 0.1437809388291857
+  "_fonte": "Recalibração 2026-07-07, câmera NOVA a 1280x720 (Brown's model). cx/cy praticamente no centro geométrico (643/373 vs 640/360) — calibração sã, ao contrário da anterior.",
+  "_anterior": "Câmera antiga 640x480: fx=799.39/fy=794.28, cx=399.04 (≈800/2 — fotos provavelmente em resolução errada), cy=273.19, erro 0.144 px. Descartada em 2026-07-07.",
+  "fx": 998.168,
+  "fy": 998.168,
+  "cx": 643.338,
+  "cy": 372.688,
+  "dist_coeffs": [0.0393538, -0.049215, 0.00242118, 0.0013365, -0.0294144],
+  "image_size": [1280, 720],
+  "reprojection_error": null
 }

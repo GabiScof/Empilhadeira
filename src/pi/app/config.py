@@ -118,10 +118,13 @@ APRILTAG_FAMILY: str = "tag25h9"
 # PROVISÓRIO — TODO(equipe): confirmar — tamanho físico da tag (cm).
 APRILTAG_SIZE_CM: float = 4.0
 
-CAMERA_FX: float = 799.3907361857031
-CAMERA_FY: float = 794.2843064465196
-CAMERA_CX: float = 399.03967921864864
-CAMERA_CY: float = 273.1926221127301
+# Fallbacks = câmera nova calibrada em 2026-07-07 a 1280x720 (a fonte da
+# verdade é calibracao/camera_intrinsics.json — estes valores só valem se o
+# JSON sumir E REQUIRE_CAMERA_CALIBRATION=0).
+CAMERA_FX: float = 998.168
+CAMERA_FY: float = 998.168
+CAMERA_CX: float = 643.338
+CAMERA_CY: float = 372.688
 
 CAMERA_PARAMS: tuple[float, float, float, float] = (
     CAMERA_FX,
@@ -131,13 +134,14 @@ CAMERA_PARAMS: tuple[float, float, float, float] = (
 )
 
 # Offset câmera→garfo em cm, SOMADO à leitura (pose.py: z_cm += offset_z).
-# A lente fica ~25,5 cm ATRÁS da ponta do garfo → a distância garfo→tag é
-# MENOR que a lente→tag → offset_z NEGATIVO. (Com +25.5 o z reportado saía
-# ~2x a distância real — visto na bancada 2026-07-07: o ZREF/dock passariam
-# longe.) Após o offset, z_cm = distância da PONTA DO GARFO até a tag; o
-# ZREF_CM/standoff referem-se a ela. y (-14.2 = desnível vertical) é ignorado
-# pelo contrato. Validar: tag a 15 cm da ponta do garfo → z_cm ≈ 15.
-CAMERA_TO_FORK_OFFSET_CM: tuple[float, float, float] = (0.0, -14.2, -25.5)
+# A lente fica ATRÁS da ponta do garfo → a distância garfo→tag é MENOR que a
+# lente→tag → offset_z NEGATIVO. (Sinal validado na bancada 2026-07-07: com
+# +25.5 o z saía ~2x a distância real.) Após o offset, z_cm = distância da
+# PONTA DO GARFO até a tag; ZREF_CM/standoff referem-se a ela. y (desnível
+# vertical) é ignorado pelo contrato.
+# CÂMERA NOVA (2026-07-07): lente avançou 4,2 cm em direção à ponta do garfo
+# → 25,5 - 4,2 = 21,3. Validar: tag a 15 cm da ponta do garfo → z_cm ≈ 15.
+CAMERA_TO_FORK_OFFSET_CM: tuple[float, float, float] = (0.0, -14.2, -21.3)
 
 # Inclinação da câmera para BAIXO, em graus (0 = nivelada). A câmera fica no
 # topo do trilho do garfo, acima das tags, e precisa olhar para baixo para
@@ -150,13 +154,14 @@ CAMERA_TO_FORK_OFFSET_CM: tuple[float, float, float] = (0.0, -14.2, -25.5)
 # em graus. (Ou inclinômetro do celular apoiado no corpo da câmera.)
 # Depois de definir o tilt, RECALIBRAR o CAMERA_TO_FORK_OFFSET_CM (offset
 # medido sem compensação absorve o erro da hipotenusa e só vale numa distância).
-# MEDIDO NA BANCADA (2026-07-07), tag centralizada na imagem:
+# MEDIDO NA BANCADA (2026-07-07) para a CÂMERA ANTIGA, tag centralizada:
 #   lente a 29,5 cm do chão · centro da tag a 15,3 cm · d = 26,3 cm
 #   → Δh = 14,2 cm → tilt = atan(14,2/26,3) = 28,4°.
+# ⚠️ CÂMERA NOVA REMONTADA (2026-07-07, lente 4,2 cm mais à frente):
+# RE-MEDIR o tilt com o mesmo procedimento antes de confiar no z — o valor
+# abaixo é o da montagem anterior, provavelmente próximo mas não confirmado.
 # Validar: tag a 30 cm horizontais → z≈30; a 15 cm → z≈15 (fita métrica).
-# Nota: incidência no standoff de 15 cm = atan(14,2/15) ≈ 43° — no limite do
-# confortável p/ AprilTag; se a detecção falhar de perto, subir as tags na
-# parede (centro a ~20-25 cm) ou aumentar ZREF_CM.
+# Nota: incidência no standoff de 15 cm = atan(Δh/15) — manter ≲ 45°.
 CAMERA_TILT_DEG: float = float(os.getenv("CAMERA_TILT_DEG", "28.4"))
 
 CAMERA_INTRINSICS_PATH: Path = (
@@ -164,12 +169,20 @@ CAMERA_INTRINSICS_PATH: Path = (
 )
 
 # Índice do dispositivo de câmera para cv2.VideoCapture (0 = /dev/video0).
+# Com DUAS câmeras plugadas o índice pode mudar — conferir com ls /dev/video*.
 CAMERA_INDEX: int = int(os.getenv("CAMERA_INDEX", "0"))
-# Defaults = resolução da CALIBRAÇÃO (640×480). São só fallback: quem abre a
-# câmera (vision_loop/teste_cam) força a resolução anotada no JSON de
-# calibração — capturar em outra invalida fx/fy/cx/cy silenciosamente.
-CAMERA_FRAME_WIDTH: int = int(os.getenv("CAMERA_FRAME_WIDTH", "640"))
-CAMERA_FRAME_HEIGHT: int = int(os.getenv("CAMERA_FRAME_HEIGHT", "480"))
+# Defaults = resolução da CALIBRAÇÃO (câmera nova: 1280×720). São só fallback:
+# quem abre a câmera (vision_loop/teste_cam) força a resolução anotada no JSON
+# de calibração — capturar em outra invalida fx/fy/cx/cy silenciosamente.
+CAMERA_FRAME_WIDTH: int = int(os.getenv("CAMERA_FRAME_WIDTH", "1280"))
+CAMERA_FRAME_HEIGHT: int = int(os.getenv("CAMERA_FRAME_HEIGHT", "720"))
+
+# Decimação do detector AprilTag (1.0 = desligada). A detecção escala com o
+# nº de pixels: a 1280×720 no Pi, 2.0 corta ~4x o custo detectando nos quads
+# em meia-resolução (os cantos ainda são refinados em resolução cheia — a
+# precisão da pose quase não muda). Subir para 2.0 se o loop de visão ficar
+# lento (< ~15 fps) com a câmera 720p.
+APRILTAG_QUAD_DECIMATE: float = float(os.getenv("APRILTAG_QUAD_DECIMATE", "2.0"))
 
 # Se True, o modo real exige calibração válida da câmera no boot (recomendado:
 # os intrínsecos placeholder de config NÃO servem para o hardware real).

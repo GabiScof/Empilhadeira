@@ -40,7 +40,7 @@ Falta, na ordem:
       → 3.4 EKF corredor → 3.4b dock → 3.5 missão 3× → 3.6 dia D
 
 Estado consolidado (atualizado 2026-07-06):
-- Mapa real: `pi/maps/corredor_6tags_80x200.json` ✅ (valida no schema)
+- Mapa real: `pi/maps/corredor_6tags_80x160.json` ✅ (valida no schema)
 - **2026-07-06: dock-to-tag (opt-in) + vista de cima no robô real** — novo modo
   que estaciona em frente a UMA tag por segmentos (testado no 3.4b) e endpoint
   `GET /world-state` que faz a tela `/demo` desenhar o Arena no hardware
@@ -150,7 +150,7 @@ hostname -I
 cp .env.example .env
 # edite o .env:  SIM=0 · REQUIRE_CAMERA_CALIBRATION=1
 #   CAMERA_FRAME_WIDTH=640 · CAMERA_FRAME_HEIGHT=480  (TEM que bater com a calibração)
-#   MAP=corredor_6tags_80x200 · SERIAL_PORT=<a porta do passo 5>
+#   MAP=corredor_6tags_80x160 · SERIAL_PORT=<a porta do passo 5>
 ```
 
 **Regra de ouro da porta serial:** só UM programa pode usar a UART por vez.
@@ -344,7 +344,7 @@ SIM=0
 REQUIRE_CAMERA_CALIBRATION=1
 CAMERA_FRAME_WIDTH=640
 CAMERA_FRAME_HEIGHT=480
-MAP=corredor_6tags_80x200
+MAP=corredor_6tags_80x160
 SERIAL_PORT=/dev/ttyUSB0        # a porta anotada na Fase 0
 ```
 
@@ -534,7 +534,7 @@ pela pose do EKF). Robô a ~50–80 cm de UMA tag, arena aberta, mapa carregado
 ### 3.5 Missão completa (ensaio do desafio)
 
 ```bash
-curl -X POST http://<IP_DO_PI>:8000/maps/load/corredor_6tags_80x200
+curl -X POST http://<IP_DO_PI>:8000/maps/load/corredor_6tags_80x160
 curl -X POST http://<IP_DO_PI>:8000/mission/start
 ```
 
@@ -550,9 +550,9 @@ correspondente (3.2 navegação, 3.4 localização).
       mostra `Frontend estático montado`
 - [ ] Backend (`run_pi.sh`) sobe por SSH — ou configurar systemd/tmux para
       subir sozinho no boot do Pi
-- [ ] `GET /maps/current` = `corredor_6tags_80x200`
-- [ ] Tags fixadas nas posições do mapa (L* a x=0,05 m; R* a x=0,75 m;
-      y = 0,40/1,00/1,60 m) — **remedir com fita no local**
+- [ ] `GET /maps/current` = `corredor_6tags_80x160`
+- [ ] Tags fixadas nas posições do mapa (L* a x=0,00 m; R* a x=0,80 m;
+      y = 0,825/1,20/1,575 m) — **remedir com fita no local**
 - [ ] Iluminação testada com `teste_cam` (reflexo na tag = reposicionar/foscar)
 - [ ] 1 volta manual + 1 missão completa de aquecimento antes da valendo
 - [ ] Plano B ensaiado: missão inteira em MANUAL se a autonomia falhar

@@ -58,9 +58,10 @@ class AprilTagDetector:
         else:
             self.camera_params = config.CAMERA_PARAMS
 
-        # Parâmetros de detecção mantidos do script-base.
+        # Parâmetros de detecção. quad_decimate vem do config: a 1280×720 no
+        # Pi, 2.0 corta ~4x o custo sem perder precisão de pose relevante.
         self.nthreads: int = 1
-        self.quad_decimate: float = 1.0
+        self.quad_decimate: float = float(config.APRILTAG_QUAD_DECIMATE)
         self.quad_sigma: float = 0.0
         self.refine_edges: int = 1
         self.decode_sharpening: float = 0.25

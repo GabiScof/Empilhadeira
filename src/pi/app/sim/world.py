@@ -68,7 +68,7 @@ class SimWorld:
                     x_m=tag.x_m,
                     y_m=tag.y_m,
                     yaw_rad=tag.yaw_rad,
-                    april_tag_id=i,
+                    april_tag_id=tag.april_tag_id if tag.april_tag_id is not None else i,
                 ))
             self._world_model = world_model
         elif any(v is not None for v in (robot_x, robot_y, robot_theta, tag_x, tag_y, tag_theta, tag_id)):

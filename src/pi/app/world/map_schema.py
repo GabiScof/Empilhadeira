@@ -42,6 +42,12 @@ class TagSpec(BaseModel):
     y_m: float = Field(description="Posição Y da tag (m).")
     wall: str | None = Field(None, description="Parede onde a tag está (left/right/top/bottom).")
     yaw_deg: float = Field(description="Orientação da tag (graus).")
+    april_tag_id: int | None = Field(
+        None,
+        ge=0,
+        description="ID numérico impresso na tag física (tag25h9: 0–34). "
+        "Obrigatório para o robô real resolver qual tag do mapa foi vista.",
+    )
 
     @property
     def yaw_rad(self) -> float:
@@ -81,6 +87,11 @@ class ArenaMap(BaseModel):
         tag_ids = [t.position_id for t in self.tags]
         if len(tag_ids) != len(set(tag_ids)):
             raise ValueError("position_id das tags deve ser único")
+
+        # april_tag_id únicos (quando fornecidos)
+        assigned_ids = [t.april_tag_id for t in self.tags if t.april_tag_id is not None]
+        if len(assigned_ids) != len(set(assigned_ids)):
+            raise ValueError("april_tag_id das tags deve ser único")
 
         # Tags dentro da arena
         for tag in self.tags:

@@ -2,7 +2,7 @@
 
 # --- Modo de operação ---
 SIM=1                          # 1=simulação, 0=hardware real (robô físico)
-MAP=corredor_6tags_80x200      # mapa medido da arena real (pi/maps/<nome>.json)
+MAP=corredor_6tags_80x160      # mapa medido da arena real (pi/maps/<nome>.json)
 
 # --- Raspberry Pi: servidor WebSocket ---
 PI_HOST=0.0.0.0
