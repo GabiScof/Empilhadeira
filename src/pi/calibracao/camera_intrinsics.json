@@ -1,11 +1,11 @@
 {
-  "_fonte": "Recalibração 2026-07-07, câmera NOVA a 1280x720 (Brown's model). cx/cy praticamente no centro geométrico (643/373 vs 640/360) — calibração sã, ao contrário da anterior.",
-  "_anterior": "Câmera antiga 640x480: fx=799.39/fy=794.28, cx=399.04 (≈800/2 — fotos provavelmente em resolução errada), cy=273.19, erro 0.144 px. Descartada em 2026-07-07.",
-  "fx": 998.168,
-  "fy": 998.168,
-  "cx": 643.338,
-  "cy": 372.688,
-  "dist_coeffs": [0.0393538, -0.049215, 0.00242118, 0.0013365, -0.0294144],
+  "_fonte": "Recalibração 2026-07-07 (2ª da câmera nova, pós-remontagem a 30°), 1280x720, Brown's model. cx/cy a 6/17 px do centro geométrico — saudável.",
+  "_anterior": "1ª calibração da câmera nova: fx=fy=998.168, cx=643.338, cy=372.688. Câmera antiga 640x480 (cx=399 anômalo): descartada.",
+  "fx": 1023.63,
+  "fy": 1023.63,
+  "cx": 634.077,
+  "cy": 377.08,
+  "dist_coeffs": [0.0402647, -0.024314, 0.00294588, -0.00192776, -0.0493149],
   "image_size": [1280, 720],
   "reprojection_error": null
 }

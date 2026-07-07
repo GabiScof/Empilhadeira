@@ -119,13 +119,14 @@ APRILTAG_FAMILY: str = "tag25h9"
 # PROVISÓRIO — TODO(equipe): confirmar — tamanho físico da tag (cm).
 APRILTAG_SIZE_CM: float = 4.0
 
-# Fallbacks = câmera nova calibrada em 2026-07-07 a 1280x720 (a fonte da
+# Fallbacks = 2ª calibração da câmera nova (2026-07-07, pós-remontagem 30°,
+# 1280x720) (a fonte da
 # verdade é calibracao/camera_intrinsics.json — estes valores só valem se o
 # JSON sumir E REQUIRE_CAMERA_CALIBRATION=0).
-CAMERA_FX: float = 998.168
-CAMERA_FY: float = 998.168
-CAMERA_CX: float = 643.338
-CAMERA_CY: float = 372.688
+CAMERA_FX: float = 1023.63
+CAMERA_FY: float = 1023.63
+CAMERA_CX: float = 634.077
+CAMERA_CY: float = 377.08
 
 CAMERA_PARAMS: tuple[float, float, float, float] = (
     CAMERA_FX,
