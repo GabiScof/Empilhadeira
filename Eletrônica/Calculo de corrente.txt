@@ -1,0 +1,36 @@
+Motor Lego - NXT 531787 - 2*2A = 4A
+https://motors.sariel.pl
+
+Ponte H - L298N - 4A, 2A cada
+
+sensor - MPU-6050 - 3,9mA
+
+ESP32 - 500mA
+
+Raspberry Pi - 3A
+
+Regulador de tensão 5,3V - LM2596 - 3A
+
+Câmera - 500mA
+
+Total em movimento: 15A
+
+ou
+
+Motor garfo - JGY-370 12V DC Worm Gear Motor - 1A
+
+Ponte H - L298N - 2A
+
+sensor - MPU-6050 - 3,9mA
+
+ESP32 - 500mA
+
+RaspberryPi - 3A
+
+Regulador de tensão 5,3V - LM2596 - 3A
+
+Câmera - 500mA
+
+Total com o garfo: 10A
+
+BMS de 40A para segurança 

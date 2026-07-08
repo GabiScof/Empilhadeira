@@ -1,0 +1,15 @@
+lista de compras:
+
+3 - Chave Micro Switch KW11-7-2 3T - Com Rolete - vai comprar
+1 - MPU-6050 - já temos
+
+
+Substituídos por um lm2596 
+{
+1 - MP2307
+1 - AMS1117
+}
+
+1 - JGY-370 12V DC Worm Gear Motor - vai comprar
+1 - Cartão de Memória 16GB Ultra MicroSDHC UHS-I com Adaptador - vai comprar
+1 - BMS 3S 30A - vai comprar
