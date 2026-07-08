@@ -1,0 +1,103 @@
+<div style="background:#ffffff; border-radius:12px; padding:1.25rem;">
+<h2 class="sr-only">Gráfico de barras horizontais empilhadas comparando o consumo de corrente estimado de dois cenários do robô: em movimento (rodas, 15A) e com garfo (10A), com linha de referência no limite do BMS de 40A</h2>
+
+<div style="display:flex; gap:12px; margin-bottom:1.25rem;">
+  <div style="flex:1; background:#f5f4f0; border-radius:8px; padding:1rem;">
+    <p style="font-size:13px; color:#52514e; margin:0 0 4px;">Em movimento</p>
+    <p style="font-size:24px; font-weight:500; margin:0; color:#0b0b0b;">15,0 A</p>
+  </div>
+  <div style="flex:1; background:#f5f4f0; border-radius:8px; padding:1rem;">
+    <p style="font-size:13px; color:#52514e; margin:0 0 4px;">Com garfo</p>
+    <p style="font-size:24px; font-weight:500; margin:0; color:#0b0b0b;">10,0 A</p>
+  </div>
+  <div style="flex:1; background:#f5f4f0; border-radius:8px; padding:1rem;">
+    <p style="font-size:13px; color:#52514e; margin:0 0 4px;">Limite do BMS</p>
+    <p style="font-size:24px; font-weight:500; margin:0; color:#0b0b0b;">40 A</p>
+  </div>
+</div>
+
+<div style="display:flex; flex-wrap:wrap; gap:14px; margin-bottom:10px; font-size:12px; color:#52514e;">
+  <span style="display:flex; align-items:center; gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#2a78d6;"></span>Motor (Lego/garfo)</span>
+  <span style="display:flex; align-items:center; gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#1baf7a;"></span>Ponte H L298N</span>
+  <span style="display:flex; align-items:center; gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#eda100;"></span>Sensor MPU-6050</span>
+  <span style="display:flex; align-items:center; gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#008300;"></span>ESP32</span>
+  <span style="display:flex; align-items:center; gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#4a3aa7;"></span>Raspberry Pi</span>
+  <span style="display:flex; align-items:center; gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#e34948;"></span>Regulador LM2596</span>
+  <span style="display:flex; align-items:center; gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#e87ba4;"></span>Câmera</span>
+</div>
+
+<div style="position:relative; width:100%; height:220px;">
+  <canvas id="currentChart3" role="img" aria-label="Barras horizontais empilhadas: em movimento soma 15A, com garfo soma 10A, com linha tracejada no limite de 40A do BMS, fundo branco">Em movimento: motor 4A, ponte H 4A, sensor 0.0039A, ESP32 0.5A, Raspberry Pi 3A, regulador LM2596 3A, câmera 0.5A. Com garfo: motor 1A, ponte H 2A, sensor 0.0039A, ESP32 0.5A, Raspberry Pi 3A, regulador LM2596 3A, câmera 0.5A.</canvas>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-annotation/3.0.1/chartjs-plugin-annotation.min.js"></script>
+<script>
+const labels = ['Em movimento', 'Com garfo'];
+const muted = '#898781';
+const grid = '#e1e0d9';
+
+const datasets = [
+  { label: 'Motor (Lego/garfo)', data: [4, 1], backgroundColor: '#2a78d6' },
+  { label: 'Ponte H L298N', data: [4, 2], backgroundColor: '#1baf7a' },
+  { label: 'Sensor MPU-6050', data: [0.0039, 0.0039], backgroundColor: '#eda100' },
+  { label: 'ESP32', data: [0.5, 0.5], backgroundColor: '#008300' },
+  { label: 'Raspberry Pi', data: [3, 3], backgroundColor: '#4a3aa7' },
+  { label: 'Regulador LM2596', data: [3, 3], backgroundColor: '#e34948' },
+  { label: 'Câmera', data: [0.5, 0.5], backgroundColor: '#e87ba4' }
+].map(d => ({ ...d, borderRadius: 4, borderSkipped: false }));
+
+new Chart(document.getElementById('currentChart3'), {
+  type: 'bar',
+  data: { labels, datasets },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    layout: { padding: { right: 20 } },
+    scales: {
+      x: {
+        stacked: true,
+        max: 42,
+        grid: { color: grid },
+        ticks: { color: muted, callback: (v) => v + 'A' },
+        title: { display: true, text: 'Corrente (A)', color: muted, font: { size: 12 } }
+      },
+      y: {
+        stacked: true,
+        grid: { display: false },
+        ticks: { color: '#0b0b0b', font: { size: 13 } }
+      }
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => ctx.dataset.label + ': ' + ctx.parsed.x.toFixed(2) + 'A'
+        }
+      },
+      annotation: {
+        annotations: {
+          bmsLine: {
+            type: 'line',
+            xMin: 40,
+            xMax: 40,
+            borderColor: '#e34948',
+            borderWidth: 2,
+            borderDash: [6, 4],
+            label: {
+              display: true,
+              content: 'Limite BMS 40A',
+              position: 'start',
+              color: '#e34948',
+              font: { size: 11 },
+              backgroundColor: 'transparent'
+            }
+          }
+        }
+      }
+    }
+  }
+});
+</script>
