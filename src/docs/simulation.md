@@ -10,7 +10,8 @@ desenvolver navegação, missão e UI.
 ```bash
 # .env ou linha de comando
 SIM=1
-MAP=corredor_pequeno   # opcional; sem a variável vale config.DEFAULT_MAP (corredor_6tags_80x160)
+# MAP= no .env NÃO é lido; mapa padrão hardcoded em config.DEFAULT_MAP (corredor_6tags_80x160).
+# Para trocar: POST /maps/load/{nome} ou UI (MapSelector).
 ```
 
 Subir o backend:
@@ -47,7 +48,7 @@ Serial Loop (SIM) ──► FirmwareEmulator (PID 100 Hz)
                            ↓
                       SimWorld (cinemática + slip)
                            ↓ pose
-Vision Loop (SIM) ──► SyntheticVision (PnP sintético)
+Vision Loop (SIM) ──► SyntheticVision (geometria analítica 2D)
                            ↓ detecção
                       EKF correct_apriltag()
 ```

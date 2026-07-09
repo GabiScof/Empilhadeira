@@ -45,8 +45,8 @@ Três camadas hierárquicas, cada uma em um processador e linguagem próprios:
          WebSocket / Wi-Fi            ▼
 ┌──────────┴───────────────────────────────────────────────┐
 │  RASPBERRY PI — alto nível (Python, FastAPI + asyncio)    │
-│  4 tarefas: WebSocket · Vision Loop · Serial Loop ·       │
-│  Control Loop                                             │
+│  3 loops (Vision · Serial · Control) + WS handler          │
+│                                                            │
 │  AprilTag → EKF 2D → planejador → executor → setpoint     │
 └──────────▲──────────────────────────┬─────────────────────┘
      (4) sensores               (3) setpoint
@@ -495,7 +495,7 @@ cd frontend && npm install && npm run dev   # http://localhost:5173/demo
 ### Testes
 
 ```bash
-python3 -m pytest pi/tests/ -v              # backend (162 testes)
+python3 -m pytest pi/tests/ -v              # backend (210 testes)
 cd frontend && npx vitest run               # frontend (11 testes)
 SIM=1 python3 scripts/sim_sweep.py          # 9 cenários de aproximação
 ```
@@ -520,7 +520,7 @@ Guia completo: [`src/docs/hardware-deployment.md`](src/docs/hardware-deployment.
 | AprilTag | família tag25h9, 4 cm |
 | Câmera | USB, 1280×720; fx=fy=1023,6 · cx=634,1 · cy=377,1 (calibração 2026-07-07) |
 | Tilt da câmera | 30° para baixo; offset z = −10 cm (lente→garfo); lente→eixo = 18 cm |
-| Loops do Pi | Vision 20 Hz · Serial 20 Hz · Control 20 Hz · Telemetria 20 Hz |
+| Loops do Pi | 3 no startup (Vision · Serial · Control, 20 Hz cada); Telemetria via WS handler por conexão |
 | PID firmware | 100 Hz, Kp=20 Ki=5 Kd=1, anti-windup ±500, PWM 20 kHz 8 bits |
 | Encoders | quadratura x4, 1440 pulsos/volta |
 | EKF | estado [x,y,θ]; heading 70% gyro + 30% odom; gate Mahalanobis 3,0 |
@@ -555,7 +555,7 @@ src/
 │   │   └── main.py        Ponto de entrada + rotas REST
 │   ├── maps/              Mapas JSON da arena
 │   ├── calibracao/        Intrínsecos da câmera (JSON)
-│   └── tests/             162 testes pytest
+│   └── tests/             210 testes pytest
 ├── firmware/              ESP32 (C++/PlatformIO)
 │   └── src/               main, pid, motors, encoders, protocol, config
 ├── frontend/              React + Vite + Tailwind
@@ -625,7 +625,7 @@ src/
 
 | Teste | Resultado |
 |-------|-----------|
-| pytest (backend Pi) | 162/162 passam |
+| pytest (backend Pi) | 210 testes — 209 passam, 1 pulado |
 | vitest (frontend) | 11/11 passam |
 | sim_sweep (9 cenários de aproximação) | 9/9 convergem (parada a 15,0–16,3 cm; offset lateral ≤ 2,4 cm; heading ≤ 3,7°) |
 | full_trace (13 cenários) | 12/13 (1 LOST esperado — tag fora do FOV) |
@@ -637,7 +637,7 @@ src/
 
 | Item | Estado |
 |------|--------|
-| Lógica + simulação | Validado (162 pytest + 9/9 sim_sweep) |
+| Lógica + simulação | Validado (210 pytest + 9/9 sim_sweep) |
 | Firmware ESP32 | Pronto para gravar |
 | Backend Pi (câmera + serial) | Implementado |
 | Calibração da câmera + mapa real | Feito |

@@ -30,8 +30,8 @@ Arquitetura hierárquica de 3 camadas (decisão fechada):
          WebSocket / Wi-Fi            ▼
 ┌──────────┴─────────────────────────────────────────────┐
 │  RASPBERRY PI — alto nível (Python, FastAPI + asyncio)  │
-│  4 tarefas concorrentes: WebSocket · Vision Loop ·      │
-│  Serial Loop · Control Loop                             │
+│  3 loops (Vision · Serial · Control) + WS handler        │
+│                                                          │
 │  AprilTag → EKF 2D → planejador → executor → setpoint   │
 └──────────▲──────────────────────────┬───────────────────┘
      (4) sensores               (3) setpoint
@@ -51,7 +51,7 @@ atrás das mesmas interfaces (`VisionSource`, `SerialTransport`). Resultado:
 
 | Verificação (2026-06-23) | Resultado |
 |---|---|
-| pytest (backend Pi) | 162/162 passam |
+| pytest (backend Pi) | 210 testes — 209 passam, 1 pulado |
 | vitest (frontend) | 11/11 passam |
 | `sim_sweep.py` (9 cenários de aproximação) | 9/9 convergem (parada a 15,0–16,3 cm; offset lateral ≤ 2,4 cm; erro de heading ≤ 3,7°) |
 | `full_trace.py` (13 cenários) | 12/13 (o 13º é LOST esperado — tag fora do FOV) |
@@ -472,7 +472,7 @@ command watchdog de 400 ms; ao soltar, envia `{0,0}` imediatamente.
 ## 4. Status (2026-07-07)
 
 Feito e validado
-- Lógica validada em simulação: ~210 testes backend (pytest) + 11 frontend (vitest),
+- Lógica validada em simulação: 210 testes backend (pytest) + 11 frontend (vitest),
   9/9 cenários de aproximação convergem, missão completa em 4 mapas.
 - Bancada (06/07): encoders x4 validados (sinais, PPR 1440, isolamento),
   canais/sentido dos motores corrigidos e conferidos um a um, PID convergindo,
@@ -544,5 +544,5 @@ ação documentados.
 | Velocidades | v_máx medida 24 cm/s → config 19 cm/s · ω 2,5 rad/s (provisório) |
 | Geometria | roda r=2,7 cm · entre-eixos 15 cm · standoff 15 cm |
 | Missão | IDLE→LOAD_MAP→DRAW_TARGETS→GO_TO_PICK→AT_PICK→GO_TO_PLACE→AT_PLACE→GO_HOME→DONE (+FAULT) |
-| Verificação | 162 pytest + 11 vitest + 9/9 sim_sweep + 12/13 full_trace |
+| Verificação | 210 pytest + 11 vitest + 9/9 sim_sweep + 12/13 full_trace |
 | Stack | Pi: Python/FastAPI/asyncio/OpenCV/pupil-apriltags/filterpy · ESP32: C++/Arduino/PlatformIO/ArduinoJson · Front: React/Vite/Tailwind |

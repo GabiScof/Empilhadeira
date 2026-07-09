@@ -1,18 +1,20 @@
 # Empilhadeira — Backend Pi (Python)
 
-## Arquitetura — 4 tarefas asyncio
+## Arquitetura — 3 loops + WebSocket handler
 
+`main.py` cria 3 `asyncio.create_task` no lifespan: Vision, Serial, Control.
+O WebSocket handler roda por conexão (`@app.websocket("/ws")`).
 Todas compartilham `SharedState` (`app/state.py`):
 
-| Tarefa | Arquivo | Taxa | Função |
-|--------|---------|------|--------|
-| WebSocket Handler | `tasks/websocket_handler.py` | evento | Comandos do operador, telemetria |
-| Vision Loop | `tasks/vision_loop.py` | ~20 Hz | AprilTag → EKF |
-| Serial Loop | `tasks/serial_loop.py` | 20 Hz | Setpoint ↔ sensores (ESP32 ou emulador) |
-| Control Loop | `tasks/control_loop.py` | 20 Hz | Missão/navegação → setpoint |
+| Componente | Arquivo | Taxa | Função |
+|------------|---------|------|--------|
+| Vision Loop | `tasks/vision_loop.py` | ~20 Hz | AprilTag → EKF correction |
+| Serial Loop | `tasks/serial_loop.py` | 20 Hz | Setpoint ↔ sensores, EKF predict, GyroCalibrator, AttitudeKalman |
+| Control Loop | `tasks/control_loop.py` | 20 Hz | Arbitragem (manual > missão > dock > legado) → setpoint, segurança |
+| WebSocket Handler | `tasks/websocket_handler.py` | por conexão | Comandos, telemetria @20 Hz por cliente |
 
-O Control Loop roda independente do frontend (que envia comandos por evento,
-não em stream contínuo). Um único clique em AUTOMATICO basta para navegar.
+REST API (também em `main.py`): `/mission/*`, `/dock/*`, `/maps/*`, `/world-state`.
+Pi serve `frontend/dist` como estático (modo operação sem Node).
 
 ## Estrutura
 
@@ -21,14 +23,16 @@ app/
 ├── main.py              # FastAPI + lifespan (troca SIM↔real)
 ├── config.py            # Parâmetros (provisórios marcados TODO(equipe))
 ├── state.py             # Estado compartilhado
-├── models.py            # 4 contratos Pydantic
+├── models.py            # 4 contratos + telemetria estendida (Pydantic)
 ├── hardware/
 │   └── interfaces.py    # VisionSource + SerialTransport (encaixes)
 ├── comms/
 │   ├── protocol.py      # JSON + CRC8
 │   └── serial_transport.py  # PySerialTransport (UART real)
-├── control/             # EKF, navegação, planejador, missão
-├── tasks/               # 4 loops asyncio
+├── control/             # EKF, navegação, planejador, segment_executor, dock_to_tag,
+│                        #   state_machine, kinematics, kalman, gyro_calibration
+├── mission/             # mission_sm (SM pick-and-place)
+├── tasks/               # 3 loops asyncio + WS handler
 ├── vision/              # Detector, pose, calibração
 ├── world/               # Mapas JSON, robot model
 └── sim/                 # Emulador (SIM=1 only)
@@ -73,7 +77,7 @@ Resumo mínimo:
 2. Calibrar câmera → `calibracao/camera_intrinsics.json`
 3. Medir L, r, PPR → `config.py` + `config.h`
 4. Criar mapa JSON da arena → `maps/`
-5. `.env` com `SIM=0`, `SERIAL_PORT`, `MAP`
+5. `.env` com `SIM=0`, `SERIAL_PORT` (nota: `MAP=` no .env não tem efeito — mapa padrão hardcoded)
 6. Smoke tests (joystick → AUTOMATICO → missão)
 
 ## Parâmetros provisórios (confirmar no robô)

@@ -13,7 +13,7 @@ pode danificar GPIOs ou drivers.
 - [ ] Jumpers ENA/ENB removidos nos dois L298n
 - [ ] Level shifter nos encoders NXT (se saída 5 V)
 - [ ] Encoders nos GPIOs 23/15 (esq) e 32/33 (dir) — todos com pull-up interno (`INPUT_PULLUP`); nenhum pull-up externo necessário (refiado 2026-07-06: 34/35 ficaram livres)
-- [ ] Sem pull-up externo no GPIO 12 (strapping — ESQ IN1)
+- [ ] Sem pull-up externo no GPIO 12 (strapping — **DIR** IN1, canal A roda direita)
 - [ ] MPU-6050 em 3.3 V (I2C)
 - [ ] Fim-de-curso: desabilitados (-1) — operador solta o botão do garfo antes do fim do curso
 - [ ] Firmware gravado e frames de sensor a 20 Hz no monitor serial
@@ -245,8 +245,8 @@ do fim do curso mecânico.
 Quando as chaves forem instaladas:
 
 ```
-Switch NO (topo):   COM → GND,  NO → GPIO livre (ex.: 15)
-Switch NO (base):   COM → GND,  NO → GPIO livre (ex.: 4)
+Switch NO (topo):   COM → GND,  NO → GPIO livre (ex.: 16 ou 17)
+Switch NO (base):   COM → GND,  NO → GPIO livre (ex.: 34 ou 35)
 INPUT_PULLUP: HIGH = livre, LOW = no limite
 ```
 
@@ -275,7 +275,7 @@ pio device monitor   # verificar frames @ 20 Hz
 SIM=0
 SERIAL_PORT=/dev/ttyUSB0    # ou /dev/ttyACM0
 SERIAL_BAUDRATE=115200
-MAP=nome_do_mapa_medido
+# MAP= no .env NÃO é lido — mapa padrão hardcoded. Trocar via POST /maps/load/{nome} ou UI.
 ```
 
 ### 3. Validar Comunicação
@@ -361,7 +361,7 @@ python -m app.main
 
 | Sintoma | Causa provável | Ação |
 |---------|----------------|------|
-| ESP32 não grava / boot falha | GPIO 12 (ESQ IN1) puxado HIGH no boot | Remover pull-up externo do fio IN1 esq; desconectar driver ao gravar se preciso |
+| ESP32 não grava / boot falha | GPIO 12 (**DIR** IN1, canal A) puxado HIGH no boot | Remover pull-up externo; desconectar driver ao gravar se preciso |
 | Encoder sempre zero | Sem level shifter / fiação | Verificar tensão e ISR |
 | Encoder sempre zero após refiação para GPIO 34/35 | 34–39 são input-only sem pull-up interno | Só se aplica se alguém religar um encoder em 34/35 (hoje livres): instalar 10 kΩ → 3V3 em cada fase. Os pinos atuais (23/15 e 32/33) têm pull-up interno |
 | Motor oscila | Kp alto ou PPR errado | Ziegler-Nichols; validar PPR |

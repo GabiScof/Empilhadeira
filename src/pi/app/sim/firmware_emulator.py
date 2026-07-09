@@ -4,7 +4,7 @@ Espelha fielmente o comportamento do firmware real (branch feat/firmware-product
 - PID por roda: Kp=20, Ki=5, Kd=1, anti-windup clamp ±500, malha ~100 Hz.
 - Motor: 1ª ordem (tau ~50 ms) + saturação ~12.25 rad/s, duty 0-255.
 - Encoder: ω = (pulsos/PPR)·2π/dt, PPR=1440 (decodificação de quadratura x4).
-- Garfo: duty fixo 180, fim-de-curso topo/base.
+- Garfo: velocidade fixa (EMU_FORK_SPEED), limites topo/base (duty 220 no config, não modelado aqui).
 - MPU-6050: gera dados crus a partir da pose do robô (gravidade + ruído).
 - Watchdog: 200 ms sem setpoint → motores zerados, PID reset.
 - Cadências: PID ~100 Hz (acumulado), serial 20 Hz.

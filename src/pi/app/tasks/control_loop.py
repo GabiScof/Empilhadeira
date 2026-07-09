@@ -163,9 +163,9 @@ async def control_loop(state: SharedState) -> None:
                 joystick_y = command.joystick.y
                 garfo = command.garfo
 
-            # Dock-to-tag: só age no ramo AUTOMATICO-sem-missão e com o flag
-            # opt-in ligado. Com DOCK_TO_TAG=0, dock_active é sempre False e
-            # este caminho é idêntico ao legado.
+            # Dock-to-tag: modo padrão do AUTOMATICO-sem-missão (hardcoded True).
+            # Desligável em runtime via POST /dock/disable; com dock_enabled=False
+            # cai no legado.
             dock_active = (
                 state.dock_enabled
                 and requested_mode == Mode.AUTOMATICO

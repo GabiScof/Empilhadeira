@@ -13,12 +13,12 @@ Ver também:
 
 ## 1. Ideia central
 
-O simulador não é um projeto paralelo: é um substituto de duas peças de hardware
-(câmera + ESP32) conectado nas mesmas interfaces que o robô real usa.
+O simulador substitui duas peças de hardware (câmera + ESP32) nas mesmas
+interfaces Python que o robô real usa.
 
 ```
                     ┌─────────────────────────────────────┐
-                    │   LÓGICA COMPARTILHADA (100%)       │
+                    │   LÓGICA COMPARTILHADA              │
                     │                                     │
   Frontend ────────►│  WebSocket Handler                  │
   (React)           │  Control Loop @20 Hz                │
@@ -85,7 +85,7 @@ mas descreve posições medidas na arena, não um modelo idealizado.
 
 ### 2.3 FirmwareEmulator — réplica do ESP32
 
-**O que faz (espelha `firmware/src/`):**
+**O que faz (modela `firmware/src/` com simplificações):**
 
 | Aspecto | Valor emulado | Fonte no firmware |
 |---------|---------------|-------------------|
@@ -103,7 +103,7 @@ mas descreve posições medidas na arena, não um modelo idealizado.
 - Não reproduz exatamente a não-linearidade do L298n (dead zone, aquecimento)
 - Não modela bounce/backlash dos encoders NXT
 - Não simula queda de tensão da bateria sob carga
-- BMS sempre retorna `null` (a menos que injetado)
+- BMS sempre retorna `null` (o fault `battery_saturated` seta um flag mas nenhum componente o lê — sem efeito real)
 
 **No robô real:** o ESP32 roda o firmware C++ real. O emulador serve para
 desenvolver a lógica do Pi e calibrar ganhos iniciais; a sintonia PID final
@@ -127,7 +127,7 @@ deve ser feita no hardware (Ziegler-Nichols no chão).
 - Não roda PnP real (solvePnP) — usa geometria analítica perfeita + ruído
 - Não simula motion blur, auto-exposure, distorção de lente, tags inclinadas 3D
 - Não testa iluminação, reflexo, motion blur da câmera real
-- Usa intrínsecos placeholder — não valida calibração xadrez
+- Não usa intrínsecos de câmera (geometria pura robô→tag, sem modelo óptico)
 
 **No robô real:** `RealVisionSource` usa OpenCV + pupil-apriltags + calibração real.
 A lógica downstream (EKF, navegação, telemetria) é idêntica; só muda a qualidade
@@ -264,7 +264,7 @@ Descobertos rodando backend + WebSocket + frontend ao vivo (não apareciam em te
 | Telemetria instável em MANUAL | Só sim (double-noise) — não afeta o real |
 | `nav_phase` no dashboard | Vale no real — contrato de telemetria |
 
-### 6.3 Testes automatizados (162 pytest + 11 frontend)
+### 6.3 Testes automatizados (210 pytest + 11 frontend)
 
 | Categoria | Garante para o real? |
 |-----------|---------------------|
@@ -471,6 +471,6 @@ curl -X POST http://localhost:8000/sim/reset-pose \
 ## Resumo
 
 O simulador substitui câmera e ESP32, validou a lógica do Pi (controle, navegação,
-missão, EKF, segurança, frontend) com 162 testes e cenários de convergência. No
+missão, EKF, segurança, frontend) com 210 testes e cenários de convergência. No
 robô real reutilizamos essa lógica, trocamos os encaixes de hardware e recalibramos
 parâmetros físicos que o sim não mede.

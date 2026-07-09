@@ -46,13 +46,13 @@
 // Lado Pi (app/config.py) — geometria/optica:
 //  8. [P] WHEEL_BASE_L_CM ...... (atual 15.0 cm) — BITOLA: distância entre os
 //         pontos de contato das DUAS rodas no chão. Paquímetro/régua, em cm.
-//  9. [P] WHEEL_RADIUS_R_CM .... (atual 2.8 cm) — meça o DIÂMETRO externo da
+//  9. [P] WHEEL_RADIUS_R_CM .... (atual 2.7 cm) — meça o DIÂMETRO externo da
 //         roda (com o peso do robô sobre ela) e divida por 2, em cm.
 // 10. [P] MAX_LINEAR_SPEED / MAX_ANGULAR_SPEED — v (cm/s) e ω (rad/s) MÁXIMOS
 //         reais: cronometre o robô a duty máximo por distância/ângulo conhecidos.
-// 11. [P] APRILTAG_SIZE_CM ..... (atual 5.0 cm) — meça o lado do quadrado PRETO
+// 11. [P] APRILTAG_SIZE_CM ..... (atual 4.0 cm) — meça o lado do quadrado PRETO
 //         da tag impressa (sem a borda branca), em cm.
-// 12. [P] CAMERA_TO_FORK_OFFSET_CM ... (atual 0,0,0) — (x, y, z) em cm do centro
+// 12. [P] CAMERA_TO_FORK_OFFSET_CM ... (atual 0.0, -14.2, -10.0) — (x, y, z) em cm do centro
 //         óptico da câmera até o ponto de referência do garfo.
 //         (Intrínsecos fx/fy/cx/cy da câmera: JÁ calibrados em
 //          calibracao/camera_intrinsics.json.)

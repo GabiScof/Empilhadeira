@@ -76,6 +76,8 @@ Os nomes entre colchetes são os defines equivalentes naquele firmware de teste.
 | Encoder Dir B       | 33   | INPUT↑  | NXT 53787 encoder fase B    | [ENC1_B] Interrupção CHANGE (x4) |
 | Fork Limit Top      | -1   | —       | (chave não montada)         | Desabilitado — nunca bloqueia |
 | Fork Limit Bottom   | -1   | —       | (chave não montada)         | Desabilitado — nunca bloqueia |
+| Enc Power VCC       | 2    | OUTPUT  | Encoder VCC (via level shifter) | `PIN_ENC_POWER_VCC` — `encodersBegin()` seta HIGH |
+| Enc Power GND       | 4    | OUTPUT  | Encoder GND                | `PIN_ENC_POWER_GND` — `encodersBegin()` seta LOW |
 | I2C SDA             | 21   | I2C     | MPU-6050 SDA               | Padrão ESP32                   |
 | I2C SCL             | 22   | I2C     | MPU-6050 SCL               | Padrão ESP32                   |
 
@@ -276,7 +278,9 @@ Se os switches forem NC (Normally Closed), trocar `FORK_LIMIT_ACTIVE_LEVEL` para
 - Operador pressiona "subir" no app → Pi envia `"garfo": "subir"` → motor do garfo
   aciona com duty 220 (`FORK_DUTY`) no sentido de subida.
 - Garfo atinge o topo → switch fecha → `forkAtTopLimit()` retorna true → motor para
-  no próximo ciclo PID (~10 ms).
+  no próximo ciclo PID (~10 ms). **No firmware atual, os pinos de limite estão
+  desabilitados (`PIN_FORK_LIMIT_TOP/BOTTOM = -1`) — `forkAtTopLimit/Bottom()`
+  sempre retornam false. Switches não montados.**
 - Operador solta o botão → Pi envia `"garfo": "parar"` → motor fica parado.
   O worm gear impede que a carga desça por gravidade.
 

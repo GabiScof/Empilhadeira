@@ -121,7 +121,7 @@ class Telemetry(BaseModel):
     ekf: EkfState | None = Field(None, description="Estado do EKF 2D.")
     mission: MissionInfo | None = Field(None, description="Estado da missão.")
     navigation: NavigationInfo | None = Field(None, description="Estado da navegação.")
-    dock: DockInfo | None = Field(None, description="Estado do dock-to-tag (opt-in).")
+    dock: DockInfo | None = Field(None, description="Estado do dock-to-tag.")
     detected_tags: list[DetectedTag] = Field(default_factory=list, description="Tags detectadas.")
     map_name: str | None = Field(None, description="Nome do mapa carregado.")
 
@@ -172,7 +172,7 @@ class DockInfo(BaseModel):
     alvo, rodas comandadas) — feedback ao vivo para debug no frontend.
     """
 
-    enabled: bool = Field(False, description="Se o dock está ligado (opt-in do operador).")
+    enabled: bool = Field(False, description="Se o dock está ligado (default True no boot, desligável via API).")
     state: str = Field("SEEKING", description="SEEKING / DOCKING / DONE / FAULT.")
     mode: str = Field("line_of_sight", description="Estratégia de alvo.")
     segments: int = Field(0, description="Segmentos na rota planejada.")

@@ -18,8 +18,9 @@ pick-and-place e telemetria em tempo real.
             WebSocket / Wi-Fi          ▼
 ┌───────────────┴────────────────────────────────────────┐
 │  Raspberry Pi — Python (FastAPI + asyncio)              │
-│  WebSocket · Vision · Serial · Control Loop (4 tasks)  │
-│  EKF 2D · planejador · missão · navegação reativa     │
+│  Vision · Serial · Control Loop (3 loops no startup)   │
+│  + WebSocket handler por conexão                       │
+│  EKF 2D · planejador · missão · dock · nav legada     │
 └───────────────▲──────────────────────┬─────────────────┘
         (4) sensores            (3) setpoint
         UART USB 115200, 20 Hz · JSON+CRC8+\n
@@ -46,7 +47,7 @@ Detalhes em [`docs/architecture.md`](docs/architecture.md).
 # Instalar
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-cp .env.example .env   # ajustar conforme ambiente
+cp .env.example .env   # ajustar conforme ambiente (nota: MAP= no .env NÃO tem efeito; mapa padrão é hardcoded)
 
 # Simulação (sem hardware)
 SIM=1 ./scripts/run_pi.sh
@@ -84,11 +85,11 @@ bash scripts/verify.sh
 | [simulation.md](docs/simulation.md) | Modo SIM=1, falhas, APIs `/sim/*` |
 | [camera-calibration.md](docs/camera-calibration.md) | Calibração xadrez |
 
-## Verificação (2026-06-23)
+## Verificação (2026-07-08)
 
 | Check | Resultado |
 |-------|-----------|
-| pytest | 162/162 |
+| pytest | ~210 testes |
 | frontend vitest | 11/11 |
 | sim_sweep | 9/9 convergem |
 | full_trace | 12/13 (1 LOST esperado — FOV) |

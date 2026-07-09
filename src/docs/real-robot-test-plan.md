@@ -43,14 +43,16 @@ Falta, na ordem:
 
 Estado consolidado (atualizado 2026-07-06):
 - Mapa real: `pi/maps/corredor_6tags_80x160.json` — ok (valida no schema)
-- 2026-07-06: dock-to-tag (opt-in) + vista de cima no robô real — modo que
-  estaciona em frente a uma tag por segmentos (testado no 3.4b) e endpoint
+- 2026-07-06: dock-to-tag (hardcoded ligado desde 2026-07-07) + vista de cima
+  no robô real — modo padrão de AUTOMATICO sem missão, que estaciona em frente
+  a uma tag por segmentos (testado em unidade, não no hardware) e endpoint
   `GET /world-state` que faz a tela `/demo` desenhar o Arena no hardware
   (pose do EKF + mapa). Hardcoded ligado desde 2026-07-07; ver `docs/dock-to-tag.md`.
 - Calibração: `pi/calibracao/camera_intrinsics.json` — recalibração de
   2026-07-07 feita (câmera nova, 1280×720, fx=fy=1023,63, cx=634,08,
   cy=377,08) — validar z/x com fita. A calibração antiga (câmera antiga,
-  640×480, erro de reprojeção 0,144 px, cx=399 anômalo) foi descartada.
+  640×480, reproj 0,144 px, cx=399 anômalo) foi descartada. O JSON da 2ª cal
+  não registra o reproj (`reprojection_error: null`).
 - Captura deve rodar em 1280×720 (`CAMERA_FRAME_WIDTH/HEIGHT` no config)
 - Pinagem firmware conferida na bancada; fim-de-curso desabilitado (-1)
 - 2026-07-06: canais dos motores estavam trocados na fiação (canal A
@@ -152,7 +154,8 @@ hostname -I
 cp .env.example .env
 # edite o .env:  SIM=0 · REQUIRE_CAMERA_CALIBRATION=1
 #   CAMERA_FRAME_WIDTH=1280 · CAMERA_FRAME_HEIGHT=720  (deve bater com a calibração)
-#   MAP=corredor_6tags_80x160 · SERIAL_PORT=<a porta do passo 5>
+#   SERIAL_PORT=<a porta do passo 5>
+# (nota: MAP= no .env não é lido — mapa padrão hardcoded em config.DEFAULT_MAP)
 ```
 
 **Regra da porta serial:** só um programa pode usar a UART por vez.
@@ -347,7 +350,7 @@ SIM=0
 REQUIRE_CAMERA_CALIBRATION=1
 CAMERA_FRAME_WIDTH=1280
 CAMERA_FRAME_HEIGHT=720
-MAP=corredor_6tags_80x160
+# MAP= no .env não é lido — mapa padrão: config.DEFAULT_MAP = corredor_6tags_80x160
 SERIAL_PORT=/dev/ttyUSB0        # a porta anotada na Fase 0
 ```
 
@@ -501,7 +504,7 @@ Repetir com offset lateral 10–20 cm e heading ±15° (cenários que o sim pass
    com segurança (1 clique basta).
 
 ### 3.4 EKF no corredor real
-Dirigir MANUAL pelo corredor 80×200 olhando a pose no painel:
+Dirigir MANUAL pelo corredor 80×160 olhando a pose no painel:
 - Pose "teleporta" ao ver tag = subir `EKF_Q_*` (odometria superestimada).
 - Pose ignora tags = descer `EKF_R_*`.
 - Entre tags a pose deriva pouco e corrige suave a cada tag nova.

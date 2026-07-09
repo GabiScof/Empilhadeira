@@ -17,7 +17,7 @@ Ver também:
 | Camada | Status | Observação |
 |--------|--------|------------|
 | Lógica de controle (Pi) | Implementada | Control loop @20 Hz, EKF, missão, navegação |
-| Simulação (`SIM=1`) | Validada | 162 testes pytest + 11 frontend; sim_sweep 9/9 convergem |
+| Simulação (`SIM=1`) | Validada | 210 testes pytest + 11 frontend; sim_sweep 9/9 convergem |
 | Firmware ESP32 | Implementado | PID, encoders, MPU, garfo, protocolo serial |
 | Interfaces hardware Pi | Implementadas | `RealVisionSource`, `PySerialTransport` |
 | Calibração câmera real | Feita (2026-07-07) | Recalibração 1280×720, fx=fy=1023,63, cx=634,08, cy=377,08 |
@@ -44,7 +44,7 @@ SyntheticVision                      Câmera física
 SimWorld                             Arena física + mapa JSON medido
 ```
 
-As quatro tarefas asyncio sobem em ambos os modos:
+Os 3 loops asyncio + WebSocket handler sobem em ambos os modos:
 
 | Tarefa | Arquivo | Função |
 |--------|---------|--------|
@@ -216,7 +216,8 @@ PI_HOST=0.0.0.0
 PI_PORT=8000
 SERIAL_PORT=/dev/ttyUSB0      # ou /dev/ttyACM0 — ls /dev/tty*
 SERIAL_BAUDRATE=115200
-MAP=arena_real_medida
+# MAP= no .env NÃO é lido; mapa padrão hardcoded. Trocar via POST /maps/load/{nome} ou UI.
+# MAP=arena_real_medida
 REQUIRE_CAMERA_CALIBRATION=1
 CAMERA_INDEX=0
 VITE_PI_WS_URL=ws://<IP_DO_PI>:8000/ws

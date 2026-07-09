@@ -80,7 +80,7 @@ As arestas são não direcionadas — o `WorldModel` constrói grafo bidireciona
 3. Marque a posição inicial/home do robô
 4. Crie o JSON seguindo o schema acima
 5. Salve em `pi/maps/nome_do_mapa.json`
-6. Selecione na UI ou defina `MAP=nome_do_mapa` no `.env`
+6. Selecione na UI (`MapSelector`) ou via `POST /maps/load/{nome}` (nota: `MAP=` no `.env` **não é lido** pelo código)
 
 Para arenas com obstáculos, posicione waypoints nos corredores navegáveis e
 conecte com arestas que não cruzam paredes.
@@ -99,7 +99,7 @@ Erros de validação levantam `pydantic.ValidationError` com mensagem descritiva
 
 | Canal | Como usar |
 |-------|-----------|
-| `.env` | `MAP=corredor_pequeno`; sem a variável, vale `config.DEFAULT_MAP` (`corredor_6tags_80x160`) |
+| `config.py` | `DEFAULT_MAP = "corredor_6tags_80x160"` (hardcoded; `MAP=` no `.env` **não é lido**) |
 | API REST | `POST /maps/load/{map_name}` |
 | UI | `MapSelector` na página de demo |
 | Listagem | `GET /maps/list` — retorna nome, dimensões, nº de tags, se tem grafo |

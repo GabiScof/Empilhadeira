@@ -11,7 +11,7 @@ Ver também:
 - [`hardware-deployment.md`](./hardware-deployment.md) — passo a passo no robô
 - [`hardware-interfaces.md`](./hardware-interfaces.md) — encaixes `VisionSource` / `SerialTransport`
 - [`serial-protocol.md`](./serial-protocol.md) — fonte de verdade dos 4 contratos
-- [`verification-status.md`](./verification-status.md) — 162 testes, bugs corrigidos
+- [`verification-status.md`](./verification-status.md) — 210 testes, bugs corrigidos
 
 ---
 
@@ -19,7 +19,7 @@ Ver também:
 
 | Camada | Código | Testado em sim | Testado no real |
 |--------|--------|----------------|-----------------|
-| Lógica Pi (controle) | pronto | ~210 testes | pendente |
+| Lógica Pi (controle) | pronto | 210 testes | pendente |
 | Filtros (Kalman + EKF) | pronto | unitário | pendente |
 | Visão real (OpenCV+tags) | pronto | mock | pendente |
 | Serial real (UART) | pronto | fake injetado | pendente |
@@ -429,7 +429,7 @@ Unidades: ω em rad/s; garfo enum `subir|descer|parar`.
 - [x] Lógica Pi implementada
 - [x] Firmware ESP32 implementado
 - [x] Interfaces hardware implementadas
-- [x] 162 pytest + 11 frontend passam
+- [x] 210 pytest + 11 frontend passam
 - [x] Contratos alinhados Pi/ESP/frontend
 - [ ] `pio run` compila firmware (equipe)
 - [ ] `bash scripts/verify.sh` verde (lint pendente)
@@ -485,8 +485,8 @@ REQUIRE_CAMERA_CALIBRATION=1    # 0 só para debug sem calibração
 CAMERA_FRAME_WIDTH=1280     # deve bater com a resolução da calibração;
 CAMERA_FRAME_HEIGHT=720     # vision_loop/teste_cam forçam o image_size do JSON
 
-# Mapa
-MAP=corredor_6tags_80x160
+# Mapa (MAP= no .env NÃO é lido; mapa padrão: config.DEFAULT_MAP = corredor_6tags_80x160)
+# MAP=corredor_6tags_80x160
 
 # Frontend (celular)
 VITE_PI_WS_URL=ws://<IP_DO_PI>:8000/ws
@@ -523,7 +523,7 @@ Sim (código) — firmware com PID, encoders, MPU, garfo, protocolo,
 watchdog. Falta gravar, compilar no ambiente da equipe e sintonizar o PID no chão.
 
 ### "A lógica de navegação/missão está pronta?"
-Sim — 162 testes + sim_sweep 9/9. Ganhos finos podem precisar ajuste no chão.
+Sim — 210 testes + sim_sweep 9/9. Ganhos finos podem precisar ajuste no chão.
 
 ### "Os filtros estão prontos?"
 Sim (código) — Kalman (IMU) e EKF 2D (odometria+tags) implementados e testados.

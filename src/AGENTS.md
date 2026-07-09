@@ -23,9 +23,8 @@ real para o celular.
 
 - Arquitetura hierárquica de 3 camadas: Frontend (celular) → Raspberry Pi (alto
   nível) → ESP32 (baixo nível, tempo real).
-- Raspberry Pi em Python. Backend assíncrono único com FastAPI + `asyncio`,
-  quatro tarefas concorrentes: WebSocket Handler, Vision Loop, Serial Loop,
-  Control Loop.
+- Raspberry Pi em Python. Backend assíncrono com FastAPI + `asyncio`:
+  3 loops no startup (Vision, Serial, Control) + WebSocket handler por conexão.
 - ESP32 em C++ (framework Arduino, build com PlatformIO). PID a ~100 Hz e
   determinismo de tempo real.
 - Frontend em React + Vite (roda no navegador do celular).
@@ -84,22 +83,40 @@ src/
 ├── .env.example                   # IP do Pi, porta serial, baudrate
 ├── pyproject.toml                 # workspace Python (ruff, black, pytest)
 │
-├── docs/
-│   ├── architecture.md            # arquitetura de 3 camadas + diagrama
-│   ├── serial-protocol.md         # framing + tabela de mensagens
-│   └── camera-calibration.md      # passo a passo da calibração
+├── docs/                            # 15 documentos — ver tabela na Seção 9
+│   ├── architecture.md            # arquitetura, decisões, dock-to-tag, watchdogs
+│   ├── serial-protocol.md         # 4 contratos (campos, CRC, watchdogs)
+│   ├── navigation.md              # planejador, executor, ganhos, legado
+│   ├── mission.md                 # missão pick-and-place, SM, API
+│   ├── dock-to-tag.md             # aproximação por segmentos a 1 tag
+│   ├── maps.md                    # formato JSON dos mapas
+│   ├── simulation.md              # SIM=1, falhas, APIs /sim/*
+│   ├── camera-calibration.md      # calibração xadrez
+│   ├── hardware-bring-up.md       # pinos, energia, fiação
+│   ├── hardware-deployment.md     # deploy no robô real
+│   ├── hardware-interfaces.md     # VisionSource, SerialTransport
+│   ├── readiness-sim-to-real.md   # auditoria sim→real
+│   ├── simulator-to-real.md       # o que o sim cobre
+│   ├── real-robot-test-plan.md    # plano de testes hardware
+│   └── verification-status.md    # testes, bugs corrigidos
 │
 ├── pi/                            # alto nível — Python
 │   ├── README.md
 │   ├── app/
-│   │   ├── main.py                # FastAPI + lifespan (troca SIM↔real)
-│   │   ├── config.py              # constantes/placeholders da Seção 3
-│   │   ├── state.py               # estado compartilhado entre tarefas
-│   │   ├── models.py              # schemas Pydantic dos 4 contratos (Seção 6)
+│   │   ├── main.py                # FastAPI + lifespan + REST routes (mission, dock, maps)
+│   │   ├── config.py              # constantes centrais (Seção 3)
+│   │   ├── state.py               # estado compartilhado (SharedState)
+│   │   ├── models.py              # Pydantic: 4 contratos + telemetria estendida
 │   │   ├── tasks/                 # websocket_handler, vision_loop, serial_loop, control_loop
 │   │   ├── vision/                # detector, calibration, pose
-│   │   ├── control/               # state_machine, kinematics, navigation, ekf
-│   │   ├── comms/                 # protocol (JSON+CRC8+\n), crc8
+│   │   ├── control/               # state_machine, kinematics, navigation, ekf,
+│   │   │                          #   path_planner, segment_executor, dock_to_tag,
+│   │   │                          #   kalman, gyro_calibration, stanley_nav
+│   │   ├── mission/               # mission_sm (SM pick-and-place)
+│   │   ├── hardware/              # interfaces (VisionSource, SerialTransport protocols)
+│   │   ├── sim/                   # firmware_emulator, synthetic_vision, world, fault_injector
+│   │   ├── world/                 # map_schema, world_model, robot_model
+│   │   ├── comms/                 # protocol, crc8, serial_transport
 │   │   └── telemetry/             # aggregator
 │   ├── calibracao/
 │   │   └── camera_intrinsics.json
@@ -127,7 +144,10 @@ src/
 │       ├── App.jsx
 │       ├── types/contracts.ts     # tipos espelhando os contratos (Seção 6)
 │       ├── ws/useWebSocket.js
-│       └── components/            # Joystick, TelemetryPanel, ForkControl, ModeSelector
+│       ├── components/            # Joystick, DPad, TelemetryPanel, ForkControl,
+│       │                          #   ModeSelector, Arena, DockPanel, MissionPanel,
+│       │                          #   SafetyAlert, FaultInjector, MapSelector, etc.
+│       └── pages/                 # OperatorPage, DemoPage, MapPage
 │
 └── scripts/
     ├── run_pi.sh
@@ -156,17 +176,23 @@ Convenções fixas:
 }
 
 // (2) Pi → Frontend · telemetria @20Hz (WebSocket)
+// Campos base (sempre presentes):
 {
-  "estado": "MANUAL",                 // estado atual da máquina de estados
-  "rodas": { "esq": 0.0, "dir": 0.0 },             // rad/s (medido)
-  "imu": { "roll": 0.0, "pitch": 0.0 },            // graus (filtrado por Kalman)
-  "visao": {
-    "detectado": false,               // bool
-    "id": null,                       // int | null
-    "z_cm": null, "x_cm": null, "pitch_deg": null  // float | null
-  },
-  "bateria": { "cel": null, "i_a": null, "temp_c": null }, // null se BMS sem leitura digital
-  "ts_ms": 0
+  "estado": "MANUAL",
+  "rodas": { "esq": 0.0, "dir": 0.0 },
+  "imu": { "roll": 0.0, "pitch": 0.0 },
+  "visao": { "detectado": false, "id": null, "z_cm": null, "x_cm": null, "pitch_deg": null },
+  "bateria": { "cel": null, "i_a": null, "temp_c": null },
+  "ts_ms": 0,
+  // Campos estendidos (populados pelo Pi, não pela UART):
+  "parado_reason": null,             // string | null (tag_loss, ws_disconnect, etc.)
+  "nav_phase": null,                 // string | null (COARSE_ALIGN, APPROACH, etc.)
+  "ekf": null,                       // {x, y, theta, cov, ellipse} | null
+  "mission": null,                   // {state, pick_id, place_id, ...} | null
+  "navigation": null,                // {executor_state, segment_index, ...} | null
+  "dock": null,                      // {state, mode, ...} | null
+  "detected_tags": [],               // lista de tags detectadas (multi-tag)
+  "map_name": null                   // string | null
 }
 
 // (3) Pi → ESP32 · setpoint (UART) — depois vira "<json>*CRC\n"
@@ -204,12 +230,15 @@ Convenções fixas:
   intervalo curto (Seção 3) e depois entra em estado seguro.
 - Garfo (`firmware/motors.*`): PWM de duty fixo enquanto o botão estiver
   pressionado; ao soltar, duty 0 (a redução do motor segura a carga).
-- Kalman (`control/kalman.py`): fundir acelerômetro + giroscópio do MPU-6050 →
-  roll/pitch estáveis. Filtragem no Pi (o ESP32 manda dados crus).
+- AttitudeKalman (`control/kalman.py`): fundir acelerômetro + giroscópio do MPU → roll/pitch
+  para telemetria da UI. Heading (θ) é do EKF 2D, não deste filtro.
+- GyroCalibrator (`control/gyro_calibration.py`): bias automático + auto-orientação de eixo Z
+  no boot (robô parado ~3 s). O yaw calibrado alimenta o EKF.
 - Protocolo (`comms/protocol.py`, `firmware/protocol.*`): serializa JSON, anexa
   CRC8 hex e `\n`; na recepção ressincroniza no `\n` e descarta CRC inválido.
-- Estado seguro / watchdogs: serial cai → ESP32 zera motores. Comando (WebSocket)
-  cai no manual → Pi força PARADO.
+- Estado seguro / watchdogs: firmware 200 ms, comando 400 ms, serial-loss 5 frames,
+  tag-loss 6 frames, WS disconnect imediato. Latch com acknowledge. Missão e dock
+  bypassam tag-loss e auto-acknowledge. Ver `architecture.md` §Estado seguro.
 
 ---
 

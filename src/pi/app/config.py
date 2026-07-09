@@ -321,7 +321,7 @@ TAG_APPROACH_STANDOFF_M: float = float(os.getenv("TAG_STANDOFF_M", "0.15"))
 
 
 # Dock-to-tag — aproximação por segmentos (FORWARD/TURN) a UMA tag avulsa.
-# Opt-in: substitui o navegador legado no ramo AUTOMATICO-sem-missão.
+# Modo padrão do AUTOMATICO-sem-missão desde 2026-07-07.
 # HARDCODED True (2026-07-07): o env desligado a cada restart derrubava o
 # AUTOMATICO no caminho legado ("tag perdida" imediato). Dock e o modo padrao
 # do AUTOMATICO-sem-missao; desligavel em runtime via POST /dock/disable.
