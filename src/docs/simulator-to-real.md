@@ -124,7 +124,7 @@ deve ser feita no hardware (Ziegler-Nichols no chão).
 - Permite injetar: tag oculta, blur probabilístico, drop de frame
 
 **O que não faz:**
-- Não roda PnP real (solvePnP) — usa geometria analítica perfeita + ruído
+- Não roda PnP real (solvePnP) — usa geometria analítica ideal (sem modelo óptico) + ruído
 - Não simula motion blur, auto-exposure, distorção de lente, tags inclinadas 3D
 - Não testa iluminação, reflexo, motion blur da câmera real
 - Não usa intrínsecos de câmera (geometria pura robô→tag, sem modelo óptico)

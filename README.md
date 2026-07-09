@@ -188,7 +188,8 @@ odometria conta rotação que não houve e o EKF acumula erro.
 Modo que estaciona o robô em frente a uma única tag por segmentos discretos.
 O plano é feito uma vez; a execução usa odometria/EKF. Usa a mesma maquinaria
 de navegação da missão (PathPlanner + SegmentExecutor), então serve de ensaio
-para ela: se o dock funciona, a navegação da missão funciona.
+para a parte de navegação dela (a missão ainda envolve o grafo de waypoints e
+a máquina de estados, que o dock não exercita).
 
 **Estados:** `SEEKING` (acumula detecções) → `DOCKING` (executa rota) →
 `DONE` / `FAULT`
@@ -640,7 +641,7 @@ src/
 | Item | Estado |
 |------|--------|
 | Lógica + simulação | Validado (210 pytest + 9/9 sim_sweep) |
-| Firmware ESP32 | Pronto para gravar |
+| Firmware ESP32 | Gravado e exercitado na bancada (2026-07-06/07) |
 | Backend Pi (câmera + serial) | Implementado |
 | Calibração da câmera + mapa real | Feito |
 | Bancada (encoders, motores, PID, watchdogs) | Validado |
