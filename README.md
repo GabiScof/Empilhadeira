@@ -481,6 +481,36 @@ caixas dos eletrônicos) está documentada em
 
 ---
 
+## Mecânica
+
+A estrutura mecânica da empilhadeira foi desenvolvida com um sistema de elevação baseado em **polia com corda**. Nesse mecanismo, o motor aciona o carretel, que enrola ou desenrola a corda responsável por movimentar o garfo verticalmente. A polia foi utilizada para guiar a corda e permitir que o movimento de subida e descida ocorresse de forma mais controlada.
+
+Além dos componentes comerciais, também foi feita uma **modelagem 3D própria**, armazenada na pasta [`modelagem_3D/`](modelagem_3D/). Essa pasta contém os arquivos STL das peças mecânicas utilizadas no projeto, incluindo:
+
+- `Carretel.stl`
+- `Eixo.stl`
+- `Garfo.stl`
+- `Polia Direita.stl`
+- `Polia Esquerda.stl`
+- `Suporte.stl`
+
+Na montagem mecânica, foram utilizados os seguintes materiais principais:
+
+- Hastes metálicas de 8 mm de diâmetro;
+- Rolamentos lineares LM8UU;
+- Polia com rolamento interno de 5 mm de diâmetro;
+- Motor worm gear para acionamento do garfo.
+
+A escolha do motor com rosca sem-fim foi importante porque ele permite maior redução de velocidade e ajuda a manter o garfo parado quando o motor não está sendo acionado, evitando que a carga desça sozinha. Dessa forma, a solução mecânica combina peças impressas em 3D, componentes metálicos de guiamento e um sistema simples de polia e corda para realizar o movimento vertical do garfo.
+
+O modelo 3D também pode ser acessado pelo Onshape:
+
+[https://cad.onshape.com/documents/f90b50a5cbad31499728b9c2/w/215a010849009c6ab330cfee/e/5a6f6cd27785eeb6a40e91f8?renderMode=0&uiState=6a4ef046b9109722557d3373
+](https://cad.onshape.com/documents/f90b50a5cbad31499728b9c2/w/215a010849009c6ab330cfee/e/5a6f6cd27785eeb6a40e91f8?renderMode=0&uiState=6a4ef046b9109722557d3373)
+
+---
+
+
 ## Quick start
 
 ### Simulação (sem hardware)
