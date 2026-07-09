@@ -265,8 +265,8 @@ ESP32 garante determinismo a 100 Hz; o Pi roda a 20 Hz com Python/asyncio.
   FORWARD/TURN com pose-alvo.
 - **SegmentExecutor (malha externa):** FORWARD com `v = K_DIST·dist` e correção
   de heading `ω = K_HEADING·erro` (se o erro de heading passa de 45°, para e
-  gira primeiro); TURN girando no lugar até tolerância de ~2°; tolerância de
-  posição 2 cm; timeout de segmento → FAULT da missão.
+  gira primeiro); TURN girando no lugar até tolerância de ~4° (`NAV_HEADING_TOL_RAD=0.07`);
+  tolerância de posição 2 cm; timeout de segmento 45 s → FAULT da missão.
 - **Navegação reativa legada (1 tag): APPROACH → FACE → RETREAT**, controle
   por *bearing* proporcional, desaceleração limitada
   (`v = √(2·a·d)`), zona morta com histerese, detector de oscilação (conta
@@ -472,7 +472,7 @@ command watchdog de 400 ms; ao soltar, envia `{0,0}` imediatamente.
 ## 4. Status (2026-07-07)
 
 Feito e validado
-- Lógica completa validada em simulação: 162 testes backend + 11 frontend,
+- Lógica validada em simulação: ~210 testes backend (pytest) + 11 frontend (vitest),
   9/9 cenários de aproximação convergem, missão completa em 4 mapas.
 - Bancada (06/07): encoders x4 validados (sinais, PPR 1440, isolamento),
   canais/sentido dos motores corrigidos e conferidos um a um, PID convergindo,
@@ -535,7 +535,7 @@ ação documentados.
 | Arena real | corredor 0,80 × 1,60 m, 6 tags |
 | AprilTag | família tag25h9, **4 cm** |
 | Câmera | USB, **1280×720**, fx=fy=1023,63 · cx=634,08 · cy=377,08 (recalibração 2026-07-07, xadrez OpenCV, pós-remontagem com tilt de 30°) |
-| Loops no Pi | Vision 20 Hz · Serial 20 Hz · Control 20 Hz · Telemetria 20 Hz |
+| Loops no Pi | 3 no startup: Vision · Serial · Control (20 Hz cada); Telemetria via WebSocket handler por conexão |
 | PID firmware | 100 Hz, Kp=20 Ki=5 Kd=1, anti-windup ±500, PWM 20 kHz 8 bits |
 | Encoders | quadratura x4, 1440 pulsos/volta |
 | EKF | estado [x,y,θ]; heading 70% gyro + 30% odom; gate Mahalanobis 3σ |

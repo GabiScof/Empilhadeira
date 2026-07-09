@@ -1,6 +1,6 @@
 # Status de Verificação — Simulação e Testes
 
-Última verificação: 2026-06-23 (achados das sessões de simulação, antes em `ACHADOS_SIM.md` e `ACHADOS_SIM_v2.md`).
+Última contagem: 2026-07-08 (achados das sessões de simulação, antes em `ACHADOS_SIM.md` e `ACHADOS_SIM_v2.md`).
 
 ---
 
@@ -10,7 +10,7 @@ de hardware (câmera e serial).
 
 | Verificação | Resultado |
 |-------------|-----------|
-| pytest (`pi/tests/`) | 162/162 passam |
+| pytest (`pi/tests/`) | ~210 testes (contagem 2026-07-08) |
 | vitest (`frontend/`) | 11/11 passam |
 | `sim_sweep.py` (9 cenários) | 9/9 convergem |
 | `full_trace.py` (13 cenários) | 12/13 convergem |
