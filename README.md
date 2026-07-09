@@ -503,13 +503,10 @@ Na montagem mecânica, foram utilizados os seguintes materiais principais:
 
 A escolha do motor com rosca sem-fim foi importante porque ele permite maior redução de velocidade e ajuda a manter o garfo parado quando o motor não está sendo acionado, evitando que a carga desça sozinha. Dessa forma, a solução mecânica combina peças impressas em 3D, componentes metálicos de guiamento e um sistema simples de polia e corda para realizar o movimento vertical do garfo.
 
-O modelo 3D também pode ser acessado pelo Onshape:
-
-[https://cad.onshape.com/documents/f90b50a5cbad31499728b9c2/w/215a010849009c6ab330cfee/e/5a6f6cd27785eeb6a40e91f8?renderMode=0&uiState=6a4ef046b9109722557d3373
-](https://cad.onshape.com/documents/f90b50a5cbad31499728b9c2/w/215a010849009c6ab330cfee/e/5a6f6cd27785eeb6a40e91f8?renderMode=0&uiState=6a4ef046b9109722557d3373)
+O modelo 3D também pode ser acessado pelo
+[Onshape](https://cad.onshape.com/documents/f90b50a5cbad31499728b9c2/w/215a010849009c6ab330cfee/e/5a6f6cd27785eeb6a40e91f8?renderMode=0&uiState=6a4ef046b9109722557d3373).
 
 ---
-
 
 ## Quick start
 
