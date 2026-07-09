@@ -83,7 +83,7 @@ src/
 ├── .env.example                   # IP do Pi, porta serial, baudrate
 ├── pyproject.toml                 # workspace Python (ruff, black, pytest)
 │
-├── docs/                            # 15 documentos — ver tabela na Seção 9
+├── docs/                            # 15 documentos — ver Seção 9
 │   ├── architecture.md            # arquitetura, decisões, dock-to-tag, watchdogs
 │   ├── serial-protocol.md         # 4 contratos (campos, CRC, watchdogs)
 │   ├── navigation.md              # planejador, executor, ganhos, legado
@@ -107,7 +107,8 @@ src/
 │   │   ├── config.py              # constantes centrais (Seção 3)
 │   │   ├── state.py               # estado compartilhado (SharedState)
 │   │   ├── models.py              # Pydantic: 4 contratos + telemetria estendida
-│   │   ├── tasks/                 # websocket_handler, vision_loop, serial_loop, control_loop
+│   │   ├── tasks/                 # websocket_handler, vision_loop, serial_loop,
+│   │   │                          #   control_loop, fake_telemetry_producer
 │   │   ├── vision/                # detector, calibration, pose
 │   │   ├── control/               # state_machine, kinematics, navigation, ekf,
 │   │   │                          #   path_planner, segment_executor, dock_to_tag,
@@ -120,6 +121,7 @@ src/
 │   │   └── telemetry/             # aggregator
 │   ├── calibracao/
 │   │   └── camera_intrinsics.json
+│   ├── maps/                      # mapas JSON (DEFAULT_MAP = corredor_6tags_80x160)
 │   └── tests/
 │
 ├── firmware/                      # baixo nível — C++ (Arduino) no ESP32
@@ -135,7 +137,8 @@ src/
 │       └── lib/
 │
 ├── frontend/                      # interface — React + Vite
-│   ├── package.json               # react, vite, tailwindcss, nipplejs, recharts
+│   ├── package.json               # react, react-router-dom, vite, tailwindcss,
+│   │                              #   nipplejs, recharts, vitest
 │   ├── vite.config.js
 │   ├── index.html
 │   ├── README.md
@@ -147,11 +150,15 @@ src/
 │       ├── components/            # Joystick, DPad, TelemetryPanel, ForkControl,
 │       │                          #   ModeSelector, Arena, DockPanel, MissionPanel,
 │       │                          #   SafetyAlert, FaultInjector, MapSelector, etc.
-│       └── pages/                 # OperatorPage, DemoPage, MapPage
+│       └── pages/                 # DemoPage, MapPage (OperatorPage vive em App.jsx)
 │
 └── scripts/
     ├── run_pi.sh
-    └── flash_firmware.sh
+    ├── verify.sh                  # ruff + black + pytest + vitest + build
+    ├── flash_firmware.sh
+    ├── bench_setpoint.py          # bancada: setpoint direto no ESP32
+    ├── check_apriltag_vision.py   # bancada: detecção AprilTag ao vivo
+    └── capture/                   # captura de traces de simulação
 ```
 
 ---
@@ -187,8 +194,8 @@ Convenções fixas:
   // Campos estendidos (populados pelo Pi, não pela UART):
   "parado_reason": null,             // string | null (tag_loss, ws_disconnect, etc.)
   "nav_phase": null,                 // string | null (COARSE_ALIGN, APPROACH, etc.)
-  "ekf": null,                       // {x, y, theta, cov, ellipse} | null
-  "mission": null,                   // {state, pick_id, place_id, ...} | null
+  "ekf": null,                       // {x_m, y_m, theta_rad, covariance_trace, ellipse_*, ...} | null
+  "mission": null,                   // {state, pick_position_id, place_position_id, ...} | null
   "navigation": null,                // {executor_state, segment_index, ...} | null
   "dock": null,                      // {state, mode, ...} | null
   "detected_tags": [],               // lista de tags detectadas (multi-tag)
@@ -248,7 +255,8 @@ Convenções fixas:
   pyserial-asyncio, NumPy, filterpy, Pydantic. Família de tag: `tag25h9`.
 - ESP32: C++ / Arduino, PlatformIO (`board = esp32dev`), ArduinoJson, periférico
   LEDC para PWM, `Wire` para I²C, encoder por interrupção.
-- Frontend: React + Vite, Tailwind CSS, nipplejs, Recharts, WebSocket nativo.
+- Frontend: React + Vite, react-router-dom, Tailwind CSS, nipplejs, Recharts,
+  WebSocket nativo, Vitest + Testing Library nos testes.
 
 Não adicionar dependências fora desta lista sem marcar `TODO(equipe)` e justificar.
 

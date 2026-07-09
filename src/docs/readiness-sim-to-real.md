@@ -56,12 +56,15 @@ else:
 tasks += [control_loop(_state)]             # idêntico nos dois modos
 ```
 
-| Tarefa asyncio | Arquivo | SIM=1 | SIM=0 | Mesmo código? |
+São 3 loops asyncio criados no `lifespan()`; o handler WebSocket não é task do
+lifespan — roda por conexão, na rota `/ws`.
+
+| Componente | Arquivo | SIM=1 | SIM=0 | Mesmo código? |
 |----------------|---------|-------|-------|---------------|
-| WebSocket Handler | `tasks/websocket_handler.py` | sim | sim | Sim |
-| Control Loop @20 Hz | `tasks/control_loop.py` | sim | sim | Sim |
-| Vision Loop | `tasks/vision_loop.py` | SimVisionSource | RealVisionSource | Loop sim; fonte não |
-| Serial Loop | `tasks/serial_loop.py` | serial_loop_sim | serial_loop_real | Loop sim; transporte não |
+| Control Loop @20 Hz (task) | `tasks/control_loop.py` | sim | sim | Sim |
+| Vision Loop (task) | `tasks/vision_loop.py` | SimVisionSource | RealVisionSource | Loop sim; fonte não |
+| Serial Loop (task) | `tasks/serial_loop.py` | serial_loop_sim | serial_loop_real | Loop sim; transporte não |
+| WebSocket Handler (rota, por conexão) | `tasks/websocket_handler.py` | sim | sim | Sim |
 
 Se câmera ou serial falharem no boot real, a app não cai — loga erro e continua
 (útil para bring-up parcial: testar serial antes da câmera, etc.).
@@ -74,7 +77,7 @@ Se câmera ou serial falharem no boot real, a app não cai — loga erro e conti
 
 | Módulo | Arquivo | Status | Notas |
 |--------|---------|--------|-------|
-| FastAPI factory | `main.py` | ok | Rotas `/ws`, `/maps/*`, `/mission/*`; `/sim/*` só SIM=1 |
+| FastAPI factory | `main.py` | ok | Rotas `/ws`, `/maps/*`, `/mission/*`, `/dock/*`, `/world-state`; `/sim/*` só SIM=1 |
 | Config central | `config.py` | parcial | Todos parâmetros existem; muitos `TODO(equipe)` provisórios |
 | Estado compartilhado | `state.py` | ok | Lock asyncio, EKF, missão, setpoint, telemetria |
 | Modelos Pydantic | `models.py` | ok | 4 contratos + telemetria estendida (EKF, missão, nav) |
@@ -84,7 +87,7 @@ Se câmera ou serial falharem no boot real, a app não cai — loga erro e conti
 | Módulo | Arquivo | Status | Testes |
 |--------|---------|--------|--------|
 | WebSocket | `tasks/websocket_handler.py` | ok | Manual ao vivo; sem E2E auto |
-| Control Loop | `tasks/control_loop.py` | ok | `test_control_loop.py` (4) |
+| Control Loop | `tasks/control_loop.py` | ok | `test_control_loop.py` (4; 1 pulado — ramo legado, dock ligado por padrão) |
 | Vision Loop | `tasks/vision_loop.py` | ok | `test_vision_sim.py`; real via mock |
 | Serial Loop SIM | `tasks/serial_loop.py` | ok | `test_integration_sim.py` |
 | Serial Loop REAL | `tasks/serial_loop.py` | ok | `test_hardware_interfaces.py` (fake transport) |
@@ -102,10 +105,10 @@ Se câmera ou serial falharem no boot real, a app não cai — loga erro e conti
 |--------|---------|--------|--------|
 | Máquina de estados | `control/state_machine.py` | ok | 14 testes; latch segurança |
 | Cinemática | `control/kinematics.py` | ok | 8 testes |
-| Navegação reativa | `control/navigation.py` | ok | 25 testes; APPROACH/FACE/RETREAT |
+| Navegação reativa | `control/navigation.py` | ok | 31 testes; APPROACH/FACE/RETREAT |
 | Planejador | `control/path_planner.py` | ok | A*, Manhattan |
 | Executor segmentos | `control/segment_executor.py` | ok | FORWARD, TURN, free angle |
-| Missão SM | `mission/mission_sm.py` | ok | 10 + 4 integração mapas |
+| Missão SM | `mission/mission_sm.py` | ok | 10 + 5 integração (4 mapas + drift sem visão) |
 
 ### 2.4 Filtros e estimação
 
@@ -154,10 +157,10 @@ Control Loop lê ekf.x, ekf.y, ekf.theta para missão/navegação
 1. Tenta `AprilTagDetector.from_calibration()` → lê `pi/calibracao/camera_intrinsics.json`
 2. Se `null` e `REQUIRE_CAMERA_CALIBRATION=1` (padrão) → RuntimeError com mensagem explícita
 3. Se `REQUIRE_CAMERA_CALIBRATION=0` → usa placeholders (pose imprecisa)
-4. Abre `cv2.VideoCapture(CAMERA_INDEX)` — default `/dev/video0`
+4. Abre `cv2.VideoCapture(CAMERA_INDEX)` — índice fixado em 0 no `config.py` (sem override por env); na prática `/dev/video0`. A resolução é forçada para o `image_size` do JSON de calibração
 
 **Dependências Pi para modo real** (`pyproject.toml`):
-- `opencv-python`, `pupil-apriltags`, `pyserial-asyncio`, `numpy`, `filterpy`, `websockets`
+- `opencv-python`, `pupil-apriltags`, `pyserial-asyncio`, `numpy`, `filterpy` (WebSocket vem de `fastapi` + `uvicorn[standard]`)
 
 ### 2.6 Comunicação serial (modo real)
 
@@ -352,7 +355,7 @@ Unidades: ω em rad/s; garfo enum `subir|descer|parar`.
 |------|-----------|
 | Control loop @20 Hz independente do frontend | `test_control_loop.py` |
 | Máquina de estados + latch PARADO | `test_state_machine.py` |
-| Navegação APPROACH/FACE/RETREAT | `sim_sweep` 9/9, 25 testes |
+| Navegação APPROACH/FACE/RETREAT | `sim_sweep` 9/9, 31 testes |
 | Missão pick-and-place | 4 mapas integração |
 | EKF predict + correct + gating | `test_ekf.py` |
 | Kalman roll/pitch | `test_kalman.py` |
@@ -371,7 +374,7 @@ Unidades: ω em rad/s; garfo enum `subir|descer|parar`.
 | WHEEL_BASE, WHEEL_RADIUS | 15 cm, 2.7 cm (medição da equipe 2026-07-06) | Confirmar raio por rolagem; medir bitola |
 | ENCODER_PPR | 1440 (x4) | Validado 2026-07-06 (1 volta ≈ 1440) |
 | ZREF / standoff | 15 cm | Medir distância real |
-| NAV_K*, EKF_Q/R | Tunados em sim | Re-tunar |
+| NAV_K*, EKF Q/R | Tunados em sim | Re-tunar (Q/R do EKF: editar os atributos de classe em `ekf.py` — os `EKF_Q_*`/`EKF_R_*` do `config.py` não são lidos) |
 | APRILTAG_SIZE | 4 cm | Conferir com paquímetro |
 | CAMERA_TO_FORK_OFFSET | (0.0, -14.2, -10.0) — remontagem 2026-07-07 (2ª vez): lente a 10 cm da ponta do garfo → z negativo | Validar com fita (tag a 15 cm da ponta → z≈15) |
 | Convenção yaw em pose.py | Derivada de pitch | Validar vs câmera real |
@@ -402,7 +405,7 @@ Unidades: ω em rad/s; garfo enum `subir|descer|parar`.
 
 ### Prova (confiança alta no real)
 
-1. Arquitetura de 4 loops funciona sem deadlock
+1. Arquitetura de 3 loops asyncio + handler WebSocket funciona sem deadlock
 2. 1 clique AUTOMATICO basta — control loop re-propõe setpoint @20 Hz
 3. Perda de tag → PARADO latched — só novo comando reativa
 4. Convergência da navegação a ~15 cm com offset lateral ≤2.4 cm (9 cenários)
@@ -429,7 +432,7 @@ Unidades: ω em rad/s; garfo enum `subir|descer|parar`.
 - [x] Lógica Pi implementada
 - [x] Firmware ESP32 implementado
 - [x] Interfaces hardware implementadas
-- [x] 210 pytest + 11 frontend passam
+- [x] 210 pytest (209 passam, 1 pulado) + 11 frontend passam (contagem 2026-07-08)
 - [x] Contratos alinhados Pi/ESP/frontend
 - [ ] `pio run` compila firmware (equipe)
 - [ ] `bash scripts/verify.sh` verde (lint pendente)
@@ -480,10 +483,10 @@ SERIAL_PORT=/dev/ttyUSB0      # ls /dev/tty* após conectar
 SERIAL_BAUDRATE=115200
 
 # Câmera
-CAMERA_INDEX=0
 REQUIRE_CAMERA_CALIBRATION=1    # 0 só para debug sem calibração
-CAMERA_FRAME_WIDTH=1280     # deve bater com a resolução da calibração;
-CAMERA_FRAME_HEIGHT=720     # vision_loop/teste_cam forçam o image_size do JSON
+# CAMERA_INDEX (0) e CAMERA_FRAME_WIDTH/HEIGHT (1280×720) NÃO são lidos do
+# .env — moram hardcoded no config.py; vision_loop/teste_cam forçam a
+# resolução do image_size do JSON de calibração
 
 # Mapa (MAP= no .env NÃO é lido; mapa padrão: config.DEFAULT_MAP = corredor_6tags_80x160)
 # MAP=corredor_6tags_80x160

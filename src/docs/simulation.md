@@ -64,7 +64,7 @@ O emulador de firmware (`firmware_emulator.py`) replica:
 
 Ao iniciar com `SIM=1`:
 
-1. Carrega `DEFAULT_MAP` de `config.py` (ou `MAP` do `.env`)
+1. Carrega `DEFAULT_MAP` de `config.py` (hardcoded; `MAP=` no `.env` não é lido)
 2. Cria `WorldModel` → `SimWorld` com dimensões e tags do JSON
 3. Posiciona o robô em `start_pose`
 4. Inicializa o EKF na mesma pose
@@ -83,10 +83,10 @@ Disponível apenas em `SIM=1` via `POST /sim/inject-fault`:
 
 | `fault_type` | Parâmetros | Efeito |
 |--------------|------------|--------|
-| `serial_drop` | `active: bool` | Emulador para de responder → watchdog ESP32 |
+| `serial_drop` | `active: bool` | Emulador ignora os setpoints recebidos → o watchdog de setpoint do ESP32 emulado (200 ms) zera os motores |
 | `tag_hidden` | `active: bool` | Visão sintética retorna não-detecção |
 | `wheel_slip` | `value`, `value2` | Multiplicadores de slip esq/dir |
-| `battery_saturated` | `active: bool` | Dados BMS falsos |
+| `battery_saturated` | `active: bool` | Só registra o flag no estado de falhas (visível na UI); o efeito no emulador não foi implementado |
 | `vision_blur` | `value` (prob) | Probabilidade de blur por frame |
 | `vision_drop` | `value` (prob) | Probabilidade de drop (sem detecção) |
 | `encoder_noise` | `value` (std) | Ruído gaussiano nos encoders |
@@ -164,7 +164,7 @@ Parâmetros configuráveis em `config.py`:
 | `SIM_VISION_MAX_RANGE` | 150 cm | Distância máxima de detecção |
 | `SIM_ENCODER_NOISE_STD` | 0.05 | Ruído encoder (rad/s) |
 | `SIM_GYRO_DRIFT_RADS` | 0.001 | Drift giroscópio (rad/s) |
-| `SIM_DEFAULT_SEED` | 42 | Seed para sorteio de missão |
+| `SIM_DEFAULT_SEED` | 42 | Seed dos RNGs da simulação (`SimWorld`, `SyntheticVision`, emulador). O sorteio da missão usa outro seed (`_seed=42` em `mission_sm.py`) |
 
 ## Limitações da Simulação
 

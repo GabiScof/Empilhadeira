@@ -29,8 +29,8 @@ app/
 ├── comms/
 │   ├── protocol.py      # JSON + CRC8
 │   └── serial_transport.py  # PySerialTransport (UART real)
-├── control/             # EKF, navegação, planejador, segment_executor, dock_to_tag,
-│                        #   state_machine, kinematics, kalman, gyro_calibration
+├── control/             # ekf, navigation, path_planner, segment_executor, dock_to_tag,
+│                        #   state_machine, kinematics, kalman, gyro_calibration, stanley_nav
 ├── mission/             # mission_sm (SM pick-and-place)
 ├── tasks/               # 3 loops asyncio + WS handler
 ├── vision/              # Detector, pose, calibração

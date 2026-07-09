@@ -104,9 +104,9 @@ qualquer estado ativo.
 |--------|------|-------|
 | GO_TO_* / GO_HOME | Navega (SegmentExecutor) | Manual (operador) |
 | AT_PICK / AT_PLACE | Parado | Operador aciona + clica "continuar" |
-| FAULT | Telemetria registra falha; motores param no tick do fault, mas o control loop não bloqueia AUTOMATICO — operador deve resetar missão ou mudar de modo. | — |
+| FAULT | Telemetria registra a falha e as rodas zeram no tick do fault, mas o control loop não bloqueia AUTOMATICO: com a missão inativa, o ramo cai no dock-to-tag (ou legado) no tick seguinte — operador deve resetar a missão ou mudar de modo. | — |
 
-Targets default: `MISSION_DEFAULT_PICK_ID="L3"`, `MISSION_DEFAULT_PLACE_ID="R1"` → se não passados explicitamente, cai no sorteio por `_seed=42`.
+Prioridade de alvos: argumento explícito (UI/REST) > defaults `MISSION_DEFAULT_PICK_ID="L3"` / `MISSION_DEFAULT_PLACE_ID="R1"` (hardcoded em `config.py`) > sorteio com `_seed=42` (hardcoded em `mission_sm.py`; o `MISSION_SEED` de `config.py` não é lido pela SM).
 
 Implementação: `pi/app/mission/mission_sm.py`. Ver [`mission.md`](./mission.md).
 
@@ -130,8 +130,10 @@ pura odometria. Essa é outra escolha estranha: foi feita para evitar saltos de
 pose durante a aproximação curta, mas significa que a precisão depende da
 qualidade da predição.
 
-Estados: `SEEKING → DOCKING → DONE` (+ `FAULT` por timeout). Em `DONE`, se o
-robô se mover > 0,10 m, re-planeja automaticamente.
+Estados: `SEEKING → DOCKING → DONE` (+ `FAULT` por timeout). Em `DONE` o docker
+continua observando: se uma nova detecção gerar um alvo a mais de 0,10 m
+(`_REPLAN_MIN_TRAVEL_M` — tag movida, tag nova ou robô deslocado), re-planeja
+automaticamente.
 
 ## Malha em cascata de controle
 
@@ -220,7 +222,7 @@ definidos e estão indicados abaixo.
 | Ganhos malha externa (`NAV_K_DIST`, `NAV_K_HEADING`) | `pi/app/config.py` | Valores atuais 1,5 e 2,5; sintonia fina pendente. |
 | Ganhos navegação legado (`Kz, Kx, Kp_pitch`) | `pi/app/config.py` | Modo automático reativo. |
 | `Zref` (distância de parada) | `pi/app/config.py` | ~15 cm provisório; depende do comprimento do garfo. |
-| Ruído EKF (`EKF_Q_*`, `EKF_R_*`) | `pi/app/config.py` | Fusão odometria + tag. |
+| Ruído EKF (`EKF_Q_*`, `EKF_R_*`) | `pi/app/config.py` | Fusão odometria + tag. Não conectados: o EKF usa atributos de classe hardcoded em `ekf.py` (`Q_BASE_XY=0.001`, `Q_BASE_THETA=0.002`, `R_XY=0.01`, `R_THETA=0.05`); os `EKF_*` de config são duplicatas não lidas. |
 | Intrínsecos da câmera (`fx, fy, cx, cy`) | `pi/calibracao/camera_intrinsics.json` | Definidos: recalibração de 2026-07-07 (1280×720). Ver [`camera-calibration.md`](./camera-calibration.md). |
 | Tamanho físico da AprilTag | `pi/app/config.py` | Necessário para a pose. |
 | Offset extrínseco câmera→garfo | `pi/app/config.py` + docs | Alinhar a câmera ≠ alinhar o garfo. |

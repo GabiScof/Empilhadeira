@@ -76,7 +76,7 @@ Os nomes entre colchetes são os defines equivalentes naquele firmware de teste.
 | Encoder Dir B       | 33   | INPUT↑  | NXT 53787 encoder fase B    | [ENC1_B] Interrupção CHANGE (x4) |
 | Fork Limit Top      | -1   | —       | (chave não montada)         | Desabilitado — nunca bloqueia |
 | Fork Limit Bottom   | -1   | —       | (chave não montada)         | Desabilitado — nunca bloqueia |
-| Enc Power VCC       | 2    | OUTPUT  | Encoder VCC (via level shifter) | `PIN_ENC_POWER_VCC` — `encodersBegin()` seta HIGH |
+| Enc Power VCC       | 2    | OUTPUT  | Encoder "VCC" (3,3 V pelo GPIO) | `PIN_ENC_POWER_VCC` — `encodersBegin()` seta HIGH; limite ~40 mA/GPIO |
 | Enc Power GND       | 4    | OUTPUT  | Encoder GND                | `PIN_ENC_POWER_GND` — `encodersBegin()` seta LOW |
 | I2C SDA             | 21   | I2C     | MPU-6050 SDA               | Padrão ESP32                   |
 | I2C SCL             | 22   | I2C     | MPU-6050 SCL               | Padrão ESP32                   |
@@ -99,7 +99,7 @@ nas bordas; foi movido para 23/15.)
 | GPIO     | Motivo                                                   |
 |----------|----------------------------------------------------------|
 | 0        | Strapping pin (flash mode se LOW no boot) — não usado    |
-| 2        | Strapping pin (pode entrar em flash mode) — não usado    |
+| 2        | Strapping pin. Usado como "VCC" do encoder (`PIN_ENC_POWER_VCC`, OUTPUT HIGH) e aciona o LED onboard (acende junto — normal). Na gravação precisa estar LOW/solto; a carga do encoder normalmente puxa para baixo — se a gravação falhar, desconectar o fio do GPIO 2 |
 | 6-11     | Conectados ao flash SPI interno — nunca usar             |
 | 12       | Strapping (tensão do flash). Usado como DIR IN1 (canal A; era rotulado ESQ até 2026-07-06) — funciona porque IN1 idle=LOW; não adicionar pull-up externo |
 | 15       | Strapping (MTDO). Usado como Encoder Esq B — se LOW no boot, apenas silencia as mensagens de boot da ROM; inofensivo |
@@ -393,6 +393,9 @@ cd src/firmware && pio run
 
 ### Teste 4: Fim-de-curso do garfo
 
+> Só se aplica quando as chaves forem montadas — hoje
+> `PIN_FORK_LIMIT_TOP/BOTTOM = -1` (desabilitadas, ver §3.5).
+
 1. Abrir Serial Monitor.
 2. Apertar manualmente o switch do topo → observar se o garfo para de subir.
 3. Soltar → garfo pode subir novamente.
@@ -434,7 +437,7 @@ cd src/firmware && pio run
 
 ### Teste 8: Integração com o Pi
 
-1. Subir o backend do Pi (`python -m app.main`).
+1. Subir o backend do Pi (`SIM=0 ./scripts/run_pi.sh` a partir de `src/`).
 2. Pi começa a enviar setpoints a 20 Hz.
 3. ESP32 responde com sensores a 20 Hz.
 4. No app (frontend): mover o joystick → rodas respondem.
@@ -511,9 +514,12 @@ segurar LOW no boot, as mensagens da ROM simplesmente somem — também inofensi
 
 ### ESP32 não entra em modo de gravação
 
-Verificar se nenhum switch de fim-de-curso está puxando GPIO 5 para LOW durante
-o boot. GPIO 5 é strapping pin — se LOW, pode afetar o boot. Desconectar o switch
-do GPIO 5 temporariamente para gravar, ou usar GPIO 5 apenas após o boot.
+O GPIO 2 (strapping pin) alimenta o encoder (`PIN_ENC_POWER_VCC`) e precisa
+estar LOW/solto na gravação. A carga do encoder normalmente puxa o pino para
+baixo, então costuma funcionar — se a gravação falhar, desconectar
+temporariamente o fio do GPIO 2. O GPIO 5 (PWM do garfo, também strapping)
+vai a uma entrada do L298n e em geral não interfere; se as chaves de
+fim-de-curso um dia forem montadas, evitar GPIOs strapping para elas.
 
 ---
 
@@ -541,12 +547,14 @@ Itens que podem precisar de ajuste após testes com o hardware real:
 firmware/
 ├── platformio.ini      # Config PlatformIO (espressif32@^6, ArduinoJson@^7)
 ├── README.md           # Este arquivo
-└── src/
-    ├── main.cpp        # Loop principal (PID 100Hz + Serial 20Hz + watchdog)
-    ├── config.h        # todos os pinos, ganhos, taxas e constantes
-    ├── pid.h/cpp       # Controlador PID com anti-windup
-    ├── motors.h/cpp    # PWM/LEDC → L298n + garfo com fim-de-curso
-    ├── encoders.h/cpp  # Leitura de quadratura por ISR (IRAM_ATTR)
-    ├── protocol.h/cpp  # JSON+CRC8+\n framing + SetpointFrameDecoder
-    └── lib/            # (vazio — libs externas via lib_deps)
+├── src/
+│   ├── main.cpp        # Loop principal (PID 100Hz + Serial 20Hz + watchdog)
+│   ├── config.h        # todos os pinos, ganhos, taxas e constantes
+│   ├── pid.h/cpp       # Controlador PID com anti-windup
+│   ├── motors.h/cpp    # PWM/LEDC → L298n + garfo com fim-de-curso
+│   ├── encoders.h/cpp  # Leitura de quadratura por ISR (IRAM_ATTR)
+│   ├── protocol.h/cpp  # JSON+CRC8+\n framing + SetpointFrameDecoder
+│   └── lib/            # (vazio — libs externas via lib_deps)
+└── test/
+    └── test_protocol/  # testes Unity do protocolo (`pio test -e esp32_test`)
 ```

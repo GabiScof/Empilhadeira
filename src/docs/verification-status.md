@@ -25,7 +25,7 @@ de hardware (câmera e serial).
 | # | Problema | Correção |
 |---|----------|----------|
 | 1 | APIs `/sim/*` retornavam HTTP 422 | Modelos Pydantic movidos para nível de módulo |
-| 2 | WebSocket `/ws` retornava 404 | Dependência `websockets` adicionada |
+| 2 | WebSocket `/ws` retornava 404 | Dependência `websockets` adicionada (hoje suprida por `uvicorn[standard]`) |
 | 3 | AUTOMATICO congelava após 1 comando | `control_loop.py` @20 Hz independente do frontend |
 | 4 | PARADO oscilava sem latch | `_safety_latched` na máquina de estados |
 | 5 | Fallback sequencial deadlock de rotação | Omega combinado X+pitch |
@@ -65,9 +65,9 @@ com câmera frontal. Detalhes em [`navigation.md`](./navigation.md).
 
 | Área | Arquivo(s) | O que valida |
 |------|------------|--------------|
-| Loop de controle | `test_control_loop.py` | AUTOMATICO com 1 comando; latch perda tag |
+| Loop de controle | `test_control_loop.py` (4; 1 pulado — ramo do navegador legado, dock ligado por padrão) | AUTOMATICO com 1 comando; latch perda tag |
 | Navegação | `test_navigation.py` (31) | Bearing, FACE/RETREAT, fallback, dead zone |
-| Missão | `test_mission.py`, `test_integration_mission.py` | SM completa em 4 mapas |
+| Missão | `test_mission.py` (10), `test_integration_mission.py` (5) | SM completa em 4 mapas + deriva sem visão |
 | EKF | `test_ekf.py` (10) | Predição, correção, outlier rejection |
 | Dock-to-tag | `test_dock_to_tag.py` (21) | Geometria, planejamento, SM, convergência < 5 cm |
 | Gyro calibration | `test_gyro_calibration.py` (13) | Bias, auto-orientação, eixo, rastreamento |

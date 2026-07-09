@@ -48,7 +48,7 @@ WHEEL_BASE_L_CM: float = 15.0
 # Roda Lego NXT ~56 mm de diâmetro → r ≈ 2.8 cm.
 WHEEL_RADIUS_R_CM: float = 2.7
 
-# MEDIDO NA BANCADA (2026-07-06): 100 cm em 4,16 s a talo cheio no chão
+# Medido na bancada (2026-07-06): 100 cm em 4,16 s a duty máximo no chão
 # → v_máx real = 24,0 cm/s. Gravado a ~80% (folga p/ o PID corrigir e p/ a
 # bateria cair sem saturar). Remedir se trocar bateria/pneus/carga.
 MAX_LINEAR_SPEED: float = 19.0
@@ -104,9 +104,8 @@ APRILTAG_FAMILY: str = "tag25h9"
 APRILTAG_SIZE_CM: float = 4.0
 
 # Fallbacks = 2ª calibração da câmera nova (2026-07-07, pós-remontagem 30°,
-# 1280x720) (a fonte da
-# verdade é calibracao/camera_intrinsics.json — estes valores só valem se o
-# JSON sumir E REQUIRE_CAMERA_CALIBRATION=0).
+# 1280x720). A fonte da verdade é calibracao/camera_intrinsics.json — estes
+# valores só valem se o JSON sumir e REQUIRE_CAMERA_CALIBRATION=0.
 CAMERA_FX: float = 1023.63
 CAMERA_FY: float = 1023.63
 CAMERA_CX: float = 634.077
@@ -355,15 +354,16 @@ DOCK_PITCH_TO_TAG_YAW_OFFSET_RAD: float = math.pi
 
 
 # Missão
+# Atenção: a state machine usa seed 42 hardcoded (mission_sm.py, _seed) e não
+# lê esta constante — conectar ou remover.
 MISSION_SEED: int = int(os.getenv("MISSION_SEED", "42"))
 # TODO(equipe): confirmar gatilho de retomada — "continuar" (default) ou auto pelo fim-de-curso
 MISSION_RESUME_TRIGGER: str = os.getenv("MISSION_RESUME_TRIGGER", "button")
 
-# Pick/place PADRÃO da missão (position_id do mapa) — HARDCODED, não vem do env.
-# Usado quando o operador NÃO escolhe no painel (dropdown "Sortear") e no
+# Pick/place padrão da missão (position_id do mapa) — hardcoded, não vem do env.
+# Usado quando o operador não escolhe no painel (dropdown "Sortear") e no
 # `POST /mission/start` sem corpo. Prioridade: argumento explícito (UI/curl) >
-# este padrão > sorteio por MISSION_SEED. Defina None p/ voltar ao sorteio.
-# No corredor_6tags_80x160: L2 = 2ª tag da esquerda (mais perto),
-# R3 = 3ª da direita (mais longe).
+# este padrão > sorteio (seed 42 na state machine). None volta ao sorteio.
+# No corredor_6tags_80x160: L3 = 3ª tag da esquerda, R1 = 1ª da direita.
 MISSION_DEFAULT_PICK_ID: str | None = "L3"
 MISSION_DEFAULT_PLACE_ID: str | None = "R1"

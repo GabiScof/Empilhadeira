@@ -213,7 +213,8 @@ próximo à fonte.
 | L298n #2 | A | Garfo (JGY-370 worm gear) |
 
 Obrigatório: remover jumpers ENA/ENB em ambos os módulos para habilitar
-controle PWM pelos GPIOs 13 (esq), 25 (dir) e 5 (garfo).
+controle PWM pelos GPIOs 25 (esq, ENB do L298n #1), 13 (dir, ENA do L298n #1)
+e 5 (garfo, ENA do L298n #2).
 
 PWM: 20 kHz, 8 bits (0–255 duty). Ver `LEDC_FREQ_HZ` e `LEDC_RESOLUTION_BITS`
 em `config.h`.
@@ -245,10 +246,13 @@ do fim do curso mecânico.
 Quando as chaves forem instaladas:
 
 ```
-Switch NO (topo):   COM → GND,  NO → GPIO livre (ex.: 16 ou 17)
-Switch NO (base):   COM → GND,  NO → GPIO livre (ex.: 34 ou 35)
+Switch NO (topo):   COM → GND,  NO → GPIO livre (ex.: 16)
+Switch NO (base):   COM → GND,  NO → GPIO livre (ex.: 17)
 INPUT_PULLUP: HIGH = livre, LOW = no limite
 ```
+
+> Evitar GPIO 34–39 para os switches: são input-only sem pull-up interno,
+> exigiriam pull-up externo 10 kΩ → 3V3.
 
 > GPIO 5 não está mais disponível (é o PWM do garfo). Definir os novos
 > GPIOs em `config.h` e regravar o firmware.
@@ -290,7 +294,7 @@ python -m app.main
 
 - Joystick manual move as rodas
 - Garfo sobe/desce com botões
-- Watchdog: desconectar USB → motores param em < 200 ms
+- Watchdog: desconectar USB → motores param em ~200 ms (`SETPOINT_TIMEOUT_MS`)
 
 ### 5. Calibrar e Testar Missão
 
@@ -343,8 +347,8 @@ python -m app.main
 |-----------|------|--------------|
 | `NAV_K_DIST`, `NAV_K_HEADING` | `pi/app/config.py` | Sintonizar após PID interno estável |
 | `NAV_POS_TOL_M`, `NAV_HEADING_TOL_RAD` | `pi/app/config.py` | Ajustar precisão de parada |
-| `EKF_Q_*`, `EKF_R_*` | `pi/app/config.py` | Comparar odometria pura vs. com tag |
-| `EKF_MAHALANOBIS_GATE` | `pi/app/config.py` | Testar com blur / detecções ruins |
+| Q/R do EKF (`Q_BASE_*`, `R_*`) | `pi/app/control/ekf.py` (atributos da classe `PoseEKF`) | Comparar odometria pura vs. com tag. Os `EKF_Q_*`/`EKF_R_*` de `config.py` existem mas não estão conectados à classe — editar o `ekf.py` |
+| `MAHALANOBIS_GATE` | `pi/app/control/ekf.py` (o `EKF_MAHALANOBIS_GATE` de `config.py` também não está conectado) | Testar com blur / detecções ruins |
 
 ### Mapa
 

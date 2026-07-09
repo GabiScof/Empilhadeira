@@ -89,7 +89,7 @@ bash scripts/verify.sh
 
 | Check | Resultado |
 |-------|-----------|
-| pytest | ~210 testes |
+| pytest | 210 testes (209 passam, 1 pulado) |
 | frontend vitest | 11/11 |
 | sim_sweep | 9/9 convergem |
 | full_trace | 12/13 (1 LOST esperado — FOV) |
@@ -98,5 +98,5 @@ bash scripts/verify.sh
 
 Valores provisórios em `pi/app/config.py` e `firmware/src/config.h`, marcados
 `TODO(equipe)`. Lista completa em
-[`docs/architecture.md#parâmetros-em-aberto`](docs/architecture.md#parâmetros-em-aberto--não-inventar-valor)
+[`docs/architecture.md#parâmetros-em-aberto`](docs/architecture.md#parâmetros-em-aberto)
 e checklist de medição em [`docs/hardware-deployment.md`](docs/hardware-deployment.md).

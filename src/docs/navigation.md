@@ -107,7 +107,7 @@ Para cada segmento de giro:
 |--------|-------------|
 | `IDLE` | Sem rota carregada |
 | `RUNNING` | Executando segmento atual |
-| `SEGMENT_DONE` | Segmento concluído (transitório) |
+| `SEGMENT_DONE` | Definido no enum, mas a implementação atual nunca o emite — ao concluir um segmento o executor permanece em `RUNNING` e avança direto para o próximo |
 | `ROUTE_DONE` | Todos os segmentos concluídos → missão avança |
 | `TIMEOUT` | Segmento excedeu `NAV_MAX_SEGMENT_TIME_S` (45 s) → FAULT |
 
@@ -142,8 +142,11 @@ Estado: **x = [x, y, θ]** em metros e radianos.
 Fusão de heading: média ponderada 70% giroscópio + 30% odometria
 (`alpha_gyro = 0.7`, `TODO(equipe)` calibrar).
 
-Ver `pi/app/control/ekf.py` para Jacobiano, matrizes Q/R e elipse de
-covariância exportada para a UI.
+Q e R vivem como atributos hardcoded da classe em `ekf.py` (`Q_BASE_XY=0.001`,
+`Q_BASE_THETA=0.002`, `R_XY=0.01`, `R_THETA=0.05`); os `EKF_Q_*`/`EKF_R_*` de
+`config.py` **não** são lidos pelo filtro — são duplicatas pendentes de
+unificação. Ver `pi/app/control/ekf.py` para Jacobiano, Q dinâmico (escala com
+velocidade/giro) e elipse de covariância exportada para a UI.
 
 ## Modo AUTOMATICO sem missão
 
@@ -152,7 +155,7 @@ O control loop decide entre dois controladores quando não há missão ativa:
 | Condição | Controlador |
 |----------|-------------|
 | dock ligado (default desde 2026-07-07, hardcoded `True`) | `TagDocker` — estaciona em frente a uma tag por segmentos discretos (FORWARD/TURN) usando o SegmentExecutor + EKF. Ver [`dock-to-tag.md`](./dock-to-tag.md). |
-| dock desligado (via `POST /dock/disable`) | `NavigationController` legado — servo contínuo reativo à tag visível (`v = Kz·(Z−Zref)`, `ω = Kx·X + Kp·Pitch`) |
+| dock desligado (via `POST /dock/disable`) | `NavigationController` legado — servo contínuo reativo à tag visível, por fases (`COARSE_ALIGN → APPROACH → FACE → RETREAT`). Lei base: `v = Kz·(Z−Zref)` com limite de desaceleração; `ω` proporcional ao bearing quando `\|x\| > 1,5 cm`, senão `Kp_pitch·Pitch + α·Kx·X`. Ver `navigation.py`. |
 
 O navegador legado cobre posicionamento fino em frente a uma única tag — não
 navega entre waypoints do mapa.

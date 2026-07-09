@@ -49,7 +49,7 @@ roda idêntica em `SIM=1` e `SIM=0` — a simulação substitui exatamente duas
 peças de hardware (câmera → visão sintética; ESP32 → emulador de firmware)
 atrás das mesmas interfaces (`VisionSource`, `SerialTransport`). Resultado:
 
-| Verificação (2026-06-23) | Resultado |
+| Verificação (contagem de 2026-07-08) | Resultado |
 |---|---|
 | pytest (backend Pi) | 210 testes — 209 passam, 1 pulado |
 | vitest (frontend) | 11/11 passam |
@@ -170,8 +170,8 @@ odometria/EKF — a mesma maquinaria da missão (SegmentExecutor), sem
 pick/place. Por isso serve de ensaio para a navegação da missão. Segmentos
 discretos toleram perder a tag do FOV numa curva de 90° (não é servo contínuo). Dois
 modos: `line_of_sight` (default; usa só z/x, não depende de convenção de yaw)
-e `tag_normal` (esquadra com a face da tag; aguarda validação do sinal do
-`pitch_deg` no hardware). Estados: SEEKING → DOCKING → DONE/FAULT; teste
+e `tag_normal` (esquadra com a face da tag; convenção de yaw com offset π
+validada na bancada em 2026-07-07). Estados: SEEKING → DOCKING → DONE/FAULT; teste
 fechado exige estacionar a < 5 cm do standoff. Junto veio o endpoint
 `GET /world-state`, que faz a "vista de cima" da UI funcionar no robô real.
 
@@ -200,10 +200,12 @@ fechado exige estacionar a < 5 cm do standoff. Junto veio o endpoint
    1280×720, que agora coincide com o default do config. Intrínsecos só valem
    na resolução em que foram medidos — o vision_loop força o `image_size` do
    JSON de calibração na captura.
-6. **Ambiguidade de pose / convenção de yaw (aberto e assumido)** — estimar a
-   orientação de uma tag pequena tem ambiguidade conhecida; a extração de
-   Euler da câmera real ainda não foi validada contra o simulador
-   (`TODO(equipe)` explícito). Por isso o dock usa `line_of_sight` por default.
+6. **Ambiguidade de pose / convenção de yaw (parcialmente fechado)** — estimar
+   a orientação de uma tag pequena tem ambiguidade conhecida. A convenção do
+   `pitch_deg` (negado na fronteira, offset π) foi validada na bancada em
+   2026-07-07, o que liberou a estratégia `tag_normal` do dock; a correção de
+   **heading** do EKF por yaw de tag segue com `TODO(equipe)` para validação
+   no hardware (`pose.py`). O default do dock continua `line_of_sight`.
 
 ---
 
@@ -490,8 +492,9 @@ Falta (em ordem, do plano de testes)
   (1 m e 360°).
 - Medições restantes: raio por rolagem, bitola refinada, ω máx cronometrado,
   offset câmera→garfo, tag no paquímetro.
-- Últimas convenções de sinal no hardware: `x_cm` (tag à esquerda → positivo),
-  `pitch_deg`, sinal do `gz` no giro à mão.
+- Últimas convenções de sinal no hardware: `x_cm` e `pitch_deg` foram
+  validadas na bancada em 2026-07-07; restam o sinal do `gz` no giro à mão e
+  a correção de heading do EKF por yaw de tag.
 - Fase 3 inteira (autonomia) ainda não rodou no hardware: aproximação reativa
   → segurança em autonomia → EKF no corredor → dock → missão 3× seguidas →
   ensaio geral do dia D.

@@ -96,8 +96,8 @@ A posição do alvo não depende disso — só a orientação final.
 
 ```
 SEEKING → (N detecções estáveis, planeja) → DOCKING → (rota concluída) → DONE
-   │                                            │
-   └────────────── qualquer ────────────────────┴──→ FAULT (timeout de segmento)
+                                                │
+                                                └──→ FAULT (timeout de segmento)
 ```
 
 - **SEEKING**: robô parado; acumula detecções. Ao atingir `DOCK_MIN_DETECTIONS`,
@@ -111,9 +111,11 @@ SEEKING → (N detecções estáveis, planeja) → DOCKING → (rota concluída)
   quando `state.docker.is_docking`) — execução é pura odometria. Razão: evitar
   saltos de pose durante aproximação curta. Consequência: a precisão de chegada
   depende da qualidade da predição (encoders + giroscópio calibrado).
-- **DONE**: robô parado, mas continua observando. Se mover > 0,10 m (`_REPLAN_MIN_TRAVEL_M`),
-  re-planeja automaticamente para a tag mais recente.
-- **FAULT**: timeout de segmento (45 s) ou erro; robô parado.
+- **DONE**: robô parado, mas continua observando. Se uma nova detecção gerar um
+  alvo a mais de 0,10 m (`_REPLAN_MIN_TRAVEL_M` — tag movida, tag nova ou robô
+  deslocado), re-planeja automaticamente.
+- **FAULT**: timeout de segmento (`NAV_MAX_SEGMENT_TIME_S = 45` s); robô parado
+  até `reset()` (sair de AUTOMATICO ou `POST /dock/enable` reconfigura).
 
 ## Geometria
 
@@ -141,8 +143,9 @@ goal  = (tag_x + standoff·cos(tag_yaw),
 ## Limitações (v1)
 
 - **Planeja uma vez durante DOCKING**: não re-planeja durante a aproximação
-  (re-planeja só em DONE se mover > 10 cm). Se a leitura inicial ou a odometria
-  tiverem erro grande, o dock não corrige relendo a tag.
+  (re-planeja só em DONE, quando um novo alvo fica a mais de 10 cm). Se a
+  leitura inicial ou a odometria tiverem erro grande, o dock não corrige
+  relendo a tag.
 - **Correções EKF suprimidas**: durante DOCKING, a tag não corrige a pose — é pura
   odometria. Se a odometria derivar, o dock erra o alvo.
 - **Manhattan no frame do robô**: o planejamento não é ótimo (não usa o grafo do

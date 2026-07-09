@@ -195,7 +195,8 @@ Estes módulos não sabem se estão em simulação. Vão para o robô sem altera
 | Joystick, garfo, seletor de modo | 100% — mesmo WebSocket |
 | Telemetria, SafetyAlert, nav_phase | 100% |
 | MissionPanel, MapSelector | 100% — rotas `/mission/*`, `/maps/*` existem nos dois modos |
-| Arena visual, FaultInjector, DebugExport | Só SIM=1 — APIs `/sim/*` não existem em `SIM=0` |
+| Arena visual (vista de cima) | Nos dois modos — prefere `/sim/world-state` e cai para `/world-state` (pose do EKF + mapa) em `SIM=0` |
+| FaultInjector, DebugExport, PoseReset | Só SIM=1 — usam APIs `/sim/*`, que não existem em `SIM=0` |
 
 ---
 
@@ -228,7 +229,7 @@ Estes valores existem em dois lugares e devem ser consistentes entre sim e real:
 | `SETPOINT_TIMEOUT_MS` | 200 ms | 200 ms | idêntico |
 | `ZREF_CM` / `TAG_APPROACH_STANDOFF_M` | 15 cm | Ajustar se garfo/câmera diferirem | validar no chão |
 | Ganhos navegação `NAV_*` | Tunados em sim | Re-tunar — dinâmica real difere | ponto de partida |
-| Ganhos EKF `EKF_Q_*`, `EKF_R_*` | Tunados para ruído sim | Re-tunar para ruído real | ponto de partida |
+| Q/R do EKF (atributos de classe em `ekf.py`; os `EKF_Q_*`/`EKF_R_*` do `config.py` não são lidos) | Tunados para ruído sim | Re-tunar para ruído real — editar em `ekf.py` | ponto de partida |
 | `APRILTAG_SIZE_CM` | 4,0 cm | Conferir tag impressa com paquímetro | conferir |
 | Protocolo serial 115200, 20 Hz | Emulado | UART real | idêntico |
 
@@ -264,7 +265,7 @@ Descobertos rodando backend + WebSocket + frontend ao vivo (não apareciam em te
 | Telemetria instável em MANUAL | Só sim (double-noise) — não afeta o real |
 | `nav_phase` no dashboard | Vale no real — contrato de telemetria |
 
-### 6.3 Testes automatizados (210 pytest + 11 frontend)
+### 6.3 Testes automatizados (210 pytest — 209 passam, 1 pulado — + 11 frontend)
 
 | Categoria | Garante para o real? |
 |-----------|---------------------|
@@ -272,7 +273,7 @@ Descobertos rodando backend + WebSocket + frontend ao vivo (não apareciam em te
 | Cinemática diferencial | sim — mesmas fórmulas |
 | Máquina de estados + latch | sim — mesmo código |
 | Control loop (1 comando AUTO) | sim — mesmo código |
-| Navegação (25 testes) | lógica sim; ganhos podem precisar ajuste |
+| Navegação (31 testes) | lógica sim; ganhos podem precisar ajuste |
 | EKF (predição, correção, outlier) | lógica sim; ruído real diferente |
 | Missão em 4 mapas simulados | fluxo da SM sim; requer o mapa real |
 | Integração sim (converge ZREF) | comportamento sim; dinâmica real difere |
@@ -365,7 +366,7 @@ A única diferença visível para a lógica é a origem de `Sensors` (enc, mpu) 
 | PID Kp=20 converge sem oscilar | Baixa | Ziegler-Nichols no ESP32 |
 | FOV 60° / alcance 150 cm | Baixa | Medir câmera real |
 | Ruído visão ±0,2 cm | Baixa | Calibrar; ruído real provavelmente maior |
-| Garfo sobe/desce com limites | Baixa | Testar switches físicos |
+| Garfo sobe/desce com limites | Baixa | Chaves de fim-de-curso ainda não montadas (`PIN_FORK_LIMIT_*=-1` no firmware); instalar e testar quando existirem |
 | Watchdog serial 200 ms | Média-alta | Desconectar USB e cronometrar |
 | Wi-Fi RTT < 170 ms | Não testado | Medir com celular real |
 
@@ -400,9 +401,10 @@ Itens que só o hardware pode validar:
 ### Fase 2 — Medir e substituir placeholders
 
 - [x] `camera_intrinsics.json` — calibração feita em 2026-07-07 (câmera nova, 1280×720)
-- [ ] `WHEEL_BASE_L_CM`, `WHEEL_RADIUS_R_CM`, `ENCODER_PPR`
+- [x] `ENCODER_PPR` — validado na bancada 2026-07-06 (1440, decodificação x4)
+- [ ] `WHEEL_BASE_L_CM`, `WHEEL_RADIUS_R_CM` — medição da equipe 2026-07-06 (15,0 / 2,7 cm); confirmar bitola e raio por rolagem
 - [ ] `CAMERA_TO_FORK_OFFSET_CM`, `APRILTAG_SIZE_CM`
-- [ ] Mapa JSON da arena real
+- [x] Mapa JSON da arena real — `corredor_6tags_80x160` medido; remedir tags no local do desafio
 - [ ] `PALLET_MASS_KG`
 
 ### Fase 3 — Re-validar os mesmos smoke tests do sim
@@ -410,7 +412,7 @@ Itens que só o hardware pode validar:
 | Teste (já feito no sim) | Repetir no real |
 |-------------------------|-----------------|
 | Joystick manual | sim |
-| Garfo + fim-de-curso | sim |
+| Garfo sobe/desce (fim-de-curso ainda não montado — chaves desabilitadas no firmware) | sim |
 | AUTOMATICO com 1 clique | sim |
 | Convergência Z ≈ 15 cm | sim — medir com fita |
 | Ocultar tag → PARADO latched | sim |
@@ -420,7 +422,7 @@ Itens que só o hardware pode validar:
 ### Fase 4 — Re-tunar o que o sim não garante
 
 - [ ] PID Ziegler-Nichols no ESP32
-- [ ] `EKF_Q_*`, `EKF_R_*` com odometria real
+- [ ] Q/R do EKF com odometria real (editar os atributos de classe em `ekf.py` — os `EKF_Q_*`/`EKF_R_*` do `config.py` não são lidos)
 - [ ] `NAV_K_DIST`, `NAV_K_HEADING` para segmentos de missão
 - [ ] `NAV_KZ/KX/KP_PITCH` para aproximação reativa
 - [ ] FOV/alcance — ajustar `TAG_LOST_FRAMES` se necessário

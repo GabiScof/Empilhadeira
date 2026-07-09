@@ -18,7 +18,7 @@ motores (um lado por vez) · PID convergindo na bancada · watchdog serial
 · v_máx medida: 24 cm/s → config 19 · raio ajustado para 2,7 cm (medição da
 equipe; falta confirmar por rolagem) · tilt da câmera: 30° (remontagem
 2026-07-07, 2ª vez; `pose.py` rotaciona a pose → z = distância horizontal;
-medição anterior da 1ª montagem: 28,4°) · offset câmera→garfo assinado:
+1ª montagem da câmera nova media 22,7°; câmera antiga, 28,4°) · offset câmera→garfo assinado:
 (0.0, -14.2, -10.0) (lente atrás da ponta do garfo → z do offset negativo;
 validar com fita) · `FORK_DUTY` 180→220 (levanta com carga) · dock-to-tag e
 /world-state implementados (verdes em teste de unidade).
@@ -153,9 +153,11 @@ hostname -I
 # 6. Criar o .env do backend (uma vez; precisa existir antes da câmera, item 1.4)
 cp .env.example .env
 # edite o .env:  SIM=0 · REQUIRE_CAMERA_CALIBRATION=1
-#   CAMERA_FRAME_WIDTH=1280 · CAMERA_FRAME_HEIGHT=720  (deve bater com a calibração)
 #   SERIAL_PORT=<a porta do passo 5>
-# (nota: MAP= no .env não é lido — mapa padrão hardcoded em config.DEFAULT_MAP)
+# (notas: MAP= no .env não é lido — mapa padrão hardcoded em config.DEFAULT_MAP;
+#  CAMERA_INDEX e CAMERA_FRAME_WIDTH/HEIGHT também não são lidos do .env —
+#  fixados no config.py em 0 e 1280×720; a captura força a resolução do JSON
+#  de calibração)
 ```
 
 **Regra da porta serial:** só um programa pode usar a UART por vez.
@@ -307,9 +309,10 @@ a câmera olha para baixo e o z do AprilTag sai na hipotenusa, não na
 horizontal (erro que cresce de perto: +66% a 15 cm com 20 cm de desnível).
 0. Medir e configurar o tilt (`CAMERA_TILT_DEG` no config, positivo = para
    baixo): tag centralizada na imagem → tilt = atan(Δh/d), onde Δh = desnível
-   lente↔centro da tag e d = distância horizontal. Medições: 1ª montagem
-   (2026-07-07): lente a 29,5 cm do chão, centro da tag a 15,3 cm, d = 26,3 cm
-   → Δh = 14,2 → tilt = 28,4°; remontagem (2ª vez): equipe mediu 30° →
+   lente↔centro da tag e d = distância horizontal. Medições: 1ª montagem da
+   câmera nova (2026-07-07): lente a 27,0 cm do chão, centro da tag a 15,3 cm,
+   d = 27,9 cm → Δh = 11,7 → tilt = 22,7° (câmera antiga: 28,4°, lente a
+   29,5 cm); remontagem (2ª vez): equipe mediu 30° →
    `CAMERA_TILT_DEG=30.0` no config. Depois de setar o tilt,
    recalibrar o `CAMERA_TO_FORK_OFFSET_CM` (offset medido sem compensação
    absorve o erro da hipotenusa). Atenção ao sinal do offset z: câmera atrás
@@ -348,9 +351,9 @@ Validações com fita métrica (com o tilt já configurado):
 ```bash
 SIM=0
 REQUIRE_CAMERA_CALIBRATION=1
-CAMERA_FRAME_WIDTH=1280
-CAMERA_FRAME_HEIGHT=720
 # MAP= no .env não é lido — mapa padrão: config.DEFAULT_MAP = corredor_6tags_80x160
+# CAMERA_INDEX e CAMERA_FRAME_WIDTH/HEIGHT também não são lidos do .env —
+# fixados no config.py (0 e 1280×720; a captura força o image_size da calibração)
 SERIAL_PORT=/dev/ttyUSB0        # a porta anotada na Fase 0
 ```
 
@@ -473,7 +476,7 @@ Como medir cada um (todos vão em `config.py`; os `_M`/SI derivam sozinhos):
    (`x_cm ≈ +5`).
 5. `MAX_LINEAR_SPEED` / `MAX_ANGULAR_SPEED` — talo cheio: cronometrar 2 m
    retos (`v = 200/t`) e 1 volta no lugar (`ω = 2π/t`); gravar ~80% do medido
-   (folga para o PID). Sanidade: teto físico ≈ 12.25·r ≈ 34 cm/s.
+   (folga para o PID). Sanidade: teto físico ≈ 12.25·r ≈ 33 cm/s.
    Linear medido em 2026-07-06: 100 cm em 4,16 s → 24,0 cm/s →
    `MAX_LINEAR_SPEED = 19.0` gravado. Falta o angular (1 volta
    cronometrada); enquanto isso vale 2,5 rad/s derivado do teto físico.

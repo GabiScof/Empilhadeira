@@ -17,6 +17,7 @@ energia e informação do sistema.
 - [2.5 Sensores](#25-sensores)
 - [2.6 Fluxo do projeto](#26-fluxo-do-projeto)
 - [Resumo de componentes](#resumo-de-componentes)
+- [Conteúdo da pasta](#conteúdo-da-pasta)
 
 ---
 
@@ -64,8 +65,8 @@ entrada para o nível exigido por cada um, evitando que queimem.
 | **Lego NXT (id 53787)** | Movimentação (tração) | Torque de 16,7 N·cm · 117 RPM · encoder integrado · controle via PWM (ESP32) |
 | **JGY-370-12V (Worm Gear)** | Garfo mecânico (elevação) | Motor DC com caixa de redução sem-fim; dificulta *backdrive* (sustenta carga passivamente quando desenergizado) |
 
-**Driver:** `L298N` (Ponte H) — utilizado para controlar os três motores (tração e garfo),
-permitindo o acionamento e o controle do sentido de rotação.
+**Driver:** 2× `L298N` (ponte H dupla) — controlam os três motores: um módulo aciona os
+dois motores de tração e o outro o motor do garfo, com controle de sentido e PWM por canal.
 
 ---
 
@@ -85,9 +86,10 @@ algo que o Raspberry Pi, rodando um SO Linux convencional, não garante nativame
 
 ## 2.5 Sensores
 
-- **MPU-6050** — acelerômetro + giroscópio (o sensor de temperatura integrado não é utilizado).
-Os dados são lidos pelo ESP32 via I²C e filtrados no Raspberry Pi com um **filtro de Kalman**
-para reduzir ruído e obter estimativas estáveis de orientação (roll/pitch) e velocidade angular.
+- **MPU-6050** — acelerômetro + giroscópio (a temperatura integrada não entra na fusão;
+viaja na telemetria e serve para diagnóstico do sensor). Os dados são lidos pelo ESP32 via
+I²C e enviados crus ao Raspberry Pi, onde um **filtro de Kalman** estima roll/pitch e o
+giroscópio Z entra direto na fusão de heading do EKF.
 - **Encoders integrados** (motor Lego) — usados para calcular RPM e realimentar a malha PID de
 controle de velocidade.
 - **Câmera** — utilizada para detecção de AprilTags via visão computacional (OpenCV + pupil-apriltags).
@@ -125,10 +127,24 @@ Sensores/Encoders ──► ESP32 ──UART──► Raspberry Pi ──WebSock
 | Fonte | 3× baterias 18650 (íon-lítio) | Série · 12,6 V nominal |
 | Proteção | BMS 3S 40A | Balanceamento e proteção de carga/descarga |
 | Regulador | LM2596 | 12V → 5,3V (único, alimenta todos os periféricos) |
-| Driver | L298N (Ponte H) | Controle dos 3 motores |
+| Driver | 2× L298N (Ponte H dupla) | Um módulo para os 2 motores de tração, outro para o garfo |
 | Motor | Lego NXT 53787 ×2 | Tração |
 | Motor | JGY-370-12V (Worm Gear) | Garfo mecânico |
 | Microcontrolador | Raspberry Pi | Alto nível — visão computacional, navegação, telemetria |
 | Microcontrolador | ESP32 | Baixo nível — PWM, PID, leitura de sensores |
-| Sensor | MPU-6050 | IMU (acelerômetro + giroscópio; termômetro não utilizado) |
+| Sensor | MPU-6050 | IMU (acelerômetro + giroscópio; termômetro só para diagnóstico) |
 | Sensor | Câmera | Detecção de AprilTags |
+
+---
+
+## Conteúdo da pasta
+
+| Item | Descrição |
+|---|---|
+| `Circuito_elétrico_final.pdf` / `Circuito_elétrico_V1.pdf` | Esquemas elétricos (versão final e V1) |
+| `Esquemática_elétrica/` | Projeto KiCad do esquema elétrico |
+| `Datasheets/` | Datasheets dos componentes (ESP32, L298, LM2596, MPU-6000/6050, AMS1117, MP2307) |
+| `Caixa_eletrônicos/` | Caixas dos eletrônicos — V1 e V2 (STEP/Parasolid + fotos) |
+| `Testes_eletronica.ino` | Sketch de referência dos testes de bancada da eletrônica |
+| `Fotos_Vídeos/` | Fotos e vídeos da montagem |
+| `Calculo de corrente.txt` / `Lista de Compras.txt` | Dimensionamento de corrente e lista de compras |

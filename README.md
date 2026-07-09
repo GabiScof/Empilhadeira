@@ -25,6 +25,7 @@ Empilhadeira/
 ├── src/                        Monorepo de software (Pi + ESP32 + frontend + docs)
 ├── Eletrônica/                 Hardware elétrico: esquemáticos, datasheets, caixas, testes
 ├── Apresentações_&_Relatório/  PDFs entregues (pré-projeto e entrega final)
+├── modelagem_3D/               STLs das peças mecânicas (garfo, polias, eixo, carretel, suporte)
 ├── images/                     Imagens de apoio (folha de AprilTags tag25h9)
 ├── APRESENTACAO_SPEC.md        Roteiro técnico da apresentação (visão, controle, comunicação)
 └── requirements.txt            Dependências Python fixadas para deploy no Pi
@@ -98,11 +99,12 @@ direção do heading para evitar viés sistemático.
 
 ### Calibração
 
-Tabuleiro de xadrez OpenCV (cantos internos 8×5, quadrado de 3 cm).
-Calibração atual: 2026-07-07, câmera nova remontada com tilt de 30°, a
-1280×720. Intrínsecos: fx=fy=1023,63 · cx=634,08 · cy=377,08, com coeficientes
-de distorção completos. Uma calibração anterior (câmera antiga, 640×480,
-28 fotos, reprojeção 0,144 px) foi descartada por valores anômalos.
+Procedimento: tabuleiro de xadrez OpenCV. Calibração atual: 2026-07-07,
+câmera nova remontada com tilt de 30°, a 1280×720. Intrínsecos:
+fx=fy=1023,63 · cx=634,08 · cy=377,08, com coeficientes de distorção
+completos (erro de reprojeção não registrado). Uma calibração anterior
+(câmera antiga, 640×480, 28 fotos com cantos internos 8×5 e quadrado de
+3 cm, reprojeção 0,144 px) foi descartada por valores anômalos.
 
 Regra operacional: a resolução de captura precisa ser a mesma da calibração.
 Com `REQUIRE_CAMERA_CALIBRATION=1`, o backend não sobe em modo real sem
@@ -263,8 +265,8 @@ IDLE → LOAD_MAP → DRAW_TARGETS → GO_TO_PICK → AT_PICK
 
 - Em `AT_PICK` / `AT_PLACE` o robô para, o operador aciona o garfo e clica
   "continuar" (`POST /mission/continue`).
-- Sorteio dos alvos com seed reprodutível. Prioridade: argumento explícito
-  (UI/curl) > default em config > sorteio.
+- Prioridade dos alvos: argumento explícito (UI/curl) > default em config
+  (L3/R1) > sorteio com seed 42 (hardcoded na state machine).
 - Alvos são `position_id` do mapa (ex.: L3, R1).
 - A rota é planejada pelo PathPlanner e executada pelo SegmentExecutor
   compartilhado. Na chegada, `mission.notify_route_done()` avança o estado.
@@ -497,7 +499,7 @@ cd frontend && npm install && npm run dev   # http://localhost:5173/demo
 ```bash
 python3 -m pytest pi/tests/ -v              # backend (210 testes)
 cd frontend && npx vitest run               # frontend (11 testes)
-SIM=1 python3 scripts/sim_sweep.py          # 9 cenários de aproximação
+python3 pi/tests/sim_sweep.py               # 9 cenários de aproximação
 ```
 
 ### Deploy no robô real
@@ -542,7 +544,7 @@ src/
 │   ├── app/
 │   │   ├── control/       EKF, navegação, planejador, executor, Kalman, dock-to-tag
 │   │   ├── mission/       Máquina de estados pick-and-place
-│   │   ├── tasks/         4 loops asyncio (WS, visão, serial, controle)
+│   │   ├── tasks/         3 loops asyncio (visão, serial, controle) + WS handler
 │   │   ├── comms/         Protocolo serial (CRC8, framing, transporte)
 │   │   ├── vision/        Detector AprilTag, calibração, pose (tilt, offsets)
 │   │   ├── hardware/      Interfaces VisionSource / SerialTransport

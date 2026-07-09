@@ -32,16 +32,23 @@ sem mudar código.
   "tags": [
     {
       "position_id": "P1",   // identificador único da posição
+      "april_tag_id": 3,     // ID numérico impresso na tag (opcional no schema,
+                             // mas OBRIGATÓRIO para o robô real resolver a tag
+                             // contra o mapa — ver mission.md)
       "x_m": 0.05,           // posição X da tag
       "y_m": 0.60,           // posição Y
       "wall": "left",        // parede onde está (opcional)
       "yaw_deg": 0            // orientação da tag (graus)
     }
   ],
-  "tag_size_m": 0.04,        // tamanho físico da tag impressa (metros)
-  "tag_family": "tag25h9"    // família de tags
+  "tag_size_m": 0.04,        // tamanho físico da tag impressa (metros); default 0.04
+  "tag_family": "tag25h9"    // família de tags; default "tag25h9"
 }
 ```
+
+Dos mapas incluídos, apenas `corredor_6tags_80x160` e `corredor_6tags_80x200`
+têm `april_tag_id` preenchido — nos demais, o robô real detecta as tags mas não
+as resolve contra o mapa (sem correção EKF).
 
 ### Sistema de Coordenadas
 
@@ -88,6 +95,7 @@ conecte com arestas que não cruzam paredes.
 ### Validações Automáticas
 
 - `position_id` de cada tag deve ser único
+- `april_tag_id` (quando presente) deve ser único
 - Posições das tags devem estar dentro dos limites da arena
 - IDs de waypoints devem ser únicos
 - Arestas devem referenciar waypoints existentes

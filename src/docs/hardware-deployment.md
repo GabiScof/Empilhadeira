@@ -17,7 +17,7 @@ Ver também:
 | Camada | Status | Observação |
 |--------|--------|------------|
 | Lógica de controle (Pi) | Implementada | Control loop @20 Hz, EKF, missão, navegação |
-| Simulação (`SIM=1`) | Validada | 210 testes pytest + 11 frontend; sim_sweep 9/9 convergem |
+| Simulação (`SIM=1`) | Validada | 210 testes pytest (209 passam, 1 pulado) + 11 vitest no frontend; sim_sweep 9/9 convergem |
 | Firmware ESP32 | Implementado | PID, encoders, MPU, garfo, protocolo serial |
 | Interfaces hardware Pi | Implementadas | `RealVisionSource`, `PySerialTransport` |
 | Calibração câmera real | Feita (2026-07-07) | Recalibração 1280×720, fx=fy=1023,63, cx=634,08, cy=377,08 |
@@ -121,7 +121,9 @@ Implementado em `RealVisionSource` (`tasks/vision_loop.py`).
 > - Intrínsecos da câmera (`fx, fy, cx, cy`) — recalibrados em 2026-07-07 (1280×720); refazer se a câmera for remontada
 > - Offset câmera→garfo — erro sistemático de posicionamento se não medido; medido 2026-07-07, revalidar após remontagens
 > - Ganhos PID (`config.h`) — sintonia Ziegler-Nichols no chão
-> - Ganhos EKF (`EKF_Q_*`, `EKF_R_*`) — ruído real ≠ simulado
+> - Q/R do EKF — ruído real ≠ simulado; os valores efetivos são atributos da
+>   classe `PoseEKF` em `pi/app/control/ekf.py` (os `EKF_Q_*`/`EKF_R_*` de
+>   `config.py` não estão conectados à classe)
 > - Ganhos navegação (`NAV_*`) — dinâmica real, inércia, patinagem
 > - `ENCODER_PPR`, `WHEEL_RADIUS`, `WHEELBASE` — medição mecânica
 > - FOV/alcance da câmera — validar vs. `SIM_VISION_*` da simulação
@@ -168,7 +170,7 @@ Validar:
 - [ ] Enviar setpoint de teste um lado por vez (`--w-esq X --w-dir 0`,
       depois o inverso) → gira a roda certa, para frente. O teste conjunto
       mascara canais A/B trocados (foi o caso da placa, corrigido 2026-07-06)
-- [ ] Desconectar serial → motores param em < 200 ms (watchdog)
+- [ ] Desconectar serial → motores param em ~200 ms (`SETPOINT_TIMEOUT_MS`)
 
 ### Fase C — Calibração mecânica
 
@@ -216,10 +218,10 @@ PI_HOST=0.0.0.0
 PI_PORT=8000
 SERIAL_PORT=/dev/ttyUSB0      # ou /dev/ttyACM0 — ls /dev/tty*
 SERIAL_BAUDRATE=115200
-# MAP= no .env NÃO é lido; mapa padrão hardcoded. Trocar via POST /maps/load/{nome} ou UI.
-# MAP=arena_real_medida
+# MAP= no .env NÃO é lido; mapa padrão hardcoded (corredor_6tags_80x160).
+# Trocar via POST /maps/load/{nome} ou UI.
 REQUIRE_CAMERA_CALIBRATION=1
-CAMERA_INDEX=0
+# CAMERA_INDEX é fixado no código (app/config.py, = 0) — env não tem efeito.
 VITE_PI_WS_URL=ws://<IP_DO_PI>:8000/ws
 ```
 
@@ -241,7 +243,7 @@ Smoke tests (ordem):
 | 4 | Telemetria WebSocket @20 Hz | `rodas`, `imu`, `visao` fluem |
 | 5 | Joystick manual | Rodas giram na direção correta |
 | 6 | Garfo subir/descer | Motor garfo responde. Fim-de-curso desabilitado (-1): operador solta o botão antes do fim do curso |
-| 7 | Desconectar USB serial | Motores param < 200 ms |
+| 7 | Desconectar USB serial | Motores param em ~200 ms (`SETPOINT_TIMEOUT_MS`) |
 | 8 | Modo AUTOMATICO (1 clique) | Robô navega sem streaming de comando |
 | 9 | Ocultar tag | PARADO + latch; só novo comando reativa |
 
@@ -260,12 +262,14 @@ Procedimento em `firmware/README.md` § Ziegler-Nichols:
 1. Confirmar `ZREF_CM=15` dá margem de frenagem (ajustar se necessário).
 2. Testar aproximação reativa (modo AUTOMATICO sem missão).
 3. Comparar odometria pura vs. EKF com tags visíveis.
-4. Ajustar `EKF_Q_*`, `EKF_R_*`, `NAV_K_DIST`, `NAV_K_HEADING`.
+4. Ajustar Q/R do EKF nos atributos da classe `PoseEKF`
+   (`pi/app/control/ekf.py`) e `NAV_K_DIST`/`NAV_K_HEADING` em `config.py`.
 5. Rodar missão em arena aberta antes de corredores.
 
 ### Fase I — Missão completa
 
-1. Carregar mapa: `POST /maps/load/arena_real_medida`
+1. Conferir o mapa ativo — o padrão hardcoded já é o `corredor_6tags_80x160`;
+   para outro mapa: `POST /maps/load/<nome>`
 2. Iniciar: `POST /mission/start` (ou painel Mission no frontend)
 3. Robô navega até pick → para → operador usa garfo → "continuar"
 4. Navega até place → operador usa garfo → "continuar"
@@ -336,7 +340,7 @@ async def close(self)
 - **Substituir por:** socket, CAN, mock para teste
 - **Injeção:** `serial_loop_real(state, transport=MeuTransporte())`
 
-Teste sem hardware: `tests/test_hardware_interfaces.py::TestSerialLoopReal`.
+Teste sem hardware: `pi/tests/test_hardware_interfaces.py::TestSerialLoopReal`.
 
 ---
 
@@ -353,7 +357,7 @@ Teste sem hardware: `tests/test_hardware_interfaces.py::TestSerialLoopReal`.
 [ ] Joystick manual OK
 [ ] AUTOMATICO converge em frente à tag (Z ≈ 15 cm)
 [ ] Perda de tag → PARADO latched
-[ ] Watchdog serial OK (< 200 ms)
+[ ] Watchdog do ESP32 OK (motores param ~200 ms sem setpoint)
 [ ] Missão pick-place completa em arena real
 [ ] Frontend conecta via Wi-Fi (VITE_PI_WS_URL correto)
 [ ] Parâmetros TODO(equipe) revisados e confirmados

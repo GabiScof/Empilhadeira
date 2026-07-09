@@ -30,7 +30,7 @@ IDLE → LOAD_MAP → DRAW_TARGETS → GO_TO_PICK → AT_PICK(espera operador)
 |--------|-----------|-----------|
 | IDLE | Aguardando missão | → LOAD_MAP (ao iniciar) |
 | LOAD_MAP | Carregando mapa | → DRAW_TARGETS |
-| DRAW_TARGETS | Sorteando/recebendo 2 position_ids | → GO_TO_PICK |
+| DRAW_TARGETS | Definindo 2 position_ids (ver prioridade abaixo) | → GO_TO_PICK |
 | GO_TO_PICK | Navegando até tag #1 | → AT_PICK (chegada confirmada) |
 | AT_PICK | Parado, aguardando operador | → GO_TO_PLACE ("continuar") |
 | GO_TO_PLACE | Navegando até tag #2 | → AT_PLACE (chegada confirmada) |
@@ -39,9 +39,22 @@ IDLE → LOAD_MAP → DRAW_TARGETS → GO_TO_PICK → AT_PICK(espera operador)
 | DONE | Missão concluída | (reset para nova missão) |
 | FAULT | Falha crítica | Motores zerados, sinaliza na UI |
 
-Qualquer estado pode transicionar para FAULT em falha crítica (timeout de
-segmento, alvo ausente no mapa, divergência do EKF, etc.). Em FAULT, a máquina
-de estados de segurança (`state_machine`) força motores zerados.
+Qualquer estado ativo pode transicionar para FAULT (timeout de segmento, alvo
+ausente no mapa, mapa com menos de 2 tags). Atenção ao comportamento real do
+código: no tick do fault o executor zera as rodas, mas a máquina de segurança
+(`state_machine`) **não** entra em PARADO — com a missão inativa e o modo
+AUTOMATICO ainda selecionado, o ramo do control loop cai no dock-to-tag (ou no
+legado) no tick seguinte. Para parar de fato, o operador deve resetar a missão
+ou mudar de modo.
+
+### Prioridade de escolha dos alvos
+
+1. Argumento explícito em `POST /mission/start` (`pick_id`/`place_id`) — se o
+   `position_id` existir no mapa.
+2. Defaults `MISSION_DEFAULT_PICK_ID="L3"` / `MISSION_DEFAULT_PLACE_ID="R1"`,
+   hardcoded em `config.py` (não vêm do `.env`) — se existirem no mapa.
+3. Sorteio determinístico com `random.Random(42)` (`_seed=42` hardcoded em
+   `mission_sm.py`; o `MISSION_SEED` de `config.py` não é lido pela SM).
 
 ## Garra Manual
 
@@ -65,16 +78,23 @@ Valores possíveis de `MISSION_RESUME_TRIGGER`:
 
 ## Resolução de ID de Tag
 
-As posições das tags são conhecidas no mapa (`position_id: P1, P2, ...`),
-mas o ID da AprilTag (inteiro) não é pré-mapeado. O robô:
+As posições das tags são conhecidas no mapa (`position_id: L1..L3, R1..R3`
+no corredor; `P1, P2, ...` nas arenas). O casamento `tag_id` (inteiro da
+AprilTag) → `position_id` funciona assim no código atual:
 
-1. Detecta uma tag pela câmera → obtém o `tag_id` (ex: 42)
-2. Estima a posição da tag no mundo via PnP
-3. Casa com a posição mais próxima do mapa → resolve `tag_id=42 → P1`
+1. **Pelo mapa (modo real):** se o mapa declara `april_tag_id` em cada tag
+   (caso dos `corredor_6tags_80x160`/`80x200`), o `WorldModel` pré-carrega
+   `_tag_id_to_position` no load e a detecção resolve direto por
+   `get_position_for_tag_id()`. Foi por isso que o `DEFAULT_MAP` foi fixado
+   em 2026-07-07 no mapa com `april_tag_id` preenchido — nos mapas sem esse
+   campo, o robô real não resolve nenhuma tag contra o mapa.
+2. **Pelo `position_id` da detecção (SIM):** a visão sintética já entrega o
+   `position_id`; o `vision_loop` persiste o par via `resolve_tag_id()`.
 
-O casamento é persistido em `WorldModel._tag_id_to_position` via
-`resolve_tag_id()`. Nas detecções seguintes, o ID já casado é resolvido
-diretamente sem recalcular proximidade.
+Não há casamento por proximidade (posição estimada → posição mais próxima do
+mapa) implementado para detecções reais: uma tag cujo `tag_id` não consta do
+mapa nem foi resolvido antes entra na telemetria com `in_map=False` e **não**
+corrige o EKF.
 
 Implementação: `pi/app/tasks/vision_loop.py` + `pi/app/world/world_model.py`.
 
