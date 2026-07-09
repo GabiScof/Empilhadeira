@@ -66,10 +66,16 @@ com câmera frontal. Detalhes em [`navigation.md`](./navigation.md).
 | Área | Arquivo(s) | O que valida |
 |------|------------|--------------|
 | Loop de controle | `test_control_loop.py` | AUTOMATICO com 1 comando; latch perda tag |
-| Navegação | `test_navigation.py` (25) | Bearing, FACE/RETREAT, fallback, dead zone |
+| Navegação | `test_navigation.py` (31) | Bearing, FACE/RETREAT, fallback, dead zone |
 | Missão | `test_mission.py`, `test_integration_mission.py` | SM completa em 4 mapas |
-| EKF | `test_ekf.py` | Predição, correção, outlier rejection |
-| Hardware interfaces | `test_hardware_interfaces.py` | Calibração, serial injetável |
+| EKF | `test_ekf.py` (10) | Predição, correção, outlier rejection |
+| Dock-to-tag | `test_dock_to_tag.py` (21) | Geometria, planejamento, SM, convergência < 5 cm |
+| Gyro calibration | `test_gyro_calibration.py` (13) | Bias, auto-orientação, eixo, rastreamento |
+| Segment executor | `test_segment_executor.py` (6) | FORWARD/TURN, tolerância, timeout |
+| Hardware interfaces | `test_hardware_interfaces.py` (13) | Calibração, serial injetável |
+| World state | `test_world_state.py` (3) | Modelo de mundo, arena bounds |
+| Map schema | `test_map_schema.py` (12) | Validação JSON, tag uniqueness, edges |
+| Firmware emulator | `test_firmware_emulator.py` (13) | PID, motor, garfo, watchdog, CRC |
 | APIs sim | `test_sim_api.py` | OpenAPI requestBody correto |
 | Integração E2E sim | `test_integration_sim.py` | Convergência ZREF, perda tag, manual |
 

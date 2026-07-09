@@ -19,7 +19,7 @@ Ver também:
 
 | Camada | Código | Testado em sim | Testado no real |
 |--------|--------|----------------|-----------------|
-| Lógica Pi (controle) | pronto | 162 testes | pendente |
+| Lógica Pi (controle) | pronto | ~210 testes | pendente |
 | Filtros (Kalman + EKF) | pronto | unitário | pendente |
 | Visão real (OpenCV+tags) | pronto | mock | pendente |
 | Serial real (UART) | pronto | fake injetado | pendente |
@@ -125,11 +125,11 @@ Se câmera ou serial falharem no boot real, a app não cai — loga erro e conti
 
 | Aspecto | Detalhe |
 |---------|---------|
-| Estado | [x, y, θ] em metros/radianos + covariância 2×2 |
+| Estado | [x, y, θ] em metros/radianos + covariância **3×3** |
 | Predição | Odometria: ω_esq, ω_dir + gyro Z → `ekf.predict()` no serial loop |
 | Correção | AprilTag: `ekf.correct_apriltag()` no vision loop (multi-tag) |
 | Gating | Mahalanobis ≤ 3σ — rejeita outliers (blur, detecção ruim) |
-| Parâmetros | `EKF_Q_*`, `EKF_R_*`, `alpha_gyro=0.7` — `TODO(equipe)` calibrar |
+| Parâmetros | `EKF_Q_*`, `EKF_R_*` existem em `config.py` mas **não são lidos** por `ekf.py` (usa hardcoded class attrs idênticos). `alpha_gyro=0.7` hardcoded em `ekf.py`. Q é dinâmico (escala com velocidade). R escala com `quality`. |
 | Status código | implementado |
 | Testes | `test_ekf.py` (10), integração missão |
 
