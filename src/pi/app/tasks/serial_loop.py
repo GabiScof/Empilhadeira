@@ -2,8 +2,6 @@
 
 Em SIM: usa FirmwareEmulator + EKF prediction.
 Em REAL: pyserial-asyncio para UART + EKF prediction.
-
-[ref: Seção 2 da AGENTS.md]
 """
 
 from __future__ import annotations
@@ -142,7 +140,7 @@ async def serial_loop_real(state: SharedState, transport=None) -> None:
                 # Watchdog serial: se a UART parar de entregar sensores por
                 # SERIAL_LOST_FRAMES ciclos (~250 ms @20 Hz), força PARADO no Pi.
                 # Defesa em profundidade sobre o SETPOINT_TIMEOUT_MS do firmware,
-                # que já zera os motores localmente. [ref: Seção 7]
+                # que já zera os motores localmente.
                 lost_frames += 1
                 if lost_frames >= config.SERIAL_LOST_FRAMES:
                     if lost_frames == config.SERIAL_LOST_FRAMES:

@@ -4,8 +4,6 @@ Endpoint /ws do FastAPI. O handler **não** calcula setpoint — isso é
 responsabilidade do `control_loop` (malha fechada a 20 Hz, independente da cadência
 do operador). Aqui só registramos a intenção do operador (modo/joystick/garfo) no
 estado e reconhecemos (`acknowledge`) a saída de uma parada de segurança.
-
-[ref: Seção 2 da AGENTS.md]
 """
 
 from __future__ import annotations

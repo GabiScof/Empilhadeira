@@ -3,8 +3,6 @@
 Envolve ``pyserial-asyncio`` e o enquadramento/CRC de ``app.comms.protocol``. A
 equipe pode trocar por outra implementação do mesmo Protocol (ex.: outro barramento)
 sem tocar na lógica — ``serial_loop_real`` aceita qualquer ``SerialTransport``.
-
-[ref: app/hardware/interfaces.py:SerialTransport]
 """
 
 from __future__ import annotations

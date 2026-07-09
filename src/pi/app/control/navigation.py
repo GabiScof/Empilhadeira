@@ -1,25 +1,11 @@
 """Navegação automática: posicionar o robô em frente à AprilTag.
 
-Máquina de estados:
-  COARSE_ALIGN → APPROACH → FACE → RETREAT → APPROACH (loop até convergir)
+Fases: COARSE_ALIGN → APPROACH → FACE → RETREAT (loop até convergir).
 
-**COARSE_ALIGN**: quando |pitch| > 45°, o robô está quase perpendicular à tag.
-  Nesta condição, recalcular omega a cada frame causa oscilação (ciclo-limite)
-  porque pequenas rotações alteram a leitura da câmera e flipam o sinal do
-  comando. Solução: girar com omega FIXO (direção determinada pelo sinal do
-  pitch na entrada) até |pitch| cair abaixo de 35° (histerese).
-
-**APPROACH**: centering via bearing angle (atan2(x, z)) para omega suave e
-  proporcional à distância. Perto do centro, transita para pitch-based alignment.
-  Dead zone usa D verdadeiro (|D|<3, |pitch|<5) para não parar desalinhado.
-
-**FACE**: quando perto do ZREF e D grande indica equilíbrio falso,
-  o robô gira no lugar usando pitch até ficar de frente (|pitch|<3°).
-  Duração mínima _FACE_MIN_TICKS garante que motores respondam.
-
-**RETREAT**: recua em linha reta (omega=0) até z > Z_RETREAT.
-
-[ref: Seção 7 da AGENTS.md]
+COARSE_ALIGN: |pitch|>45° causa ciclo-limite se ω for recalculado a cada frame;
+gira com ω fixo até |pitch|<35° (histerese). APPROACH: centering por bearing,
+transição para pitch perto do centro; convergência usa D verdadeiro. FACE corrige
+equilíbrio falso perto do ZREF; RETREAT recua em linha reta até z>Z_RETREAT.
 """
 
 from __future__ import annotations

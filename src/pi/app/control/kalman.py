@@ -4,8 +4,6 @@ O acelerômetro mede a gravidade (ruidoso, sem drift) e o giroscópio mede a
 velocidade angular (suave, com drift). A fusão produz roll/pitch estáveis em graus.
 
 Usa `filterpy.kalman.KalmanFilter` com estado [roll, pitch, roll_rate, pitch_rate].
-
-[ref: Seção 7 da AGENTS.md]
 """
 
 from __future__ import annotations
@@ -27,10 +25,8 @@ class AttitudeKalman:
         # x = [roll, pitch, roll_rate, pitch_rate]
         self._kf.x = np.zeros(4)
 
-        # Matriz de transição (atualizada a cada step com dt)
         self._kf.F = np.eye(4)
 
-        # Matriz de observação: medimos roll e pitch do acelerômetro
         self._kf.H = np.array(
             [
                 [1.0, 0.0, 0.0, 0.0],
@@ -38,13 +34,8 @@ class AttitudeKalman:
             ]
         )
 
-        # Covariância do processo (giroscópio, confiável no curto prazo)
         self._kf.Q = np.diag([0.001, 0.001, 0.003, 0.003])
-
-        # Covariância da medição (acelerômetro, ruidoso)
         self._kf.R = np.diag([0.5, 0.5])
-
-        # Covariância inicial
         self._kf.P *= 1.0
 
         self._initialized = False

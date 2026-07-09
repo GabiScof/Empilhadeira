@@ -2,8 +2,6 @@
 
 Guarda o último comando, sensores, visão, EKF, missão, navegação e
 modelo de mundo. Ponto único de leitura/escrita coordenada.
-
-[ref: Seção 2 da AGENTS.md]
 """
 
 from __future__ import annotations
@@ -44,7 +42,6 @@ class SharedState:
     def __init__(self) -> None:
         self.lock = asyncio.Lock()
 
-        # Componentes legados (mantidos para compat)
         from app.control.navigation import NavigationController
         from app.control.state_machine import StateMachine
 
@@ -52,7 +49,6 @@ class SharedState:
         self.kalman = AttitudeKalman()
         self.navigator = NavigationController()
 
-        # Novos componentes
         self.robot_model = RobotModel(
             wheelbase_m=config.WHEELBASE_M,
             wheel_radius_m=config.WHEEL_RADIUS_M,
@@ -76,16 +72,11 @@ class SharedState:
             max_v_ms=config.MAX_LINEAR_SPEED_MS,
             max_omega_rads=config.MAX_ANGULAR_SPEED_RADS,
         )
-        # Dock-to-tag: modo opt-in que estaciona o robô em frente a UMA tag por
-        # segmentos discretos. Isolado da missão (executor próprio). O flag é
-        # ligável em runtime pelo frontend (POST /dock/enable); o env var
-        # DOCK_TO_TAG só define o default inicial. [ref: app/control/dock_to_tag.py]
         from app.control.dock_to_tag import TagDocker
         self.docker = TagDocker()
         self.dock_enabled: bool = config.DOCK_TO_TAG_ENABLED
         self.world_model: WorldModel | None = None
 
-        # Dados recentes
         self.last_command: Command | None = None
         self.last_sensors: Sensors | None = None
         self.last_vision: VisionState = VisionState()
@@ -93,7 +84,6 @@ class SharedState:
 
         self.current_setpoint: Setpoint = Setpoint(w_esq=0.0, w_dir=0.0)
 
-        # Caminho planejado + rastro
         self.planned_path: list[Segment] = []
         self.executed_trail: list[tuple[float, float]] = []
         self.detected_tags_cache: list[DetectedTag] = []
@@ -174,7 +164,6 @@ class SharedState:
                 else None
             )
 
-            # EKF state
             ekf_dict = self.ekf.to_dict()
             ekf_state = EkfState(
                 x_m=ekf_dict["x_m"],
@@ -189,15 +178,12 @@ class SharedState:
                 ellipse_angle_rad=ekf_dict["ellipse"]["angle_rad"],
             )
 
-            # Mission info
             m_dict = self.mission.to_dict()
             mission_info = MissionInfo(**m_dict)
 
-            # Dock-to-tag info — repassa o detalhe fino inteiro (debug ao vivo)
             dock_dict = self.docker.to_dict()
             dock_info = DockInfo(enabled=self.dock_enabled, **dock_dict)
 
-            # Navigation info
             exec_dict = self.segment_executor.to_dict()
             nav_info = NavigationInfo(
                 executor_state=exec_dict["state"],

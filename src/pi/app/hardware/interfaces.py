@@ -18,8 +18,6 @@ Há dois encaixes:
 Os tipos de dados trocados nestes contratos vivem em ``app/models.py``
 (``VisionState``, ``DetectedTag``, ``Setpoint``, ``Sensors``) e no protocolo
 emoldurado em ``app/comms/protocol.py``.
-
-[ref: Seção 2 e 3 da AGENTS.md]
 """
 
 from __future__ import annotations

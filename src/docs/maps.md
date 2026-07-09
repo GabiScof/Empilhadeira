@@ -1,19 +1,13 @@
 # Formato de Mapas da Arena
 
-[ref: `pi/app/world/map_schema.py`, `pi/app/world/world_model.py`]
-
-## Visão Geral
-
-O robô navega em qualquer arena, desde que os pontos estejam mapeados.
-Trocar de mapa = trocar de arena/missão, sem mudar código.
+Schema: `map_schema.py`, fachada: `world_model.py`.
 
 Cada mapa é um arquivo JSON em `pi/maps/`, validado por Pydantic ao carregar.
 O `WorldModel` expõe arena, tags, poses inicial/home e grafo opcional de
-waypoints para os módulos de navegação, visão e simulação.
+waypoints para navegação, visão e simulação. Trocar mapa = trocar arena/missão,
+sem mudar código.
 
 ## Formato do Arquivo
-
-Arquivos JSON em `pi/maps/`. Schema validado por Pydantic (`map_schema.py`).
 
 ### Campos Obrigatórios
 
@@ -51,12 +45,12 @@ Arquivos JSON em `pi/maps/`. Schema validado por Pydantic (`map_schema.py`).
 
 ### Sistema de Coordenadas
 
-- Origem: canto **inferior esquerdo** (`origin: "bottom_left"`)
+- Origem: canto inferior esquerdo (`origin: "bottom_left"`)
 - Eixo X: cresce para a direita (largura da arena)
 - Eixo Y: cresce para cima (comprimento da arena)
 - `theta_deg`: anti-horário a partir de +X (0° = olhando para +X)
 
-Todas as grandezas internas do Pi usam **SI** (m, rad); o JSON do mapa usa
+Todas as grandezas internas do Pi usam SI (m, rad); o JSON do mapa usa
 metros e graus por legibilidade.
 
 ### Campos Opcionais — Grafo de Waypoints
@@ -74,10 +68,10 @@ de waypoints navegáveis:
 }
 ```
 
-Se o mapa não tem grafo, a arena é tratada como **aberta** e o planejador
+Se o mapa não tem grafo, a arena é tratada como aberta e o planejador
 usa Manhattan (alinha um eixo, depois o outro).
 
-As arestas são **não direcionadas** — o `WorldModel` constrói grafo bidirecional.
+As arestas são não direcionadas — o `WorldModel` constrói grafo bidirecional.
 
 ## Como Criar um Novo Mapa
 
@@ -105,7 +99,7 @@ Erros de validação levantam `pydantic.ValidationError` com mensagem descritiva
 
 | Canal | Como usar |
 |-------|-----------|
-| `.env` | `MAP=corredor_pequeno` (default em `config.DEFAULT_MAP`) |
+| `.env` | `MAP=corredor_pequeno`; sem a variável, vale `config.DEFAULT_MAP` (`corredor_6tags_80x160`) |
 | API REST | `POST /maps/load/{map_name}` |
 | UI | `MapSelector` na página de demo |
 | Listagem | `GET /maps/list` — retorna nome, dimensões, nº de tags, se tem grafo |
@@ -119,12 +113,12 @@ visão sintética. Em modo real, apenas o `WorldModel` em memória é atualizado
 |------|-----------|------|-------|-----------|
 | corredor_pequeno | 0.80×2.00 m | 3 | Não | Corredor estreito |
 | corredor_6tags | 0.60×3.00 m | 6 | Não | Corredor longo estreito |
-| **corredor_6tags_80x160** | **0.80×1.60 m** | **6** | Não | **Arena real medida** — tags na metade superior |
+| **corredor_6tags_80x160** | 0.80×1.60 m | 6 | Não | Arena real medida — tags na metade superior |
 | corredor_6tags_80x200 | 0.80×2.00 m | 6 | Não | Corredor antigo (dimensões anteriores) |
 | arena_media | 1.50×1.50 m | 4 | Não | Arena quadrada aberta |
 | arena_grande_com_grafo | 3.00×2.00 m | 6 | Sim (9 wp) | Arena grande com waypoints |
 
-> **Nota:** `corredor_6tags_80x160` é o mapa da arena real. Tags coladas nas
+> `corredor_6tags_80x160` é o mapa da arena real. Tags coladas nas
 > paredes laterais (L1–L3 à esquerda, R1–R3 à direita), centros em y=0,825/1,20/1,575 m.
 > A metade inferior do corredor (y < 0,80 m) não tem tags — o robô parte de lá.
 

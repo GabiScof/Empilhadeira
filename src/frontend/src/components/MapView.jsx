@@ -1,16 +1,3 @@
-/**
- * Visualização estática de um mapa da arena com medidas, anotações e legenda.
- *
- * Renderiza o mapa em SVG com:
- *  - Retângulo da arena com grade de 10 cm
- *  - Setas de dimensão (largura e altura em cm)
- *  - Tags com ícone, ID, coordenadas e indicador de face frontal
- *  - Pose inicial/home do robô
- *  - Marcador de origem O(0,0)
- *  - Grafo de waypoints (quando presente)
- *  - Legenda interativa
- */
-
 import { useMemo, useState } from "react";
 
 const PADDING = 70;
@@ -98,15 +85,12 @@ export default function MapView({ mapData }) {
           </pattern>
         </defs>
 
-        {/* Grid background */}
         <rect x={PADDING} y={PADDING} width={canvasW} height={canvasH}
           fill="url(#grid-pattern)" />
 
-        {/* Arena border */}
         <rect x={PADDING} y={PADDING} width={canvasW} height={canvasH}
           fill="none" stroke="#64748b" strokeWidth="2" rx="2" />
 
-        {/* Width dimension arrow (top) */}
         <line x1={PADDING} y1={PADDING - 30} x2={PADDING + canvasW} y2={PADDING - 30}
           stroke="#94a3b8" strokeWidth="1" markerStart="url(#arrow-rev)" markerEnd="url(#arrow)" />
         <line x1={PADDING} y1={PADDING - 36} x2={PADDING} y2={PADDING - 24}
@@ -117,7 +101,6 @@ export default function MapView({ mapData }) {
           textAnchor="middle" fill="#cbd5e1" fontSize="12" fontFamily="monospace"
           fontWeight="bold">{cmLabel(arenaW)}</text>
 
-        {/* Height dimension arrow (left) */}
         <line x1={PADDING - 30} y1={PADDING} x2={PADDING - 30} y2={PADDING + canvasH}
           stroke="#94a3b8" strokeWidth="1" markerStart="url(#arrow-rev)" markerEnd="url(#arrow)" />
         <line x1={PADDING - 36} y1={PADDING} x2={PADDING - 24} y2={PADDING}
@@ -130,7 +113,6 @@ export default function MapView({ mapData }) {
           {cmLabel(arenaH)}
         </text>
 
-        {/* Axis ticks (Y axis, every 20cm) */}
         {Array.from({ length: Math.floor(arenaH / 0.20) + 1 }, (_, i) => i * 0.20).map((ym) => (
           <g key={`ytick-${ym}`}>
             <line x1={PADDING - 4} y1={toY(ym)} x2={PADDING} y2={toY(ym)}
@@ -142,7 +124,6 @@ export default function MapView({ mapData }) {
           </g>
         ))}
 
-        {/* Axis ticks (X axis, every 20cm) */}
         {Array.from({ length: Math.floor(arenaW / 0.20) + 1 }, (_, i) => i * 0.20).map((xm) => (
           <g key={`xtick-${xm}`}>
             <line x1={toX(xm)} y1={PADDING + canvasH} x2={toX(xm)} y2={PADDING + canvasH + 4}
@@ -154,7 +135,6 @@ export default function MapView({ mapData }) {
           </g>
         ))}
 
-        {/* Waypoint edges */}
         {edges.map(([a, b], i) => {
           const wa = wpMap[a];
           const wb = wpMap[b];
@@ -166,7 +146,6 @@ export default function MapView({ mapData }) {
           );
         })}
 
-        {/* Waypoints */}
         {waypoints.map((wp) => (
           <g key={`wp-${wp.id}`}>
             <circle cx={toX(wp.x_m)} cy={toY(wp.y_m)} r="3.5"
@@ -178,7 +157,6 @@ export default function MapView({ mapData }) {
           </g>
         ))}
 
-        {/* Home pose marker */}
         {homePose && (
           <g>
             <circle cx={toX(homePose.x_m)} cy={toY(homePose.y_m)} r="14"
@@ -189,12 +167,10 @@ export default function MapView({ mapData }) {
           </g>
         )}
 
-        {/* Start pose marker + robot icon */}
         {startPose && (
           <g>
             <circle cx={toX(startPose.x_m)} cy={toY(startPose.y_m)} r="10"
               fill="rgba(59, 130, 246, 0.2)" stroke="#3b82f6" strokeWidth="1.5" />
-            {/* Robot direction triangle */}
             <g transform={`translate(${toX(startPose.x_m)}, ${toY(startPose.y_m)}) rotate(${-startPose.theta_deg + 90})`}>
               <polygon points="0,-7 -5,5 5,5" fill="#3b82f6" opacity="0.8" />
             </g>
@@ -208,7 +184,6 @@ export default function MapView({ mapData }) {
           </g>
         )}
 
-        {/* Origin marker */}
         <g>
           <circle cx={toX(0)} cy={toY(0)} r="4"
             fill="none" stroke="#f87171" strokeWidth="1.5" />
@@ -222,7 +197,6 @@ export default function MapView({ mapData }) {
           </text>
         </g>
 
-        {/* Tags */}
         {tags.map((tag) => {
           const tx = toX(tag.x_m);
           const ty = toY(tag.y_m);
@@ -241,7 +215,6 @@ export default function MapView({ mapData }) {
               onMouseLeave={() => setHoveredTag(null)}
               style={{ cursor: "pointer" }}>
 
-              {/* Approach standoff line (dashed) */}
               <line
                 x1={tx} y1={ty}
                 x2={tx + standoffPx * Math.cos(yawRad)}
@@ -249,27 +222,22 @@ export default function MapView({ mapData }) {
                 stroke={isHovered ? "#818cf8" : "#f59e0b"} strokeWidth="1"
                 strokeDasharray="3 2" opacity="0.6" />
 
-              {/* Approach point dot */}
               <circle
                 cx={tx + standoffPx * Math.cos(yawRad)}
                 cy={ty - standoffPx * Math.sin(yawRad)}
                 r="2.5" fill={isHovered ? "#818cf8" : "#f59e0b"} opacity="0.5" />
 
-              {/* Tag body */}
               <g transform={`translate(${tx}, ${ty}) rotate(${-(tag.yaw_deg || 0)})`}>
                 <rect x={-TAG_HALF} y={-TAG_HALF} width={TAG_HALF * 2} height={TAG_HALF * 2}
                   fill={isHovered ? "#818cf8" : "#f59e0b"} rx="1"
                   stroke={isHovered ? "#a5b4fc" : "#fbbf24"} strokeWidth="1" />
-                {/* Inner pattern */}
                 <rect x={-TAG_HALF / 2} y={-TAG_HALF / 2}
                   width={TAG_HALF} height={TAG_HALF}
                   fill="#1e293b" rx="0.5" />
-                {/* Front face indicator */}
                 <line x1={TAG_HALF} y1={-TAG_HALF} x2={TAG_HALF} y2={TAG_HALF}
                   stroke="#e2e8f0" strokeWidth="2.5" />
               </g>
 
-              {/* Tag 5cm dimension annotation */}
               {isHovered && (
                 <g>
                   <line
@@ -283,21 +251,18 @@ export default function MapView({ mapData }) {
                 </g>
               )}
 
-              {/* Label: position_id */}
               <text x={labelX} y={ty - 2}
                 textAnchor={labelAnchor} fill={isHovered ? "#c7d2fe" : "#94a3b8"}
                 fontSize="10" fontFamily="monospace" fontWeight="bold">
                 {tag.position_id}
               </text>
 
-              {/* Label: coordinates */}
               <text x={labelX} y={ty + 10}
                 textAnchor={labelAnchor} fill={isHovered ? "#a5b4fc" : "#64748b"}
                 fontSize="8" fontFamily="monospace">
                 {coordLabel(tag.x_m, tag.y_m)}
               </text>
 
-              {/* Label: wall */}
               {isHovered && tag.wall && (
                 <text x={labelX} y={ty + 20}
                   textAnchor={labelAnchor} fill="#64748b"
@@ -309,7 +274,6 @@ export default function MapView({ mapData }) {
           );
         })}
 
-        {/* Legend */}
         <g transform={`translate(${PADDING + 8}, ${PADDING + canvasH - 80})`}>
           <rect x="-4" y="-12" width="120" height="78" rx="4"
             fill="rgba(15, 23, 42, 0.85)" stroke="#334155" strokeWidth="0.5" />
@@ -330,7 +294,6 @@ export default function MapView({ mapData }) {
         </g>
       </svg>
 
-      {/* Info cards below the map */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
         <div className="bg-slate-700/50 rounded px-3 py-2">
           <div className="text-xs text-slate-400">Arena</div>
@@ -352,7 +315,6 @@ export default function MapView({ mapData }) {
         </div>
       </div>
 
-      {/* Tag details table */}
       <div className="mt-3 overflow-x-auto">
         <table className="w-full text-xs font-mono">
           <thead>

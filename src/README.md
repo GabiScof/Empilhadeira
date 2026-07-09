@@ -3,7 +3,7 @@
 Empilhadeira em escala reduzida com navegação autônoma por AprilTag, missão
 pick-and-place e telemetria em tempo real.
 
-> **Estado atual:** lógica implementada e validada em simulação (`SIM=1`).
+> Estado atual: lógica implementada e validada em simulação (`SIM=1`).
 > Pronta para bring-up no hardware real — ver
 > [`docs/hardware-deployment.md`](docs/hardware-deployment.md).
 
@@ -69,17 +69,17 @@ bash scripts/verify.sh
 
 | Documento | Conteúdo |
 |-----------|----------|
-| [**readiness-sim-to-real.md**](docs/readiness-sim-to-real.md) | **Auditoria completa** — Pi, ESP, filtros, interfaces, bloqueantes |
-| [**simulator-to-real.md**](docs/simulator-to-real.md) | **Sim → real** — o que fizemos, o que aproveitamos |
-| [**hardware-deployment.md**](docs/hardware-deployment.md) | **Passo a passo no robô real** — o que fazer, o que falta |
+| [readiness-sim-to-real.md](docs/readiness-sim-to-real.md) | Auditoria sim→real — Pi, ESP, filtros, interfaces, bloqueantes |
+| [simulator-to-real.md](docs/simulator-to-real.md) | O que a simulação cobre e o que transferimos |
+| [hardware-deployment.md](docs/hardware-deployment.md) | Passo a passo no robô real |
 | [verification-status.md](docs/verification-status.md) | Testes passando, bugs corrigidos, sim_sweep |
 | [hardware-interfaces.md](docs/hardware-interfaces.md) | Encaixes SIM↔real (`VisionSource`, `SerialTransport`) |
 | [hardware-bring-up.md](docs/hardware-bring-up.md) | Pinos, energia, fiação, calibração |
-| [serial-protocol.md](docs/serial-protocol.md) | **Fonte de verdade** dos 4 contratos |
+| [serial-protocol.md](docs/serial-protocol.md) | Contratos serial (4 mensagens) |
 | [architecture.md](docs/architecture.md) | Decisões, parâmetros em aberto |
 | [navigation.md](docs/navigation.md) | Planejador, executor, APPROACH/FACE/RETREAT |
 | [mission.md](docs/mission.md) | Missão pick-and-place |
-| [dock-to-tag.md](docs/dock-to-tag.md) | Aproximação por segmentos a 1 tag (opt-in `DOCK_TO_TAG=1`) |
+| [dock-to-tag.md](docs/dock-to-tag.md) | Aproximação por segmentos a 1 tag (`DOCK_TO_TAG_ENABLED`, ligado por default) |
 | [maps.md](docs/maps.md) | Formato JSON dos mapas |
 | [simulation.md](docs/simulation.md) | Modo SIM=1, falhas, APIs `/sim/*` |
 | [camera-calibration.md](docs/camera-calibration.md) | Calibração xadrez |
@@ -97,5 +97,5 @@ bash scripts/verify.sh
 
 Valores provisórios em `pi/app/config.py` e `firmware/src/config.h`, marcados
 `TODO(equipe)`. Lista completa em
-[`docs/architecture.md#parâmetros-em-aberto`](docs/architecture.md#parâmetros-em-aberto--não-inventar-valor--ref-seção-3)
+[`docs/architecture.md#parâmetros-em-aberto`](docs/architecture.md#parâmetros-em-aberto--não-inventar-valor)
 e checklist de medição em [`docs/hardware-deployment.md`](docs/hardware-deployment.md).

@@ -2,8 +2,6 @@
 
 Suporta detecção de múltiplas tags (sintética ou real). Resolve IDs contra
 o world model e aplica correções de pose no EKF.
-
-[ref: Seção 6 do mega-prompt]
 """
 
 from __future__ import annotations
@@ -264,8 +262,6 @@ async def vision_loop(state: SharedState, source: VisionSource) -> None:
                 vision_state = source.get_vision()
             await state.update_vision(vision_state)
 
-            # Fusão multi-tag no EKF para qualquer fonte que exponha detecções
-            # relativas (SIM e real implementam get_all_detections).
             if get_all is not None:
                 detections = get_all()
                 if detections:

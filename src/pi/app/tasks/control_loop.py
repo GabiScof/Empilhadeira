@@ -4,8 +4,6 @@ Em MANUAL: joystick → cinemática → setpoint.
 Em AUTOMATICO com missão ativa: missão SM → planejador → executor → setpoint.
 Em AUTOMATICO sem missão, com dock ligado (state.dock_enabled): docker → setpoint.
 Em AUTOMATICO sem missão (legado): navegador antigo → setpoint.
-
-[ref: Seção 2 e 5 do mega-prompt]
 """
 
 from __future__ import annotations
@@ -174,7 +172,6 @@ async def control_loop(state: SharedState) -> None:
                 and not state.mission.is_active
             )
 
-            # Propor velocidades conforme o modo
             if requested_mode == Mode.MANUAL:
                 w_esq, w_dir = _propose_wheel_speeds_manual(joystick_x, joystick_y)
                 if state.dock_enabled:

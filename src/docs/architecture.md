@@ -1,19 +1,15 @@
 # Arquitetura — Empilhadeira Robótica Autônoma
 
-[ref: Seções 1, 2, 3 e 4 da AGENTS.md]
-
-## Visão geral
-
 Empilhadeira robótica em escala reduzida que transporta pallets (~15 cm de lado) em
 ambiente controlado. Dois modos de operação:
 
 - **Manual:** operador comanda o robô por joystick virtual no celular.
 - **Autônomo:** o robô executa missões de navegação entre AprilTags no mapa,
-  posicionando-se em frente aos alvos (**apenas posicionamento**, não manipulação).
+  posicionando-se em frente aos alvos (apenas posicionamento, não manipulação).
 
-O **garfo é sempre manual** nos dois modos, num canal de comando independente.
+O garfo é sempre manual nos dois modos, num canal de comando independente.
 
-### Missão pick-and-place com garra manual
+## Missão pick-and-place com garra manual
 
 Além do posicionamento reativo legado (aproximar de uma tag visível), o sistema
 suporta uma **missão pick-and-place** completa:
@@ -38,12 +34,13 @@ Detalhes da máquina de estados e da API REST em [`mission.md`](./mission.md).
                 │     WebSocket / Wi-Fi      ▼
 ┌───────────────┴─────────────────────────────────────────────────┐
 │  RASPBERRY PI — Alto nível (Python, FastAPI + asyncio)           │
-│  4 tarefas concorrentes:                                         │
-│   • WebSocket Handler   • Vision Loop                            │
-│   • Serial Loop         • Control Loop                           │
-│  Visão (AprilTag), EKF 2D, cinemática, planejador de rotas,      │
-│  executor de segmentos, máquina de missão, máquina de estados,   │
-│  modelo de mundo paramétrico, protocolo (JSON+CRC8).             │
+│  3 loops asyncio no startup + handler WebSocket por conexão:       │
+│   • Vision Loop · Serial Loop · Control Loop                      │
+│   • WebSocket Handler (FastAPI, telemetria @20 Hz por cliente)     │
+│  Visão (AprilTag), EKF 2D, Kalman 1D (roll/pitch),               │
+│  GyroCalibrator, cinemática, planejador de rotas,                │
+│  executor de segmentos, dock-to-tag, missão pick-and-place,      │
+│  máquina de estados/segurança, modelo de mundo, protocolo.       │
 └───────────────▲───────────────────────────┬──────────────────────┘
                 │ (4) sensores               │ (3) setpoint
                 │     UART USB 115200, 20 Hz │     JSON+CRC8+\n
@@ -58,29 +55,37 @@ Detalhes da máquina de estados e da API REST em [`mission.md`](./mission.md).
 Os contratos de dados entre camadas estão congelados em
 [`serial-protocol.md`](./serial-protocol.md) — fonte única de verdade.
 
-## Quatro tarefas asyncio no Pi
+## Loops asyncio no Pi
 
-| Tarefa | Taxa | Responsabilidade |
-|--------|------|------------------|
-| **WebSocket Handler** | evento | Comandos do frontend, telemetria @20 Hz |
-| **Vision Loop** | ~20 Hz | Detecção AprilTag (real ou sintética), correção EKF |
-| **Serial Loop** | 20 Hz | Troca setpoint/sensores com ESP32 ou emulador, predição EKF |
-| **Control Loop** | 20 Hz | Missão → planejador → executor → setpoint; segurança |
+`main.py` cria 3 `asyncio.create_task` no lifespan: Vision Loop, Serial Loop,
+Control Loop. O WebSocket Handler roda por conexão via `@app.websocket("/ws")` —
+não é um quarto loop no startup.
+
+| Componente | Taxa | Responsabilidade |
+|------------|------|------------------|
+| **Vision Loop** | ~20 Hz | Detecção AprilTag (real ou sintética), correção EKF, cache multi-tag |
+| **Serial Loop** | 20 Hz | Troca setpoint/sensores com ESP32 ou emulador, predição EKF, `GyroCalibrator`, `AttitudeKalman` (roll/pitch) |
+| **Control Loop** | 20 Hz | Arbitragem (manual > missão > dock > legado), executor → setpoint, segurança |
+| **WebSocket Handler** | por conexão | Comandos do frontend; sub-task `_telemetry_sender` @20 Hz por cliente |
 
 ```
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
 │  WebSocket   │     │   Vision     │     │   Serial     │
 │   Handler    │     │    Loop      │     │    Loop      │
 └──────┬───────┘     └──────┬───────┘     └──────┬───────┘
-       │ last_command       │ last_vision        │ enc + IMU
-       │                    │ correct_apriltag   │ ekf.predict()
+       │ last_command       │ correct_apriltag   │ enc + gyro(calibrado)
+       │                    │ (suprimido no dock)│ ekf.predict()
        └────────────────────┼────────────────────┘
                             ▼
-                   ┌────────────────┐
-                   │  Control Loop  │
-                   │  mission → nav │
-                   │  → setpoint    │
-                   └────────┬───────┘
+                   ┌─────────────────┐
+                   │  Control Loop   │
+                   │  MANUAL: joy→tw │
+                   │  AUTO:          │
+                   │   missão ativa? │──→ SegmentExecutor
+                   │   dock ativo?   │──→ TagDocker
+                   │   senão         │──→ NavigationCtrl
+                   │  → setpoint     │
+                   └────────┬────────┘
                             │ current_setpoint
                             ▼
                    Serial Loop → ESP32
@@ -99,10 +104,34 @@ qualquer estado ativo.
 |--------|------|-------|
 | GO_TO_* / GO_HOME | Navega (SegmentExecutor) | Manual (operador) |
 | AT_PICK / AT_PLACE | Parado | Operador aciona + clica "continuar" |
-| FAULT | Motores zerados | — |
+| FAULT | Telemetria registra falha; motores param no tick do fault, mas o control loop não bloqueia AUTOMATICO — operador deve resetar missão ou mudar de modo. | — |
 
-Implementação: `pi/app/mission/mission_sm.py`. Especificação completa em
-[`mission.md`](./mission.md).
+Targets default: `MISSION_DEFAULT_PICK_ID="L3"`, `MISSION_DEFAULT_PLACE_ID="R1"` → se não passados explicitamente, cai no sorteio por `_seed=42`.
+
+Implementação: `pi/app/mission/mission_sm.py`. Ver [`mission.md`](./mission.md).
+
+## Dock-to-tag (modo padrão de AUTOMATICO sem missão)
+
+Desde 2026-07-07 (`DOCK_TO_TAG_ENABLED = True` hardcoded), o ramo AUTOMATICO
+sem missão usa o `TagDocker` em vez do navegador legado. O legado só roda se
+o dock for desligado em runtime (`POST /dock/disable`).
+
+O dock vê 1 tag, planeja **uma vez** com Manhattan no **frame do robô** (não
+nos eixos do mapa — escolha estranha, mas funciona sem mapa), e executa os
+segmentos pelo EKF. Detalhes em [`dock-to-tag.md`](./dock-to-tag.md).
+
+Diferença da missão: o dock usa `_plan_steps()` (Manhattan relativo ao robô:
+avança no heading, gira ±90°, avança, gira final), enquanto a missão usa
+`plan_route()` (A*/Manhattan nos eixos do mapa).
+
+Durante dock ativo, correções EKF por tag são **suprimidas** (`vision_loop.py`
+pula `correct_apriltag()` quando `state.docker.is_docking`) — a execução é
+pura odometria. Essa é outra escolha estranha: foi feita para evitar saltos de
+pose durante a aproximação curta, mas significa que a precisão depende da
+qualidade da predição.
+
+Estados: `SEEKING → DOCKING → DONE` (+ `FAULT` por timeout). Em `DONE`, se o
+robô se mover > 0,10 m, re-planeja automaticamente.
 
 ## Malha em cascata de controle
 
@@ -125,16 +154,26 @@ Detalhes em [`navigation.md`](./navigation.md).
 
 ## EKF 2D — [x, y, θ]
 
-Substitui o filtro de atitude (roll/pitch) para navegação no plano.
+EKF para pose no plano. O `AttitudeKalman` (1D, roll/pitch) continua rodando
+em paralelo no `serial_loop.py` para a telemetria da UI — são filtros separados.
 
 | Fase | Fonte | Módulo |
 |------|-------|--------|
-| Predição | Odometria (encoders) + giroscópio Z | `serial_loop.py` → `ekf.predict()` |
+| Predição | Encoders + giroscópio Z (pós-`GyroCalibrator`: bias, auto-orientação de eixo) | `serial_loop.py` → `ekf.predict()` |
 | Correção | AprilTag (PnP → pose no mundo) | `vision_loop.py` → `ekf.correct_apriltag()` |
-| Gating | Distância de Mahalanobis ≤ 3σ | `ekf.py` |
+| Gating | Distância de Mahalanobis > 3.0 descartada | `ekf.py` |
 
-Estado interno em SI (m, rad). A telemetria exporta elipse de covariância 2D
-para visualização na UI.
+Fusão gyro/odom: `omega = 0.7*gyro + 0.3*odom` (hardcoded `alpha_gyro=0.7` em
+`ekf.py`, não vem de `config.EKF_*` — esses existem em `config.py` mas não são
+lidos pelo EKF; valores duplicados).
+
+Q é dinâmico: escala com velocidade e giro via `speed_factor`/`turn_factor`/`dt`.
+R é escalonado pela `quality` da detecção (mín. 0.1). Covariância 3×3, não 2×2.
+
+Exceção durante dock: `vision_loop.py` **não** chama `correct_apriltag()` quando
+`state.docker.is_docking` — execução em pura odometria.
+
+Estado em SI (m, rad). Telemetria exporta elipse 2D para a UI.
 
 ## Modelo de mundo paramétrico
 
@@ -152,79 +191,101 @@ código.
 - Fachada: `pi/app/world/world_model.py`
 - Documentação: [`maps.md`](./maps.md)
 
-## Decisões fechadas (não rediscutir) — [ref: Seção 2]
+## Decisões de projeto
 
-- Arquitetura **hierárquica de 3 camadas**: Frontend → Pi → ESP32.
-- **Raspberry Pi em Python.** Backend assíncrono único com **FastAPI** + `asyncio`,
-  **quatro** tarefas concorrentes (WebSocket Handler, Vision Loop, Serial Loop,
-  Control Loop).
-- **ESP32 em C++ (Arduino, PlatformIO).** PID a ~100 Hz e determinismo de tempo real.
-- **Frontend em React + Vite** (navegador do celular).
-- **Frontend ↔ Pi:** WebSocket full-duplex sobre Wi-Fi local.
-- **Pi ↔ ESP32:** UART USB, **115200 baud**, **20 Hz**, framing **JSON + CRC8(hex) + `\n`**.
-- **Garfo sempre manual** — sem atuação autônoma no protocolo serial.
-- **Monorepo** com três apps (`pi/`, `firmware/`, `frontend/`) + `docs/` + `scripts/`.
-- **Mapas em JSON** — arena paramétrica, não hardcoded.
+- Arquitetura hierárquica de 3 camadas: Frontend → Pi → ESP32.
+- Raspberry Pi em Python. Backend assíncrono com FastAPI + `asyncio`,
+  3 loops no startup + handler WebSocket por conexão.
+- ESP32 em C++ (Arduino, PlatformIO). PID a ~100 Hz e determinismo de tempo real.
+- Frontend em React + Vite (navegador do celular).
+- Frontend ↔ Pi: WebSocket full-duplex sobre Wi-Fi local.
+- Pi ↔ ESP32: UART USB, 115200 baud, 20 Hz, framing JSON + CRC8(hex) + `\n`.
+- Garfo sempre manual — sem atuação autônoma no protocolo serial.
+- Monorepo com três apps (`pi/`, `firmware/`, `frontend/`) + `docs/` + `scripts/`.
+- Mapas em JSON — arena paramétrica, não hardcoded.
 
-## Parâmetros em aberto — NÃO INVENTAR VALOR — [ref: Seção 3]
+## Parâmetros em aberto
 
-Cada um existe como **constante nomeada** com placeholder marcado e `TODO(equipe)`.
+Não atribuir valores por conta própria. Cada parâmetro pendente existe como
+constante nomeada com placeholder marcado e `TODO(equipe)`; alguns já foram
+definidos e estão indicados abaixo.
 
 | Parâmetro | Onde mora | Observação |
 |---|---|---|
-| Massa real do pallet | `pi/app/config.py` | Intro do relatório diz ~1 kg, mas o cálculo do garfo usou 0,1 kg. **Inconsistência aberta.** |
+| Massa real do pallet | `pi/app/config.py` | Intro do relatório diz ~1 kg, mas o cálculo do garfo usou 0,1 kg. Inconsistência aberta. |
 | Versão do motor do garfo (torque) | `config` + docs | Depende da massa real; versão 40 rpm pode estar subdimensionada. |
-| Modelo do Raspberry Pi | este arquivo | Decide FPS de visão e orçamento de energia. **`TODO(equipe)`**. |
+| Modelo do Raspberry Pi | este arquivo | Decide FPS de visão e orçamento de energia. `TODO(equipe)`. |
 | `L` (distância entre rodas), `r` (raio da roda) | `pi/app/config.py` | Cinemática diferencial. |
 | Ganhos PID (`Kp, Ki, Kd`) por roda | `firmware/src/config.h` | Sintonia inicial Ziegler-Nichols, depois empírica. |
-| Ganhos malha externa (`NAV_K_DIST`, `NAV_K_HEADING`) | `pi/app/config.py` | Segment executor. |
+| Ganhos malha externa (`NAV_K_DIST`, `NAV_K_HEADING`) | `pi/app/config.py` | Valores atuais 1,5 e 2,5; sintonia fina pendente. |
 | Ganhos navegação legado (`Kz, Kx, Kp_pitch`) | `pi/app/config.py` | Modo automático reativo. |
 | `Zref` (distância de parada) | `pi/app/config.py` | ~15 cm provisório; depende do comprimento do garfo. |
 | Ruído EKF (`EKF_Q_*`, `EKF_R_*`) | `pi/app/config.py` | Fusão odometria + tag. |
-| Intrínsecos da câmera (`fx, fy, cx, cy`) | `pi/calibracao/camera_intrinsics.json` | Saída da calibração (xadrez / 3DF Zephyr). |
+| Intrínsecos da câmera (`fx, fy, cx, cy`) | `pi/calibracao/camera_intrinsics.json` | Definidos: recalibração de 2026-07-07 (1280×720). Ver [`camera-calibration.md`](./camera-calibration.md). |
 | Tamanho físico da AprilTag | `pi/app/config.py` | Necessário para a pose. |
 | Offset extrínseco câmera→garfo | `pi/app/config.py` + docs | Alinhar a câmera ≠ alinhar o garfo. |
-| Timeout "manter último setpoint" (ESP32) | `firmware/src/config.h` | Antes de cair em estado seguro. |
+| Timeout "manter último setpoint" (ESP32) | `firmware/src/config.h` | Definido: `SETPOINT_TIMEOUT_MS = 200` ms. |
 | `MISSION_RESUME_TRIGGER` | `pi/app/config.py` | Botão vs. fim-de-curso. |
-| Access Point Wi-Fi (Pi ou roteador) | este arquivo | Afeta o RTT alvo < 170 ms. **`TODO(equipe)`**. |
+| Access Point Wi-Fi (Pi ou roteador) | este arquivo | Afeta o RTT alvo < 170 ms. `TODO(equipe)`. |
 
 ### Definições pendentes de infraestrutura (`TODO(equipe)`)
 
-- **Modelo do Raspberry Pi:** _a definir._ Impacta FPS de visão e energia.
-- **Access Point Wi-Fi:** _a definir_ se o AP é o próprio Pi ou um roteador externo.
-  Meta de RTT comando→ação < **170 ms**.
+- **Modelo do Raspberry Pi:** a definir. Impacta FPS de visão e energia.
+- **Access Point Wi-Fi:** a definir se o AP é o próprio Pi ou um roteador externo.
+  Meta de RTT comando→ação < 170 ms.
 
-## Restrições de engenharia a respeitar — [ref: Seção 4]
+## Restrições de engenharia a respeitar
 
-- A cinemática assume rodas **sem escorregamento**; a odometria por encoder degrada
+- A cinemática assume rodas sem escorregamento; a odometria por encoder degrada
   se patinar.
-- Estimar **Pitch** de uma única tag pequena tem **ambiguidade de pose** conhecida.
-- A tag pode **sair do FOV / sair de foco** na reta final (Z pequeno); a aproximação
-  precisa lidar com perda de detecção perto do alvo.
-- Em modo automático legado, `ω = Kx·X + Kp·Pitch` pode **acoplar/brigar**; prever fallback.
-- O canal de comando (WebSocket) precisa de **watchdog próprio**: se cair no modo
-  manual com o robô andando, o robô deve **parar**, não manter o último comando.
-- Navegação por mapa depende de **correções EKF por tag** — deriva de odometria
+- Estimar pitch de uma única tag pequena tem ambiguidade de pose conhecida.
+- A tag pode sair do FOV ou sair de foco na reta final (Z pequeno); missão e
+  dock ignoram tag-loss (bypassam segurança), legado para em `PARADO`.
+- Em modo automático legado, `ω = Kx·X + Kp·Pitch` pode acoplar os dois termos;
+  `NavigationController` tem fases (COARSE_ALIGN, APPROACH, FACE, RETREAT) com
+  fallback de oscilação, não a fórmula simples — ver `navigation.py`.
+- O canal de comando (WebSocket) tem watchdog de 400 ms: se cair no modo
+  manual com o robô andando, o robô para (mas missão ativa anula o efeito).
+- Navegação por mapa depende de correções EKF por tag — deriva de odometria
   entre detecções é esperada.
 
-## Estado seguro / watchdogs — [ref: Seção 7]
+## Estado seguro / watchdogs
 
-- **Serial cai** → ESP32 zera os motores (após `SETPOINT_TIMEOUT_MS`).
-- **Comando (WebSocket) cai no manual** → Pi força `PARADO`.
-- **Missão em FAULT** → motores zerados, UI sinaliza falha.
-- **Segmento timeout** (30 s) → missão transiciona para FAULT.
+O sistema inicia em `PARADO` (`state_machine.py`). Transições de segurança
+usam um **latch**: `PARADO` por segurança trava até `acknowledge()` explícito
+(comando MANUAL ou AUTOMATICO via WebSocket). Exceção: missão e dock ativos
+chamam `acknowledge()` automaticamente no tick seguinte.
+
+Razões de parada expostas na telemetria (`parado_reason`): `tag_loss`,
+`command_watchdog`, `ws_disconnect`, `serial_loss`, `force_stop`.
+
+| Watchdog | Valor | Condição | Efeito |
+|----------|-------|----------|--------|
+| **Setpoint ESP32** | `SETPOINT_TIMEOUT_MS = 200` ms | Sem setpoint novo | ESP32 zera motores |
+| **Comando (Pi)** | `COMMAND_WATCHDOG_MS = 400` ms | MANUAL + rodas em movimento + sem comando novo | Pi força `PARADO` |
+| **Serial loss (Pi)** | `SERIAL_LOST_FRAMES = 5` (~250 ms @20 Hz) | Sem sensor frames do ESP32 | Pi força `PARADO` (defesa em profundidade) |
+| **Tag-loss (Pi)** | `TAG_LOST_FRAMES = 5` (>5 frames = 6 frames ≈ 300 ms @20 Hz) | AUTOMATICO legado sem tag visível | Pi força `PARADO` |
+| **Timeout de segmento** | `NAV_MAX_SEGMENT_TIME_S = 45` s | Segmento não completo | Missão → FAULT; Dock → FAULT |
+| **WebSocket disconnect** | imediato | Qualquer modo | `force_stop("ws_disconnect")` |
+
+Tag-loss e ws_disconnect são **bypassed** durante missão/dock ativos:
+`control_loop.py` injeta `VisionState(detectado=True)` e auto-chama
+`acknowledge()`, fazendo o robô continuar navegando sem intervenção. Isso
+significa que ws disconnect só para o robô de forma confiável **sem missão
+ativa** — com missão, o latch é auto-liberado no tick seguinte.
 
 ## Documentação relacionada
 
 | Arquivo | Conteúdo |
 |---------|----------|
-| [**readiness-sim-to-real.md**](./readiness-sim-to-real.md) | **Auditoria completa SIM→real** |
-| [**simulator-to-real.md**](./simulator-to-real.md) | Sim → real — o que aproveitamos |
-| [**hardware-deployment.md**](./hardware-deployment.md) | **Deploy no robô real** — passo a passo, o que falta |
+| [readiness-sim-to-real.md](./readiness-sim-to-real.md) | Auditoria SIM→real |
+| [simulator-to-real.md](./simulator-to-real.md) | Sim → real — o que aproveitamos |
+| [hardware-deployment.md](./hardware-deployment.md) | Deploy no robô real — passo a passo |
 | [verification-status.md](./verification-status.md) | Testes, bugs corrigidos, sim_sweep |
 | [`mission.md`](./mission.md) | Missão pick-and-place, API, garra manual |
 | [`maps.md`](./maps.md) | Formato JSON dos mapas da arena |
 | [`navigation.md`](./navigation.md) | Planejador, executor, malha em cascata |
+| [`dock-to-tag.md`](./dock-to-tag.md) | Aproximação a 1 tag sem missão |
 | [`simulation.md`](./simulation.md) | Modo SIM=1, falhas, testes |
 | [`hardware-bring-up.md`](./hardware-bring-up.md) | Pinos, energia, calibração |
 | [`serial-protocol.md`](./serial-protocol.md) | Contratos de comunicação |

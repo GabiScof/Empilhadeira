@@ -1,8 +1,8 @@
 # Encaixes de hardware (SIM ↔ real)
 
-A lógica (navegação, EKF, missão, máquina de estados) é **a mesma** em simulação e
+A lógica (navegação, EKF, missão, máquina de estados) é a mesma em simulação e
 no robô real. O que muda é só a implementação injetada em `app/main.py`, escolhida
-por `config.SIM`. Há dois encaixes, definidos como `Protocol` em
+por `config.SIM`. Dois encaixes, definidos como `Protocol` em
 [`app/hardware/interfaces.py`](../pi/app/hardware/interfaces.py).
 
 | Encaixe | SIM | Real |
@@ -24,20 +24,21 @@ def get_all_detections(self) -> list[TagObservation]   # todas as tags p/ fusão
 
 A `RealVisionSource` já está implementada. O que a equipe precisa fechar:
 
-1. **Recalibrar a câmera.** `pi/calibracao/camera_intrinsics.json` está preenchido
-   (640×480, erro 0,144 px), mas ⚠️ **suspeito** — cx=399 ≈ 800/2 sugere fotos em
-   resolução errada; recalibração em andamento (ver
-   [camera-calibration.md](./camera-calibration.md)). Enquanto os valores estiverem
+1. **Calibração da câmera.** `pi/calibracao/camera_intrinsics.json` contém a
+   recalibração de 2026-07-07 (câmera nova, remontada com tilt de 30°):
+   1280×720, fx=fy=1023,63, cx=634,08, cy=377,08 (ver
+   [camera-calibration.md](./camera-calibration.md)). A calibração antiga,
+   640×480 da câmera anterior, foi descartada. Se os valores estiverem
    `null`, `RealVisionSource()` falha no boot com mensagem clara (controlado por
-   `REQUIRE_CAMERA_CALIBRATION`; os intrínsecos placeholder de `config.py` **não**
-   servem para o hardware real).
-2. **Validar o offset câmera→garfo** (`CAMERA_TO_FORK_OFFSET_CM`) — medido na
-   bancada 2026-07-07: `(0, -14.2, -25.5)`, z NEGATIVO (lente ~25,5 cm ATRÁS da
-   ponta do garfo; `pose.py` SOMA o offset). Depois do offset, `z_cm` = distância
+   `REQUIRE_CAMERA_CALIBRATION`; os intrínsecos de fallback de `config.py` não
+   substituem o JSON no hardware real).
+2. **Validar o offset câmera→garfo** (`CAMERA_TO_FORK_OFFSET_CM`) — remontagem
+   2026-07-07 (2ª vez): `(0.0, -14.2, -10.0)`, z negativo (lente ~10 cm atrás da
+   ponta do garfo; `pose.py` soma o offset). Depois do offset, `z_cm` = distância
    da ponta do garfo até a tag. Validar: tag a 15 cm da ponta → `z_cm` ≈ 15.
 3. **Validar a convenção de `yaw_rad`** em `estimate_tag_observations` (`pose.py`)
-   contra o frame real — marcado `TODO(equipe)`. A correção de **posição** do EKF
-   não depende disso; só a de **heading**.
+   contra o frame real — marcado `TODO(equipe)`. A correção de posição do EKF
+   não depende disso; só a de heading.
 
 Injeção para teste: `RealVisionSource(detector=..., estimate=..., estimate_observations=...)`.
 
@@ -62,7 +63,7 @@ Teste sem hardware: injete um transporte fake (ver
 
 ## Como mergear
 
-- Implementações reais entram **atrás dos Protocols** — não toquem na lógica.
+- Implementações reais entram atrás dos Protocols — sem alterar a lógica.
 - Ponto único de troca: a seção `else:` (modo real) de `lifespan` em `app/main.py`.
   No boot real, falhas de câmera/serial são logadas e isoladas (a app não cai).
 - Antes de ligar o hardware, feche os `TODO(equipe)` de `config.py` (constantes

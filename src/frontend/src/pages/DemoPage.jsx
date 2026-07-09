@@ -131,7 +131,6 @@ export default function DemoPage() {
       <SafetyAlert telemetry={telemetry} />
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* Coluna 1: Controles do operador */}
         <div className="space-y-4">
           <ModeSelector
             currentMode={currentState}
@@ -151,13 +150,11 @@ export default function DemoPage() {
           />
         </div>
 
-        {/* Colunas 2-4: Visualização */}
         <div className="lg:col-span-3 space-y-4">
           <Arena worldState={worldState} telemetry={telemetry} />
           <ForkSideView worldState={worldState} />
         </div>
 
-        {/* Coluna 5: Telemetria + Ferramentas sim */}
         <div className="space-y-4">
           <TelemetryPanel telemetry={telemetry} connected={connected} worldState={worldState} />
           <MapSelector apiBase={API_BASE} onMapLoaded={fetchWorldState} />

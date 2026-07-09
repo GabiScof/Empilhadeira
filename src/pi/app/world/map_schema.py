@@ -5,8 +5,6 @@ posição das AprilTags e, opcionalmente, um grafo de waypoints para arenas
 com restrições (corredores, paredes internas).
 
 Formato: JSON. Validação por Pydantic v2.
-
-[ref: Seção 2.1 do mega-prompt]
 """
 
 from __future__ import annotations
@@ -83,17 +81,14 @@ class ArenaMap(BaseModel):
 
     @model_validator(mode="after")
     def _validate_map(self) -> "ArenaMap":
-        # IDs de posição de tags únicos
         tag_ids = [t.position_id for t in self.tags]
         if len(tag_ids) != len(set(tag_ids)):
             raise ValueError("position_id das tags deve ser único")
 
-        # april_tag_id únicos (quando fornecidos)
         assigned_ids = [t.april_tag_id for t in self.tags if t.april_tag_id is not None]
         if len(assigned_ids) != len(set(assigned_ids)):
             raise ValueError("april_tag_id das tags deve ser único")
 
-        # Tags dentro da arena
         for tag in self.tags:
             if not (0 <= tag.x_m <= self.arena.width_m):
                 raise ValueError(
@@ -106,13 +101,11 @@ class ArenaMap(BaseModel):
                     f"[0, {self.arena.height_m}]"
                 )
 
-        # Waypoints únicos
         if self.waypoints:
             wp_ids = [w.id for w in self.waypoints]
             if len(wp_ids) != len(set(wp_ids)):
                 raise ValueError("id dos waypoints deve ser único")
 
-            # Edges referenciam waypoints válidos
             if self.edges:
                 wp_set = set(wp_ids)
                 for edge in self.edges:

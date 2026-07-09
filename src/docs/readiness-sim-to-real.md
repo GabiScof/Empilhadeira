@@ -1,13 +1,12 @@
-# Prontidão SIM → Real — Auditoria Completa
+# Prontidão SIM → Real — Auditoria
 
-> **Data da auditoria:** 2026-06-23  
-> **Pergunta:** o Pi, o ESP32, a lógica, os filtros e as interfaces de comunicação
-> estão prontos para ligar o robô físico com `SIM=0`?  
-> **Resposta curta:** o **software está implementado e validado em simulação**; o
-> **deploy físico ainda exige calibração e testes no chão** antes de confiar em
-> navegação autônoma.
+Data da auditoria: 2026-06-23 (atualizações pontuais em 2026-07-06/07)
 
-Documentos complementares:
+O Pi, ESP32, lógica, filtros e interfaces estão prontos para `SIM=0`?
+Software implementado e validado em simulação; deploy físico ainda exige
+calibração e testes no chão antes de confiar em navegação autônoma.
+
+Ver também:
 - [`simulator-to-real.md`](./simulator-to-real.md) — o que o sim validou vs o que muda
 - [`hardware-deployment.md`](./hardware-deployment.md) — passo a passo no robô
 - [`hardware-interfaces.md`](./hardware-interfaces.md) — encaixes `VisionSource` / `SerialTransport`
@@ -16,24 +15,20 @@ Documentos complementares:
 
 ---
 
-## Veredicto executivo
+## Veredicto
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  CAMADA                    │ CÓDIGO      │ TESTADO SIM │ TESTADO REAL │
-├────────────────────────────┼─────────────┼─────────────┼──────────────┤
-│  Lógica Pi (controle)      │ ✅ Pronto   │ ✅ 162 testes│ ❌ Pendente  │
-│  Filtros (Kalman + EKF)    │ ✅ Pronto   │ ✅ Unitário │ ❌ Pendente  │
-│  Visão real (OpenCV+tags)  │ ✅ Pronto   │ ⚠️ Mock     │ ❌ Pendente  │
-│  Serial real (UART)        │ ✅ Pronto   │ ⚠️ Fake inj.│ ❌ Pendente  │
-│  Firmware ESP32            │ ✅ Pronto   │ ✅ Emulador │ ❌ Pendente  │
-│  Frontend ↔ Pi (WebSocket) │ ✅ Pronto   │ ✅ 11 testes│ ⚠️ Wi-Fi     │
-│  Contratos (4 JSON)        │ ✅ Alinhados│ ✅ CRC8     │ —            │
-│  Calibração câmera         │ ❌ null     │ —           │ ❌ Bloqueante│
-│  Mapa arena real           │ ❌ Sim only │ ✅ 4 mapas  │ ❌ Bloqueante│
-│  Parâmetros mecânicos      │ ⚠️ Provisório│ ✅ Sim tune│ ❌ Medir     │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+| Camada | Código | Testado em sim | Testado no real |
+|--------|--------|----------------|-----------------|
+| Lógica Pi (controle) | pronto | 162 testes | pendente |
+| Filtros (Kalman + EKF) | pronto | unitário | pendente |
+| Visão real (OpenCV+tags) | pronto | mock | pendente |
+| Serial real (UART) | pronto | fake injetado | pendente |
+| Firmware ESP32 | pronto | emulador | pendente |
+| Frontend ↔ Pi (WebSocket) | pronto | 11 testes | pendente (Wi-Fi) |
+| Contratos (4 JSON) | alinhados | CRC8 | — |
+| Calibração câmera | calibrada 2026-07-07 (1280×720) | — | pendente (validar z/x) |
+| Mapa arena real | medido (`corredor_6tags_80x160`) | 4 mapas sim | pendente (remedir no local) |
+| Parâmetros mecânicos | provisórios | tunados em sim | pendente (medir) |
 
 | Status | Significado |
 |--------|-------------|
@@ -41,9 +36,9 @@ Documentos complementares:
 | **Pronto para operação autônoma** | Só após calibração, mapa real, smoke tests e sintonia PID |
 | **Pronto para competição/demo** | Missão completa validada na arena física |
 
-**Conclusão honesta:** não falta implementar lógica nem interfaces. Falta **executar
-o bring-up físico** (calibrar, medir, sintonizar, validar). O simulador provou que o
-**design** funciona; o hardware provará que os **números** estão certos.
+**Conclusão:** não falta implementar lógica nem interfaces. Falta executar
+o bring-up físico (calibrar, medir, sintonizar, validar). O simulador provou que o
+design funciona; o hardware provará que os números estão certos.
 
 ---
 
@@ -58,17 +53,17 @@ if config.SIM:
 else:
     vision_source = RealVisionSource()      # OpenCV + pupil-apriltags
     tasks += [serial_loop_real(_state), vision_loop(_state, vision_source)]
-tasks += [control_loop(_state)]             # IDÊNTICO nos dois modos
+tasks += [control_loop(_state)]             # idêntico nos dois modos
 ```
 
 | Tarefa asyncio | Arquivo | SIM=1 | SIM=0 | Mesmo código? |
 |----------------|---------|-------|-------|---------------|
-| WebSocket Handler | `tasks/websocket_handler.py` | ✅ | ✅ | **Sim** |
-| Control Loop @20 Hz | `tasks/control_loop.py` | ✅ | ✅ | **Sim** |
+| WebSocket Handler | `tasks/websocket_handler.py` | sim | sim | Sim |
+| Control Loop @20 Hz | `tasks/control_loop.py` | sim | sim | Sim |
 | Vision Loop | `tasks/vision_loop.py` | SimVisionSource | RealVisionSource | Loop sim; fonte não |
 | Serial Loop | `tasks/serial_loop.py` | serial_loop_sim | serial_loop_real | Loop sim; transporte não |
 
-Se câmera ou serial falharem no boot real, a app **não cai** — loga erro e continua
+Se câmera ou serial falharem no boot real, a app não cai — loga erro e continua
 (útil para bring-up parcial: testar serial antes da câmera, etc.).
 
 ---
@@ -79,37 +74,38 @@ Se câmera ou serial falharem no boot real, a app **não cai** — loga erro e c
 
 | Módulo | Arquivo | Status | Notas |
 |--------|---------|--------|-------|
-| FastAPI factory | `main.py` | ✅ | Rotas `/ws`, `/maps/*`, `/mission/*`; `/sim/*` só SIM=1 |
-| Config central | `config.py` | ⚠️ | Todos parâmetros existem; muitos `TODO(equipe)` provisórios |
-| Estado compartilhado | `state.py` | ✅ | Lock asyncio, EKF, missão, setpoint, telemetria |
-| Modelos Pydantic | `models.py` | ✅ | 4 contratos + telemetria estendida (EKF, missão, nav) |
+| FastAPI factory | `main.py` | ok | Rotas `/ws`, `/maps/*`, `/mission/*`; `/sim/*` só SIM=1 |
+| Config central | `config.py` | parcial | Todos parâmetros existem; muitos `TODO(equipe)` provisórios |
+| Estado compartilhado | `state.py` | ok | Lock asyncio, EKF, missão, setpoint, telemetria |
+| Modelos Pydantic | `models.py` | ok | 4 contratos + telemetria estendida (EKF, missão, nav) |
 
 ### 2.2 Loops de tarefa (runtime)
 
 | Módulo | Arquivo | Status | Testes |
 |--------|---------|--------|--------|
-| WebSocket | `tasks/websocket_handler.py` | ✅ | Manual ao vivo; sem E2E auto |
-| Control Loop | `tasks/control_loop.py` | ✅ | `test_control_loop.py` (4) |
-| Vision Loop | `tasks/vision_loop.py` | ✅ | `test_vision_sim.py`; real via mock |
-| Serial Loop SIM | `tasks/serial_loop.py` | ✅ | `test_integration_sim.py` |
-| Serial Loop REAL | `tasks/serial_loop.py` | ✅ | `test_hardware_interfaces.py` (fake transport) |
+| WebSocket | `tasks/websocket_handler.py` | ok | Manual ao vivo; sem E2E auto |
+| Control Loop | `tasks/control_loop.py` | ok | `test_control_loop.py` (4) |
+| Vision Loop | `tasks/vision_loop.py` | ok | `test_vision_sim.py`; real via mock |
+| Serial Loop SIM | `tasks/serial_loop.py` | ok | `test_integration_sim.py` |
+| Serial Loop REAL | `tasks/serial_loop.py` | ok | `test_hardware_interfaces.py` (fake transport) |
 
 **Control Loop — o que faz (idêntico SIM/real):**
 - MANUAL: joystick → cinemática → setpoint
 - AUTOMATICO + missão: mission SM → path planner → segment executor → setpoint
-- AUTOMATICO legado (sem missão): NavigationController → setpoint
+- AUTOMATICO + dock ligado (default, hardcoded True): TagDocker → segment executor → setpoint
+- AUTOMATICO + dock desligado + sem missão: NavigationController legado → setpoint
 - Passa pela máquina de estados + watchdog antes de publicar `current_setpoint`
 
 ### 2.3 Controle e navegação
 
 | Módulo | Arquivo | Status | Testes |
 |--------|---------|--------|--------|
-| Máquina de estados | `control/state_machine.py` | ✅ | 14 testes; latch segurança |
-| Cinemática | `control/kinematics.py` | ✅ | 8 testes |
-| Navegação reativa | `control/navigation.py` | ✅ | 25 testes; APPROACH/FACE/RETREAT |
-| Planejador | `control/path_planner.py` | ✅ | A*, Manhattan |
-| Executor segmentos | `control/segment_executor.py` | ✅ | FORWARD, TURN, free angle |
-| Missão SM | `mission/mission_sm.py` | ✅ | 10 + 4 integração mapas |
+| Máquina de estados | `control/state_machine.py` | ok | 14 testes; latch segurança |
+| Cinemática | `control/kinematics.py` | ok | 8 testes |
+| Navegação reativa | `control/navigation.py` | ok | 25 testes; APPROACH/FACE/RETREAT |
+| Planejador | `control/path_planner.py` | ok | A*, Manhattan |
+| Executor segmentos | `control/segment_executor.py` | ok | FORWARD, TURN, free angle |
+| Missão SM | `mission/mission_sm.py` | ok | 10 + 4 integração mapas |
 
 ### 2.4 Filtros e estimação
 
@@ -117,25 +113,25 @@ Se câmera ou serial falharem no boot real, a app **não cai** — loga erro e c
 
 | Aspecto | Detalhe |
 |---------|---------|
-| **Entrada** | `MpuRaw` do ESP32 (accel m/s², gyro °/s) — **mesmo no sim e real** |
-| **Saída** | `ImuAngles` roll/pitch filtrados → telemetria WebSocket |
-| **Implementação** | filterpy KalmanFilter, estado [roll, pitch, roll_rate, pitch_rate] |
-| **Onde roda** | `serial_loop_*` → `state.kalman.update()` a cada pacote de sensores |
-| **Status código** | ✅ Implementado |
-| **Calibração** | Q/R fixos em código — ⚠️ pode precisar ajuste no hardware |
-| **Uso na navegação** | Roll/pitch vão na telemetria; EKF usa gyro Z para heading |
+| Entrada | `MpuRaw` do ESP32 (accel m/s², gyro °/s) — mesmo no sim e no real |
+| Saída | `ImuAngles` roll/pitch filtrados → telemetria WebSocket |
+| Implementação | filterpy KalmanFilter, estado [roll, pitch, roll_rate, pitch_rate] |
+| Onde roda | `serial_loop_*` → `state.kalman.update()` a cada pacote de sensores |
+| Status código | implementado |
+| Calibração | Q/R fixos em código — pode precisar ajuste no hardware |
+| Uso na navegação | Roll/pitch vão na telemetria; EKF usa gyro Z para heading |
 
 #### EKF 2D (`control/ekf.py`) — localização no plano
 
 | Aspecto | Detalhe |
 |---------|---------|
-| **Estado** | [x, y, θ] em metros/radianos + covariância 2×2 |
-| **Predição** | Odometria: ω_esq, ω_dir + gyro Z → `ekf.predict()` no serial loop |
-| **Correção** | AprilTag: `ekf.correct_apriltag()` no vision loop (multi-tag) |
-| **Gating** | Mahalanobis ≤ 3σ — rejeita outliers (blur, detecção ruim) |
-| **Parâmetros** | `EKF_Q_*`, `EKF_R_*`, `alpha_gyro=0.7` — ⚠️ `TODO(equipe)` calibrar |
-| **Status código** | ✅ Implementado |
-| **Testes** | `test_ekf.py` (10), integração missão |
+| Estado | [x, y, θ] em metros/radianos + covariância 2×2 |
+| Predição | Odometria: ω_esq, ω_dir + gyro Z → `ekf.predict()` no serial loop |
+| Correção | AprilTag: `ekf.correct_apriltag()` no vision loop (multi-tag) |
+| Gating | Mahalanobis ≤ 3σ — rejeita outliers (blur, detecção ruim) |
+| Parâmetros | `EKF_Q_*`, `EKF_R_*`, `alpha_gyro=0.7` — `TODO(equipe)` calibrar |
+| Status código | implementado |
+| Testes | `test_ekf.py` (10), integração missão |
 
 **Fluxo EKF no real (idêntico ao sim):**
 
@@ -149,14 +145,14 @@ Control Loop lê ekf.x, ekf.y, ekf.theta para missão/navegação
 
 | Módulo | Arquivo | Status | Bloqueante? |
 |--------|---------|--------|-------------|
-| Detector | `vision/detector.py` | ✅ | pupil-apriltags tag25h9 |
-| Calibração | `vision/calibration.py` | ✅ código | ❌ JSON com `null` |
-| Pose | `vision/pose.py` | ⚠️ | offset câmera→garfo; yaw TODO |
-| RealVisionSource | `tasks/vision_loop.py` | ✅ | Exige calibração se `REQUIRE_CAMERA_CALIBRATION=1` |
+| Detector | `vision/detector.py` | ok | pupil-apriltags tag25h9 |
+| Calibração | `vision/calibration.py` | ok (código) | JSON calibrado em 2026-07-07 (1280×720); validar z/x no hardware |
+| Pose | `vision/pose.py` | parcial | offset câmera→garfo; yaw TODO |
+| RealVisionSource | `tasks/vision_loop.py` | ok | Exige calibração se `REQUIRE_CAMERA_CALIBRATION=1` |
 
 **RealVisionSource — comportamento no boot:**
 1. Tenta `AprilTagDetector.from_calibration()` → lê `pi/calibracao/camera_intrinsics.json`
-2. Se `null` e `REQUIRE_CAMERA_CALIBRATION=1` (padrão) → **RuntimeError claro**
+2. Se `null` e `REQUIRE_CAMERA_CALIBRATION=1` (padrão) → RuntimeError com mensagem explícita
 3. Se `REQUIRE_CAMERA_CALIBRATION=0` → usa placeholders (pose imprecisa)
 4. Abre `cv2.VideoCapture(CAMERA_INDEX)` — default `/dev/video0`
 
@@ -167,10 +163,10 @@ Control Loop lê ekf.x, ekf.y, ekf.theta para missão/navegação
 
 | Módulo | Arquivo | Status | Notas |
 |--------|---------|--------|-------|
-| Protocolo | `comms/protocol.py` | ✅ | encode/decode + SensorsFrameDecoder |
-| CRC8 | `comms/crc8.py` | ✅ | Cross-check com algoritmo firmware |
-| Transporte | `comms/serial_transport.py` | ✅ | PySerialTransport — UART USB |
-| Interface | `hardware/interfaces.py` | ✅ | Protocol tipado |
+| Protocolo | `comms/protocol.py` | ok | encode/decode + SensorsFrameDecoder |
+| CRC8 | `comms/crc8.py` | ok | Cross-check com algoritmo firmware |
+| Transporte | `comms/serial_transport.py` | ok | PySerialTransport — UART USB |
+| Interface | `hardware/interfaces.py` | ok | Protocol tipado |
 
 **PySerialTransport:**
 - Porta: `SERIAL_PORT` (default `/dev/ttyUSB0`)
@@ -184,28 +180,28 @@ Control Loop lê ekf.x, ekf.y, ekf.theta para missão/navegação
 
 | Módulo | Arquivo | Status |
 |--------|---------|--------|
-| Schema JSON | `world/map_schema.py` | ✅ Validado |
-| WorldModel | `world/world_model.py` | ✅ |
-| RobotModel | `world/robot_model.py` | ⚠️ L, r provisórios |
-| Mapas atuais | `pi/maps/*.json` | ⚠️ Coordenadas da simulação |
+| Schema JSON | `world/map_schema.py` | ok, validado |
+| WorldModel | `world/world_model.py` | ok |
+| RobotModel | `world/robot_model.py` | parcial — L, r provisórios |
+| Mapas atuais | `pi/maps/*.json` | mapas de simulação; `corredor_6tags_80x160` é o mapa medido da arena |
 
-Rotas `/maps/list`, `/maps/load/{name}`, `/maps/current` funcionam em **SIM=0**.
+Rotas `/maps/list`, `/maps/load/{name}`, `/maps/current` funcionam em SIM=0.
 
 ---
 
-## 3. ESP32 (firmware) — auditoria completa
+## 3. ESP32 (firmware)
 
 ### 3.1 Status do código
 
 | Arquivo | Responsabilidade | Status | Espelho no emulador |
 |---------|------------------|--------|---------------------|
-| `main.cpp` | Loop dual-rate PID 100Hz + serial 20Hz | ✅ | `firmware_emulator.py` |
-| `config.h` | Pinos, ganhos, timeouts | ✅ | `config.py` EMU_* |
-| `pid.cpp` | PID por roda + anti-windup | ✅ | `PidController` |
-| `motors.cpp` | PWM LEDC → L298n, garfo, fim-de-curso | ✅ | MotorModel + fork |
-| `encoders.cpp` | ISR quadratura, ω rad/s | ✅ | encoder sintético |
-| `protocol.cpp` | JSON+CRC8 encode/decode | ✅ | mesmo framing |
-| `protocol.h` | Structs Setpoint, Sensors | ✅ | models.py |
+| `main.cpp` | Loop dual-rate PID 100Hz + serial 20Hz | ok | `firmware_emulator.py` |
+| `config.h` | Pinos, ganhos, timeouts | ok | `config.py` EMU_* |
+| `pid.cpp` | PID por roda + anti-windup | ok | `PidController` |
+| `motors.cpp` | PWM LEDC → L298n, garfo, fim-de-curso | ok | MotorModel + fork |
+| `encoders.cpp` | ISR quadratura, ω rad/s | ok | encoder sintético |
+| `protocol.cpp` | JSON+CRC8 encode/decode | ok | mesmo framing |
+| `protocol.h` | Structs Setpoint, Sensors | ok | models.py |
 
 **Não implementado (não bloqueante para operação básica):**
 - BMS digital — `has_bms = false`, campo `bms: null` no JSON
@@ -223,12 +219,12 @@ loop() @ ~loop rate
 
 | Feature | Valor | Alinhado com Pi? |
 |---------|-------|------------------|
-| Baudrate | 115200 | ✅ |
-| Taxa serial | 20 Hz | ✅ `SERIAL_HZ` |
-| Taxa PID | 100 Hz | ✅ emulador |
-| Watchdog | 200 ms | ✅ `SETPOINT_TIMEOUT_MS` |
-| MPU escala | ±2g, ±250°/s | ✅ Kalman espera m/s² e °/s |
-| Encoders | PPR=1440 (decodificação x4), rad/s | ✅ EKF usa rad/s |
+| Baudrate | 115200 | sim |
+| Taxa serial | 20 Hz | sim (`SERIAL_HZ`) |
+| Taxa PID | 100 Hz | sim (emulador) |
+| Watchdog | 200 ms | sim (`SETPOINT_TIMEOUT_MS`) |
+| MPU escala | ±2g, ±250°/s | sim (Kalman espera m/s² e °/s) |
+| Encoders | PPR=1440 (decodificação x4), rad/s | sim (EKF usa rad/s) |
 
 ### 3.3 Mapa de pinos (`config.h`)
 
@@ -248,15 +244,15 @@ remapeados por software no `config.h`):
 | Fim-curso garfo top/bottom | -1, -1 (desabilitado — chaves não montadas) |
 | I2C SDA/SCL | 21, 22 |
 
-⚠️ GPIO 12 é strapping pin (LOW no boot obrigatório — sem pull-up externo);
+Atenção: GPIO 12 é strapping pin (LOW no boot obrigatório — sem pull-up externo);
 GPIO 34/35 estão livres desde 2026-07-06 (não têm pull-up interno — se
 reutilizados, usar 10 kΩ → 3V3 externo); os pinos de encoder atuais (23/15 e
 32/33) têm pull-up interno, sem resistor externo.
 
 ### 3.4 Compilação
 
-Firmware C++ completo via PlatformIO (`firmware/platformio.ini`). **Não compilado
-nesta máquina de dev** (PlatformIO não instalado) — equipe deve rodar:
+Firmware C++ completo via PlatformIO (`firmware/platformio.ini`). Não compilado
+nesta máquina de dev (PlatformIO não instalado) — equipe deve rodar:
 
 ```bash
 cd src/firmware && pio run -t upload
@@ -276,12 +272,12 @@ Fonte de verdade: [`serial-protocol.md`](./serial-protocol.md).
 
 | Camada | Implementação | Status |
 |--------|---------------|--------|
-| TypeScript | `frontend/src/types/contracts.ts` | ✅ |
-| Pydantic | `models.py::Command` | ✅ |
-| Handler | `websocket_handler.py` | ✅ |
-| Watchdog | `COMMAND_WATCHDOG_MS=400` no control loop | ✅ |
+| TypeScript | `frontend/src/types/contracts.ts` | ok |
+| Pydantic | `models.py::Command` | ok |
+| Handler | `websocket_handler.py` | ok |
+| Watchdog | `COMMAND_WATCHDOG_MS=400` no control loop | ok |
 
-**SIM vs Real:** idêntico. Sem CRC (WebSocket garante integridade).
+SIM vs real: idêntico. Sem CRC (WebSocket garante integridade).
 
 ### Contrato (2) Pi → Frontend · Telemetria @20 Hz
 
@@ -302,8 +298,8 @@ Campos estendidos (EKF, missão, tags): presentes no Pydantic; frontend parcialm
 
 | Camada | Status |
 |--------|--------|
-| Agregador | `telemetry/aggregator.py` ✅ |
-| Frontend panel | `TelemetryPanel.jsx` ✅ |
+| Agregador | `telemetry/aggregator.py` — ok |
+| Frontend panel | `TelemetryPanel.jsx` — ok |
 
 ### Contrato (3) Pi → ESP32 · Setpoint (UART)
 
@@ -317,9 +313,9 @@ Framing: `{"w_esq":1.5,"w_dir":1.5,"garfo":"parar"}*a3\n`
 |--------|--------|--------|
 | Pi | `protocol.encode_setpoint()` | — |
 | ESP32 | — | `decodeSetpoint()` + SetpointFrameDecoder |
-| Testes | `test_protocol.py`, `test_crc8.py` | ✅ cross-check CRC |
+| Testes | `test_protocol.py`, `test_crc8.py` | cross-check CRC ok |
 
-**Unidades:** ω em **rad/s**; garfo enum `subir|descer|parar`.
+Unidades: ω em rad/s; garfo enum `subir|descer|parar`.
 
 ### Contrato (4) ESP32 → Pi · Sensores (UART)
 
@@ -332,8 +328,8 @@ Framing: `{"w_esq":1.5,"w_dir":1.5,"garfo":"parar"}*a3\n`
 ```
 
 > Parado, `|az| ≈ 9.8–11`. No nosso chassi o MPU está montado com o eixo z para
-> BAIXO — `az` sai **negativo** (~-11), normal; o `GyroCalibrator` detecta
-> eixo/sinal.
+> baixo — `az` sai negativo (~-11), comportamento esperado; o `GyroCalibrator`
+> detecta eixo/sinal.
 
 | Camada | Encode | Decode |
 |--------|--------|--------|
@@ -350,7 +346,7 @@ Framing: `{"w_esq":1.5,"w_dir":1.5,"garfo":"parar"}*a3\n`
 
 ## 5. Matriz de prontidão por subsistema
 
-### ✅ Pronto — reutilizar sem mudar código
+### Pronto — reutilizar sem mudar código
 
 | Item | Evidência |
 |------|-----------|
@@ -367,7 +363,7 @@ Framing: `{"w_esq":1.5,"w_dir":1.5,"garfo":"parar"}*a3\n`
 | Frontend WebSocket + UI operador | 11 testes vitest |
 | Rotas missão/mapas em SIM=0 | `main.py` |
 
-### ⚠️ Pronto com ressalvas — funciona, mas precisa calibrar no chão
+### Pronto com ressalvas — funciona, mas precisa calibrar no chão
 
 | Item | Valor atual | Ação no robô |
 |------|-------------|--------------|
@@ -377,20 +373,20 @@ Framing: `{"w_esq":1.5,"w_dir":1.5,"garfo":"parar"}*a3\n`
 | ZREF / standoff | 15 cm | Medir distância real |
 | NAV_K*, EKF_Q/R | Tunados em sim | Re-tunar |
 | APRILTAG_SIZE | 4 cm | Conferir com paquímetro |
-| CAMERA_TO_FORK_OFFSET | (0, -14.2, -25.5) — medido na bancada 2026-07-07 (lente atrás da ponta do garfo → z negativo) | Validar com fita (tag a 15 cm da ponta → z≈15) |
+| CAMERA_TO_FORK_OFFSET | (0.0, -14.2, -10.0) — remontagem 2026-07-07 (2ª vez): lente a 10 cm da ponta do garfo → z negativo | Validar com fita (tag a 15 cm da ponta → z≈15) |
 | Convenção yaw em pose.py | Derivada de pitch | Validar vs câmera real |
 | COMMAND_WATCHDOG_MS | 400 ms | Validar RTT Wi-Fi |
 
-### ❌ Bloqueante — impede operação autônoma confiável
+### Bloqueante — impede operação autônoma confiável
 
 | Item | Estado | Ação |
 |------|--------|------|
-| `camera_intrinsics.json` | ⚠️ recalibração em andamento — calibrado em 640×480 (0,144 px), mas cx/cy anômalos (cx=399 ≈ 800/2 sugere fotos em resolução errada) | Recalibrar (foco travado, capturar em 640×480) e re-validar z/x |
-| Mapa arena real | Só mapas sim | Medir e criar JSON |
+| `camera_intrinsics.json` | Calibrado — recalibração 2026-07-07, câmera nova a 1280×720 (fx=fy=1023,63, cx=634,08, cy=377,08); sem erro de reprojeção registrado | Validar z/x com fita métrica no hardware |
+| Mapa arena real | `corredor_6tags_80x160.json` medido | Remedir tags no local do desafio |
 | Teste UART Pi↔ESP32 | Nunca rodou | Conectar USB, validar frames |
 | Teste câmera real | Nunca rodou | Tag visível, detecção OK |
 
-### ➖ Opcional / não bloqueante
+### Opcional / não bloqueante
 
 | Item | Estado |
 |------|--------|
@@ -402,19 +398,19 @@ Framing: `{"w_esq":1.5,"w_dir":1.5,"garfo":"parar"}*a3\n`
 
 ---
 
-## 6. O que o simulador provou (e o que NÃO provou)
+## 6. O que o simulador provou (e o que não provou)
 
 ### Prova (confiança alta no real)
 
-1. **Arquitetura de 4 loops** funciona sem deadlock
-2. **1 clique AUTOMATICO** basta — control loop re-propõe setpoint @20 Hz
-3. **Perda de tag → PARADO latched** — só novo comando reativa
-4. **Convergência navegação** a ~15 cm com offset lateral ≤2.4 cm (9 cenários)
-5. **Missão completa** em 4 mapas simulados
-6. **Protocolo serial** compatível emulador ↔ testes CRC
-7. **Watchdog serial** para motores (emulador; firmware espelha)
+1. Arquitetura de 4 loops funciona sem deadlock
+2. 1 clique AUTOMATICO basta — control loop re-propõe setpoint @20 Hz
+3. Perda de tag → PARADO latched — só novo comando reativa
+4. Convergência da navegação a ~15 cm com offset lateral ≤2.4 cm (9 cenários)
+5. Missão completa em 4 mapas simulados
+6. Protocolo serial compatível emulador ↔ testes CRC
+7. Watchdog serial para motores (emulador; firmware espelha)
 
-### NÃO prova (só hardware)
+### Não prova (só hardware)
 
 1. Câmera real detecta tags na distância/iluminação da arena
 2. PnP real tem mesma precisão que geometria sintética + ruído 0.2 cm
@@ -452,7 +448,7 @@ Framing: `{"w_esq":1.5,"w_dir":1.5,"garfo":"parar"}*a3\n`
 
 ### Fase C — Visão
 
-- [ ] Calibrar câmera → `camera_intrinsics.json`
+- [x] Calibrar câmera → `camera_intrinsics.json` (recalibração 2026-07-07, 1280×720)
 - [ ] Tag tag25h9 visível na câmera
 - [ ] Telemetria: `visao.detectado=true`, z_cm/x_cm plausíveis
 - [ ] Medir `APRILTAG_SIZE_CM`, `CAMERA_TO_FORK_OFFSET_CM`
@@ -460,8 +456,8 @@ Framing: `{"w_esq":1.5,"w_dir":1.5,"garfo":"parar"}*a3\n`
 ### Fase D — Mecânica e mapa
 
 - [ ] Medir L, r, PPR → `config.py` + `config.h`
-- [ ] Criar mapa JSON arena real
-- [ ] `POST /maps/load/arena_real`
+- [x] Criar mapa JSON arena real (`corredor_6tags_80x160`; remedir no local)
+- [ ] `POST /maps/load/corredor_6tags_80x160`
 
 ### Fase E — Autonomia
 
@@ -486,11 +482,11 @@ SERIAL_BAUDRATE=115200
 # Câmera
 CAMERA_INDEX=0
 REQUIRE_CAMERA_CALIBRATION=1    # 0 só para debug sem calibração
-CAMERA_FRAME_WIDTH=640      # TEM que bater com a resolução da calibração;
-CAMERA_FRAME_HEIGHT=480     # vision_loop/teste_cam forçam o image_size do JSON
+CAMERA_FRAME_WIDTH=1280     # deve bater com a resolução da calibração;
+CAMERA_FRAME_HEIGHT=720     # vision_loop/teste_cam forçam o image_size do JSON
 
 # Mapa
-MAP=arena_real_medida
+MAP=corredor_6tags_80x160
 
 # Frontend (celular)
 VITE_PI_WS_URL=ws://<IP_DO_PI>:8000/ws
@@ -510,36 +506,36 @@ cd src && ./scripts/run_pi.sh
 |--------------|-----------------|
 | `Modo REAL (hardware)` | Verificar `SIM=0` no `.env` |
 | `Serial loop (REAL) iniciado` | Porta serial errada ou permissão (`dialout`) |
-| `Detector criado com calibração` | `camera_intrinsics.json` null → calibrar |
+| `Detector criado com calibração` | `camera_intrinsics.json` ausente ou inválido → refazer calibração |
 | `Visão real indisponível` | Câmera não abriu ou calibração faltando |
 | Telemetria @20 Hz no frontend | WebSocket URL ou firewall Wi-Fi |
 
 ---
 
-## 10. Respostas diretas às perguntas da equipe
+## 10. Perguntas frequentes
 
 ### "O Pi está pronto?"
-**Sim** — toda a lógica, filtros, loops e interfaces estão implementados e testados
+Sim — lógica, filtros, loops e interfaces implementados e testados
 em simulação. Falta calibrar parâmetros e validar UART/câmera no hardware.
 
 ### "O ESP está pronto?"
-**Sim (código)** — firmware completo com PID, encoders, MPU, garfo, protocolo,
-watchdog. Falta gravar, compilar no ambiente da equipe e sintoniar PID no chão.
+Sim (código) — firmware com PID, encoders, MPU, garfo, protocolo,
+watchdog. Falta gravar, compilar no ambiente da equipe e sintonizar o PID no chão.
 
 ### "A lógica de navegação/missão está pronta?"
-**Sim** — 162 testes + sim_sweep 9/9. Ganhos finos podem precisar ajuste no chão.
+Sim — 162 testes + sim_sweep 9/9. Ganhos finos podem precisar ajuste no chão.
 
 ### "Os filtros estão prontos?"
-**Sim (código)** — Kalman (IMU) e EKF 2D (odometria+tags) implementados e testados.
+Sim (código) — Kalman (IMU) e EKF 2D (odometria+tags) implementados e testados.
 Covariâncias Q/R são placeholders — calibrar com dados reais.
 
 ### "As interfaces de comunicação estão prontas?"
-**Sim** — 4 contratos alinhados em 3 linguagens; CRC8 cross-tested; PySerialTransport
+Sim — 4 contratos alinhados em 3 linguagens; CRC8 cross-tested; PySerialTransport
 e RealVisionSource implementados. UART real nunca foi exercitada fisicamente.
 
-### "Posso ligar o robô amanhã?"
-**Sim para smoke test manual** (joystick + garfo + serial).  
-**Não para missão autônoma confiável** sem calibração câmera + mapa + sintonia.
+### "É possível ligar o robô imediatamente?"
+Sim para smoke test manual (joystick + garfo + serial).
+Não para missão autônoma confiável sem validar a calibração da câmera, o mapa e a sintonia.
 
 ---
 
@@ -565,7 +561,7 @@ src/
 │   │   ├── navigation.py       ← APPROACH/FACE/RETREAT
 │   │   └── state_machine.py    ← latch segurança
 │   └── calibracao/
-│       └── camera_intrinsics.json  ← ❌ null
+│       └── camera_intrinsics.json  ← calibração 2026-07-07 (1280×720)
 ├── firmware/src/
 │   ├── main.cpp                ← loop dual-rate
 │   ├── config.h                ← pinos + ganhos
@@ -576,14 +572,14 @@ src/
 │   └── ws/useWebSocket.js
 └── docs/
     ├── serial-protocol.md      ← fonte de verdade
-    └── readiness-sim-to-real.md ← este documento
+    └── readiness-sim-to-real.md
 ```
 
 ---
 
-## 12. Frase final
+## Conclusão
 
-> **O software está pronto para a transição.** O robô físico não está pronto para
-> operar autonomamente até a equipe completar calibração (câmera, mecânica, mapa),
-> gravar o firmware, conectar UART e repetir os smoke tests que o simulador já
-> validou em lógica. Não falta código — falta **medição e sintonia no chão**.
+O software está pronto para a transição. O robô físico não opera autonomamente
+até calibrar câmera, mecânica e mapa, gravar firmware, conectar UART e repetir
+os smoke tests que o simulador já validou em lógica. Não falta código — falta
+medição e sintonia no chão.

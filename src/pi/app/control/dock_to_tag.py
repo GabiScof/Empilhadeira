@@ -1,29 +1,17 @@
-"""Dock-to-tag: aproxima UMA tag avulsa por segmentos discretos (FORWARD/TURN).
+"""Dock-to-tag: aproxima uma tag avulsa por segmentos discretos (FORWARD/TURN).
 
-Modo independente da missão, mirado no robô REAL. O robô vê uma tag, deriva um
-ponto de parada em frente a ela (standoff) e planeja uma rota DIRETA de
-segmentos — girar para ENCARAR o alvo e andar reto (TURN → FORWARD) —
-executada pelo `SegmentExecutor`, a MESMA malha externa da missão, NÃO o
-servo contínuo do navegador legado. A câmera é usada UMA vez (no plano);
-a execução é 100% odometria/EKF.
+Independente da missão. O robô vê a tag, deriva um standoff e planeja TURN→FORWARD
+via `SegmentExecutor` (malha externa da missão, não o servo contínuo do
+`NavigationController`). A câmera entra só no plano; a execução é odometria/EKF.
 
-**Diferença para o navegador legado (`NavigationController`):**
-- Legado: recalcula (v, ω) todo frame a partir da tag → servo contínuo reativo.
-- Este: planeja UMA vez ao ver a tag → executa a rota via EKF (odometria),
-  igual à missão. Robusto a perder a tag do FOV durante uma curva (a missão
-  desliga a segurança de tag-loss exatamente por isso — ver control_loop).
+Diferente do legado (recalcula v,ω todo frame): planeja uma vez e executa a rota.
+Tolerante a perder a tag no FOV durante curvas — a missão suprime tag-loss nesse
+caso (ver control_loop).
 
-**Estratégias de alvo (config.DOCK_MODE):**
-- "line_of_sight" (DEFAULT, real): para no standoff sobre a reta robô→tag, de
-  frente para ela. Usa só z_cm/x_cm — NÃO depende de convenção de yaw.
-- "tag_normal": quadra com a face da tag (pela normal). Depende do yaw da tag
-  (config.DOCK_PITCH_TO_TAG_YAW_OFFSET_RAD) — validar convenção antes de usar.
+Estratégias (`config.DOCK_MODE`): ``line_of_sight`` (default, só z_cm/x_cm) ou
+``tag_normal`` (face pela normal; exige yaw validado em config).
 
-Fluxo (máquina de estados interna):
-  SEEKING → (N detecções) → planeja → DOCKING → (rota concluída) → DONE
-  qualquer → FAULT (timeout de segmento / alvo inválido)
-
-[ref: docs/dock-to-tag.md]
+Estados: SEEKING → DOCKING → DONE; FAULT em timeout ou alvo inválido.
 """
 
 from __future__ import annotations
@@ -94,7 +82,7 @@ def dock_goal_line_of_sight(
     robot_theta: float,
     standoff_m: float,
 ) -> tuple[float, float, float] | None:
-    """Alvo na LINHA DE VISÃO até a tag — o padrão robusto para o robô real.
+    """Alvo na linha de visão até a tag — padrão para o robô real.
 
     Para o robô ``standoff_m`` antes da tag, sobre a reta robô→tag, de frente
     para ela. Usa APENAS ``z_cm``/``x_cm`` (distância + rumo), que são bem
@@ -259,7 +247,6 @@ class TagDocker:
             self._last_w = self._seek(vision, robot_x, robot_y, robot_theta)
             return self._last_w
 
-        # DOCKING: executa a rota planejada via EKF.
         if self._executor.state == ExecutorState.ROUTE_DONE:
             self._state = DockState.DONE
             logger.info("Dock concluído — robô em frente à tag")
@@ -329,7 +316,6 @@ class TagDocker:
         self._executor.load_route(segments)
 
         if self._executor.state == ExecutorState.ROUTE_DONE:
-            # Já estava no standoff (rota vazia) — nada a fazer.
             self._state = DockState.DONE
             logger.info("Dock: já em frente à tag (rota vazia)")
         else:
@@ -418,7 +404,6 @@ class TagDocker:
             tag_x, tag_y, tag_yaw = tag_pose
             return dock_goal_face_normal(tag_x, tag_y, tag_yaw, self._standoff_m)
 
-        # Default robusto: linha de visão (não depende de convenção de yaw).
         return dock_goal_line_of_sight(
             vision, robot_x, robot_y, robot_theta, self._standoff_m
         )

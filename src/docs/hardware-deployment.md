@@ -1,10 +1,9 @@
 # Deploy no Robô Real — Guia Operacional
 
-> **Objetivo:** sair de `SIM=1` (simulação validada) para `SIM=0` (hardware físico)
-> com passos concretos, sem ambiguidade sobre o que já está implementado, o que falta
-> medir e onde o código liga cada peça.
+Passos para sair de `SIM=1` (simulação validada) para `SIM=0` (hardware físico):
+o que já está implementado, o que falta medir e onde o código liga cada peça.
 
-Documentação complementar:
+Ver também:
 - [`hardware-bring-up.md`](./hardware-bring-up.md) — pinos, energia, fiação
 - [`hardware-interfaces.md`](./hardware-interfaces.md) — contratos `VisionSource` / `SerialTransport`
 - [`serial-protocol.md`](./serial-protocol.md) — JSON + CRC8 (fonte de verdade dos 4 contratos)
@@ -17,16 +16,16 @@ Documentação complementar:
 
 | Camada | Status | Observação |
 |--------|--------|------------|
-| Lógica de controle (Pi) | ✅ Implementada | Control loop @20 Hz, EKF, missão, navegação |
-| Simulação (`SIM=1`) | ✅ Validada | 162 testes pytest + 11 frontend; sim_sweep 9/9 convergem |
-| Firmware ESP32 | ✅ Implementado | PID, encoders, MPU, garfo, protocolo serial |
-| Interfaces hardware Pi | ✅ Implementadas | `RealVisionSource`, `PySerialTransport` |
-| Calibração câmera real | ❌ Pendente | `camera_intrinsics.json` ainda com `null` |
-| Teste UART real Pi↔ESP32 | ❌ Pendente | Código pronto; nunca rodou no chão |
-| Mapa da arena real | ❌ Pendente | JSONs em `pi/maps/` são da simulação |
-| Parâmetros mecânicos | ⚠️ Provisórios | Valores em `config.py` / `config.h` — medir no robô |
+| Lógica de controle (Pi) | Implementada | Control loop @20 Hz, EKF, missão, navegação |
+| Simulação (`SIM=1`) | Validada | 162 testes pytest + 11 frontend; sim_sweep 9/9 convergem |
+| Firmware ESP32 | Implementado | PID, encoders, MPU, garfo, protocolo serial |
+| Interfaces hardware Pi | Implementadas | `RealVisionSource`, `PySerialTransport` |
+| Calibração câmera real | Feita (2026-07-07) | Recalibração 1280×720, fx=fy=1023,63, cx=634,08, cy=377,08 |
+| Teste UART real Pi↔ESP32 | Validado (bancada 2026-07-06) | Frames, encoders, PID, watchdog |
+| Mapa da arena real | Criado | `corredor_6tags_80x160.json` (80×160 cm, 6 tags, medido) |
+| Parâmetros mecânicos | Provisórios | Valores em `config.py` / `config.h` — medir no robô |
 
-**Regra de ouro:** a lógica (navegação, EKF, missão, máquina de estados) **não muda**
+A lógica (navegação, EKF, missão, máquina de estados) não muda
 entre simulação e real. Só trocam as implementações injetadas em `app/main.py`.
 
 ---
@@ -45,7 +44,7 @@ SyntheticVision                      Câmera física
 SimWorld                             Arena física + mapa JSON medido
 ```
 
-As **quatro tarefas asyncio** sobem em ambos os modos:
+As quatro tarefas asyncio sobem em ambos os modos:
 
 | Tarefa | Arquivo | Função |
 |--------|---------|--------|
@@ -54,7 +53,7 @@ As **quatro tarefas asyncio** sobem em ambos os modos:
 | Serial Loop | `tasks/serial_loop.py` | Setpoint ↔ sensores @20 Hz |
 | Control Loop | `tasks/control_loop.py` | Missão/navegação → setpoint @20 Hz |
 
-Se câmera ou serial falharem no boot real, a app **continua** (log de erro) — útil para
+Se câmera ou serial falharem no boot real, a app continua (log de erro) — útil para
 bring-up parcial, mas missão autônoma exige ambos funcionando.
 
 ---
@@ -81,7 +80,7 @@ bring-up parcial, mas missão autônoma exige ambos funcionando.
                                    └──────────────────────────────────────┘
 ```
 
-### O que o Pi **envia** ao ESP32 (contrato 3 — setpoint)
+### O que o Pi envia ao ESP32 (contrato 3 — setpoint)
 
 ```json
 {"w_esq": 0.0, "w_dir": 0.0, "garfo": "parar"}
@@ -94,7 +93,7 @@ bring-up parcial, mas missão autônoma exige ambos funcionando.
 
 Enviado por `PySerialTransport.send_setpoint()` → `encode_setpoint()` em `comms/protocol.py`.
 
-### O que o ESP32 **devolve** ao Pi (contrato 4 — sensores)
+### O que o ESP32 devolve ao Pi (contrato 4 — sensores)
 
 ```json
 {"enc": {"esq": 0.0, "dir": 0.0}, "mpu": {"ax":..,"ay":..,"az":..,"gx":..,"gy":..,"gz":..,"temp_c":..}, "bms": null}
@@ -104,11 +103,11 @@ Enviado por `PySerialTransport.send_setpoint()` → `encode_setpoint()` em `comm
 |-------|---------|-----------|
 | `enc.esq`, `enc.dir` | rad/s | EKF predict + telemetria |
 | `mpu.*` | m/s², °/s, °C | Kalman roll/pitch + EKF gyro Z |
-| `bms` | null ou `{cel, i_a, temp_c}` | Telemetria (BMS **não integrado** no firmware ainda) |
+| `bms` | null ou `{cel, i_a, temp_c}` | Telemetria (BMS ainda não integrado no firmware) |
 
 Lido por `PySerialTransport.read_sensors()` → `SensorsFrameDecoder` → `serial_loop_real()`.
 
-### O que a câmera **fornece** (interno — não vai na serial)
+### O que a câmera fornece (interno — não vai na serial)
 
 | Saída | Tipo | Uso |
 |-------|------|-----|
@@ -117,10 +116,10 @@ Lido por `PySerialTransport.read_sensors()` → `SensorsFrameDecoder` → `seria
 
 Implementado em `RealVisionSource` (`tasks/vision_loop.py`).
 
-> **O que provavelmente vai mudar no hardware real**
+> O que provavelmente vai mudar no hardware real:
 >
-> - Intrínsecos da câmera (`fx, fy, cx, cy`) — após calibração xadrez
-> - Offset câmera→garfo — erro sistemático de posicionamento se não medido
+> - Intrínsecos da câmera (`fx, fy, cx, cy`) — recalibrados em 2026-07-07 (1280×720); refazer se a câmera for remontada
+> - Offset câmera→garfo — erro sistemático de posicionamento se não medido; medido 2026-07-07, revalidar após remontagens
 > - Ganhos PID (`config.h`) — sintonia Ziegler-Nichols no chão
 > - Ganhos EKF (`EKF_Q_*`, `EKF_R_*`) — ruído real ≠ simulado
 > - Ganhos navegação (`NAV_*`) — dinâmica real, inércia, patinagem
@@ -146,8 +145,8 @@ Implementado em `RealVisionSource` (`tasks/vision_loop.py`).
 5. Encoders sem pull-up externo: os pinos atuais (23/15 e 32/33) têm pull-up
    interno (`INPUT_PULLUP`). GPIO 34/35 ficaram livres (refiado 2026-07-06 —
    sobrecontavam por ruído; se reutilizados, exigem pull-up externo).
-   **Não** colocar pull-up no GPIO 12 (strapping).
-6. Fim-de-curso garfo: **desabilitados** (-1 em `config.h` — chaves não montadas;
+   Não colocar pull-up no GPIO 12 (strapping).
+6. Fim-de-curso garfo: desabilitados (-1 em `config.h` — chaves não montadas;
    garfo nunca bloqueia por limite). Ao instalar, usar GPIOs livres — GPIO 5 agora
    é o PWM do garfo.
 7. MPU-6050: SDA=21, SCL=22, endereço 0x68.
@@ -160,20 +159,20 @@ pio run --target upload
 pio device monitor -b 115200
 ```
 
-**Validar:**
+Validar:
 - [ ] Frames de sensores a ~20 Hz (JSON+CRC8)
 - [ ] Girar roda manualmente → `enc.esq`/`enc.dir` mudam de sinal
 - [ ] Inclinar chassi → `mpu.ax/ay/az` respondem. Parado, `|az| ≈ 9.8–11`;
-      no nosso chassi `az` é **negativo** (~-11, MPU montado com z para baixo) —
-      normal, o `GyroCalibrator` detecta eixo/sinal
-- [ ] Enviar setpoint de teste **um lado por vez** (`--w-esq X --w-dir 0`,
+      neste chassi `az` é negativo (~-11, MPU montado com z para baixo) —
+      esperado, o `GyroCalibrator` detecta eixo/sinal
+- [ ] Enviar setpoint de teste um lado por vez (`--w-esq X --w-dir 0`,
       depois o inverso) → gira a roda certa, para frente. O teste conjunto
       mascara canais A/B trocados (foi o caso da placa, corrigido 2026-07-06)
 - [ ] Desconectar serial → motores param em < 200 ms (watchdog)
 
 ### Fase C — Calibração mecânica
 
-Medir e atualizar **antes** de confiar na odometria/EKF:
+Medir e atualizar antes de confiar na odometria/EKF:
 
 | Parâmetro | Arquivo | Como medir |
 |-----------|---------|------------|
@@ -189,11 +188,15 @@ Espelhar `WHEELBASE_M`, `WHEEL_RADIUS_M` em `config.py` (derivados automaticamen
 
 ### Fase D — Calibração câmera
 
+Concluída em 2026-07-07 (recalibração da câmera nova, remontada com tilt de 30°):
+1280×720, fx=fy=1023,63, cx=634,08, cy=377,08 em `pi/calibracao/camera_intrinsics.json`.
+Se a câmera for trocada ou remontada, repetir:
+
 1. Seguir [`camera-calibration.md`](./camera-calibration.md).
 2. Preencher `pi/calibracao/camera_intrinsics.json` com `fx, fy, cx, cy` reais.
 3. Confirmar família `tag25h9` e tamanho físico da tag.
 
-Enquanto `null`, `RealVisionSource` **falha no boot** se `REQUIRE_CAMERA_CALIBRATION=1`
+Com os valores em `null`, `RealVisionSource` falha no boot se `REQUIRE_CAMERA_CALIBRATION=1`
 (padrão). Para teste sem calibração: `REQUIRE_CAMERA_CALIBRATION=0` (pose imprecisa).
 
 ### Fase E — Mapa da arena real
@@ -227,7 +230,7 @@ pip install -e ".[dev]"
 ./scripts/run_pi.sh
 ```
 
-**Smoke tests (ordem):**
+Smoke tests (ordem):
 
 | # | Teste | Esperado |
 |---|-------|----------|
@@ -236,7 +239,7 @@ pip install -e ".[dev]"
 | 3 | Log "Detector criado com calibração" | Câmera OK |
 | 4 | Telemetria WebSocket @20 Hz | `rodas`, `imu`, `visao` fluem |
 | 5 | Joystick manual | Rodas giram na direção correta |
-| 6 | Garfo subir/descer | Motor garfo responde. ⚠️ Fim-de-curso desabilitado (-1): operador solta o botão antes do fim do curso |
+| 6 | Garfo subir/descer | Motor garfo responde. Fim-de-curso desabilitado (-1): operador solta o botão antes do fim do curso |
 | 7 | Desconectar USB serial | Motores param < 200 ms |
 | 8 | Modo AUTOMATICO (1 clique) | Robô navega sem streaming de comando |
 | 9 | Ocultar tag | PARADO + latch; só novo comando reativa |
@@ -275,11 +278,11 @@ Procedimento em `firmware/README.md` § Ziegler-Nichols:
 
 | Item | Onde | Ação da equipe |
 |------|------|----------------|
-| Calibração câmera | `pi/calibracao/camera_intrinsics.json` | Calibrar com xadrez |
-| Mapa arena real | `pi/maps/*.json` | Medir e criar JSON |
+| Calibração câmera | `pi/calibracao/camera_intrinsics.json` | Concluída 2026-07-07 (xadrez, 1280×720); refazer se a câmera for remontada |
+| Mapa arena real | `pi/maps/*.json` | Criado (`corredor_6tags_80x160.json`); revalidar medidas na arena |
 | Medição L, r, PPR | `config.py` + `config.h` | Medir no chassi |
-| Offset câmera→garfo | `config.py` | Medir posição relativa |
-| Teste UART real | campo | Conectar Pi↔ESP32 e validar frames |
+| Offset câmera→garfo | `config.py` | Medido 2026-07-07; validar com fita métrica |
+| Teste UART real | campo | Validado na bancada 2026-07-06 (frames, encoders, PID, watchdog) |
 | Sintonia PID | `config.h` | Ziegler-Nichols no hardware |
 
 ### Definições de infraestrutura (não bloqueiam código)

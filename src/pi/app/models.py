@@ -1,16 +1,9 @@
 """Schemas Pydantic dos 4 contratos de interface do sistema.
 
-Este módulo é o **espelho Python** da fonte única de verdade definida em
-`docs/serial-protocol.md`. Qualquer mudança de contrato deve ser refletida
-simultaneamente aqui, em `firmware/src/protocol.*` (C++) e em
-`frontend/src/types/contracts.ts` (TypeScript).
+Espelho Python de docs/serial-protocol.md. Mudanças devem ser refletidas
+em firmware/src/protocol.* (C++) e frontend/src/types/contracts.ts (TS).
 
-Convenções (ver doc):
-- Velocidade angular de roda em **rad/s**.
-- Ângulos em **graus**; distâncias em **cm**; corrente em **A**; temperatura em °C.
-- Timestamps em **ms** (int).
-
-[ref: Seção 6 da AGENTS.md]
+Convenções: rad/s (rodas), graus (ângulos), cm (distâncias), ms (timestamps).
 """
 
 from __future__ import annotations
@@ -36,9 +29,8 @@ class ForkCommand(StrEnum):
     PARAR = "parar"
 
 
-# ---------------------------------------------------------------------------
-# Contrato (1) — Frontend → Pi · comando (WebSocket)
-# ---------------------------------------------------------------------------
+
+# Contrato 1: Frontend → Pi (WebSocket)
 class Joystick(BaseModel):
     """Posição do joystick virtual. Componentes em [-1, 1]. Só vale em MANUAL."""
 
@@ -62,9 +54,8 @@ class Command(BaseModel):
     ts_ms: int = Field(0, ge=0)
 
 
-# ---------------------------------------------------------------------------
-# Contrato (2) — Pi → Frontend · telemetria @20Hz (WebSocket)
-# ---------------------------------------------------------------------------
+
+# Contrato 2: Pi → Frontend · telemetria @20Hz (WebSocket)
 class WheelSpeeds(BaseModel):
     """Velocidades angulares medidas das rodas, em rad/s."""
 
@@ -135,9 +126,8 @@ class Telemetry(BaseModel):
     map_name: str | None = Field(None, description="Nome do mapa carregado.")
 
 
-# ---------------------------------------------------------------------------
-# Campos estendidos de telemetria — [ref: Seção 8 do mega-prompt]
-# ---------------------------------------------------------------------------
+
+# Campos estendidos de telemetria
 class EkfState(BaseModel):
     """Estado do EKF 2D para telemetria."""
 
@@ -223,9 +213,8 @@ class DetectedTag(BaseModel):
 Telemetry.model_rebuild()
 
 
-# ---------------------------------------------------------------------------
-# Contrato (3) — Pi → ESP32 · setpoint (UART, emoldurado)
-# ---------------------------------------------------------------------------
+
+# Contrato 3: Pi → ESP32 (UART)
 class Setpoint(BaseModel):
     """Setpoint de velocidade das rodas + comando do garfo, enviado ao ESP32.
 
@@ -240,9 +229,8 @@ class Setpoint(BaseModel):
     garfo: ForkCommand = ForkCommand.PARAR
 
 
-# ---------------------------------------------------------------------------
-# Contrato (4) — ESP32 → Pi · sensores (UART, emoldurado)
-# ---------------------------------------------------------------------------
+
+# Contrato 4: ESP32 → Pi (UART)
 class Encoders(BaseModel):
     """Velocidades medidas pelos encoders, em rad/s."""
 

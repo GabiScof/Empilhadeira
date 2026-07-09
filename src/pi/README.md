@@ -1,8 +1,5 @@
 # Empilhadeira — Backend Pi (Python)
 
-Backend assíncrono (FastAPI + asyncio) no Raspberry Pi. Recebe comandos via WebSocket,
-detecta AprilTag, controla o ESP32 via UART e envia telemetria @20 Hz.
-
 ## Arquitetura — 4 tarefas asyncio
 
 Todas compartilham `SharedState` (`app/state.py`):
@@ -14,7 +11,7 @@ Todas compartilham `SharedState` (`app/state.py`):
 | Serial Loop | `tasks/serial_loop.py` | 20 Hz | Setpoint ↔ sensores (ESP32 ou emulador) |
 | Control Loop | `tasks/control_loop.py` | 20 Hz | Missão/navegação → setpoint |
 
-O **Control Loop** roda independente do frontend (que envia comandos por evento,
+O Control Loop roda independente do frontend (que envia comandos por evento,
 não em stream contínuo). Um único clique em AUTOMATICO basta para navegar.
 
 ## Estrutura
@@ -84,12 +81,12 @@ Resumo mínimo:
 | Parâmetro | Valor atual | Unidade |
 |-----------|-------------|---------|
 | `WHEEL_BASE_L_CM` | 15.0 | cm |
-| `WHEEL_RADIUS_R_CM` | 2.8 | cm |
+| `WHEEL_RADIUS_R_CM` | 2.7 | cm |
 | `ZREF_CM` | 15.0 | cm |
 | `NAV_KZ` / `NAV_KX` / `NAV_KP_PITCH` | 0.5 / 0.80 / 0.1 | — |
 | `NAV_MAX_APPROACH_SPEED` | 15.0 | cm/s |
-| `APRILTAG_SIZE_CM` | 5.0 | cm |
-| `CAMERA_TO_FORK_OFFSET_CM` | (0,0,0) | cm |
+| `APRILTAG_SIZE_CM` | 4.0 | cm |
+| `CAMERA_TO_FORK_OFFSET_CM` | (0.0, -14.2, -10.0) | cm |
 | `PALLET_MASS_KG` | 0.1 | kg |
 
 Lista completa em `config.py` (grep `TODO(equipe)`).

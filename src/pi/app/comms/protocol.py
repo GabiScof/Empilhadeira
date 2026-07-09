@@ -11,8 +11,6 @@ Framing serial:
 Na recepcao, o loop deve ressincronizar pelo terminador ``\\n``. Quadros com CRC,
 JSON ou schema invalidos sao descartados retornando ``None``; isso evita derrubar a
 tarefa serial por erro de parsing de um unico quadro.
-
-[ref: docs/serial-protocol.md; Secao 6 e 7 da AGENTS.md]
 """
 
 from __future__ import annotations

@@ -1,7 +1,4 @@
-"""Modelo de mundo paramétrico — arena, tags e robô carregados de arquivo.
-
-[ref: Seção 2 do mega-prompt]
-"""
+"""Modelo de mundo paramétrico — arena, tags e robô carregados de arquivo."""
 
 from app.world.map_schema import ArenaMap
 from app.world.robot_model import RobotModel

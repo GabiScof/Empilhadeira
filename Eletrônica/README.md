@@ -1,14 +1,14 @@
-# ⚡ Eletrônica — Empilhadeira Robótica Autônoma
+# Eletrônica — Empilhadeira Robótica Autônoma
 
 > Extraído do Relatório Pré-Projeto — ENG4061 Projeto Robótica (PUC-Rio, Turma 3VB)
 
-O cérebro da empilhadeira é a sua parte eletrônica. Esta seção documenta a alimentação, o
-regulador de tensão, os motores/drivers, os microcontroladores e os sensores utilizados no
-projeto, além do fluxo geral de energia e informação do sistema.
+Esta seção documenta a alimentação, o regulador de tensão, os motores/drivers, os
+microcontroladores e os sensores utilizados no projeto, além do fluxo geral de
+energia e informação do sistema.
 
 ---
 
-## 📑 Sumário
+## Sumário
 
 - [2.1 Bateria e BMS](#21-bateria-e-bms)
 - [2.2 Regulador de tensão](#22-regulador-de-tensão)
@@ -16,13 +16,13 @@ projeto, além do fluxo geral de energia e informação do sistema.
 - [2.4 Microcontroladores](#24-microcontroladores)
 - [2.5 Sensores](#25-sensores)
 - [2.6 Fluxo do projeto](#26-fluxo-do-projeto)
-- [Resumo de componentes](#-resumo-de-componentes)
+- [Resumo de componentes](#resumo-de-componentes)
 
 ---
 
 ## 2.1 Bateria e BMS
 
-O sistema é alimentado por **3 baterias 18650 de íon-lítio em série**, cada uma com 4,2 V,
+O sistema é alimentado por 3 baterias 18650 de íon-lítio em série, cada uma com 4,2 V,
 totalizando uma tensão nominal de **12,6 V**. Essa tensão supre motores, microcontroladores e
 sensores. As baterias de íon-lítio foram escolhidas pela facilidade de uso, portabilidade e
 disponibilidade em laboratório — exigindo atenção ao controle de temperatura, já que são
@@ -100,7 +100,7 @@ A eletrônica funciona como um fluxo contínuo de energia e informação:
 
 1. A energia das baterias é condicionada e dividida em dois caminhos: um direto aos motores, e
 outro regulado (LM2596, 5,3V) para os microcontroladores/sensores.
-2. Sensores e encoders alimentam o **ESP32**, que repassa os dados ao **Raspberry Pi** via serial (UART).
+2. Sensores e encoders alimentam o ESP32, que repassa os dados ao Raspberry Pi via serial (UART).
 3. O Raspberry Pi processa a informação (visão computacional + telemetria) e retorna *setpoints*
 ao ESP32.
 4. O ESP32 converte os *setpoints* em movimento físico nos motores.
@@ -118,7 +118,7 @@ Sensores/Encoders ──► ESP32 ──UART──► Raspberry Pi ──WebSock
 
 ---
 
-## 📦 Resumo de componentes
+## Resumo de componentes
 
 | Categoria | Componente | Observação |
 |---|---|---|

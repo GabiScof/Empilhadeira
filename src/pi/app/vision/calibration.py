@@ -1,20 +1,7 @@
 """Carregamento dos intrínsecos da câmera (saída da calibração).
 
-Lê `calibracao/camera_intrinsics.json` (fx, fy, cx, cy, dist_coeffs) e o disponibiliza
-para a estimativa de pose. Enquanto o arquivo estiver com valores ``null``, a câmera
-ainda não foi calibrada e a pose **não** pode ser estimada de forma confiável.
-
-Contrato esperado do JSON (gerado por `docs/camera-calibration.md`):
-
-    {
-      "fx": 1234.5, "fy": 1234.5,           # distâncias focais (px) — obrigatórios
-      "cx": 640.0,  "cy": 360.0,            # centro óptico (px)     — obrigatórios
-      "dist_coeffs": [k1, k2, p1, p2, k3],  # opcional; default = sem distorção
-      "image_size": [1280, 720],           # opcional (metadados)
-      "reprojection_error": 0.31            # opcional (qualidade da calibração)
-    }
-
-[ref: docs/camera-calibration.md e Seção 3 da AGENTS.md]
+Lê `calibracao/camera_intrinsics.json` (fx, fy, cx, cy, dist_coeffs). Valores
+``null`` indicam calibração pendente.
 """
 
 from __future__ import annotations

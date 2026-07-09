@@ -1,11 +1,3 @@
-/**
- * Página de visualização de mapas da arena.
- *
- * Permite selecionar qualquer mapa disponível e visualizar a planta
- * com dimensões, posições de tags, waypoints e anotações.
- * Funciona independente do modo de simulação (não precisa de SIM=1).
- */
-
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import MapView from "../components/MapView.jsx";
@@ -71,7 +63,6 @@ export default function MapPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {/* Sidebar: map list */}
         <div className="space-y-2">
           <div className="rounded-lg bg-slate-800 p-4">
             <h2 className="font-semibold mb-3 text-sm">Mapas Disponíveis</h2>
@@ -102,7 +93,6 @@ export default function MapPage() {
             </div>
           </div>
 
-          {/* Quick info */}
           {mapData && (
             <div className="rounded-lg bg-slate-800 p-4">
               <h2 className="font-semibold mb-2 text-sm">Coordenadas</h2>
@@ -117,7 +107,6 @@ export default function MapPage() {
           )}
         </div>
 
-        {/* Main content: map viewer */}
         <div className="lg:col-span-3">
           {error && (
             <div className="rounded-lg bg-red-900/30 border border-red-800 p-4 mb-4 text-sm text-red-300">

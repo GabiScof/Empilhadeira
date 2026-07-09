@@ -2,8 +2,6 @@
 
 Interface principal entre o mapa JSON carregado e os módulos de navegação,
 visão e simulação. Toda a geometria fica em SI (m, rad).
-
-[ref: Seção 2 do mega-prompt]
 """
 
 from __future__ import annotations
@@ -25,7 +23,6 @@ class WorldModel:
         self._tag_by_position: dict[str, TagSpec] = {
             t.position_id: t for t in arena_map.tags
         }
-        # Pre-seed from map-declared april_tag_id; runtime detections add more.
         self._tag_id_to_position: dict[int, str] = {
             t.april_tag_id: t.position_id
             for t in arena_map.tags

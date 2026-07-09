@@ -5,8 +5,6 @@ atualizar a pose do robô. As tags vêm do mapa carregado (WorldModel).
 Suporta slip de roda, ruído de encoder, drift de giroscópio.
 
 Unidades internas: SI (metros, radianos, segundos).
-
-[ref: Seção 7 do mega-prompt]
 """
 
 from __future__ import annotations

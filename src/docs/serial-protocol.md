@@ -1,13 +1,11 @@
-# Protocolo de comunicação — FONTE ÚNICA DE VERDADE
+# Protocolo de comunicação
 
-> Este documento define os **4 contratos** que ligam as três camadas do sistema.
-> As cinco frentes de trabalho só integram se estes contratos forem respeitados ao
-> pé da letra. Qualquer mudança aqui exige espelhar simultaneamente em:
-> - `pi/app/models.py` (Pydantic)
-> - `firmware/src/protocol.h` / `protocol.cpp` (struct + ArduinoJson)
-> - `frontend/src/types/contracts.ts` (tipos TypeScript)
->
-> [ref: Seção 6 da AGENTS.md]
+Fonte única de verdade dos quatro contratos entre Frontend, Pi e ESP32.
+Mudança aqui exige espelhar em:
+
+- `pi/app/models.py` (Pydantic)
+- `firmware/src/protocol.h` / `protocol.cpp` (struct + ArduinoJson)
+- `frontend/src/types/contracts.ts` (tipos TypeScript)
 
 ---
 
@@ -15,12 +13,12 @@
 
 | Grandeza            | Unidade        | Observação                                   |
 |---------------------|----------------|----------------------------------------------|
-| Velocidade angular  | **rad/s**      | Nunca rpm. Vale para rodas (`w_esq`, `w_dir`).|
-| Ângulo              | **graus (°)**  | roll, pitch, yaw.                            |
-| Distância           | **cm**         | `z_cm`, `x_cm`, `Zref`.                       |
-| Corrente            | **A** (ampère) | `i_a`.                                        |
-| Temperatura         | **°C**         | `temp_c`.                                     |
-| Timestamp           | **ms** (int)   | `ts_ms`, relógio do emissor.                 |
+| Velocidade angular  | rad/s          | Nunca rpm. Vale para rodas (`w_esq`, `w_dir`).|
+| Ângulo              | graus (°)      | roll, pitch, yaw.                            |
+| Distância           | cm             | `z_cm`, `x_cm`, `Zref`.                       |
+| Corrente            | A (ampère)     | `i_a`.                                        |
+| Temperatura         | °C             | `temp_c`.                                     |
+| Timestamp           | ms (int)       | `ts_ms`, relógio do emissor.                 |
 
 ### Camadas e transporte
 
@@ -33,7 +31,7 @@ Raspberry Pi        <--(4) sensores-------  ESP32             [UART USB, 115200,
 
 - **Frontend ↔ Pi:** WebSocket full-duplex sobre Wi-Fi local. Payload = JSON puro
   (sem CRC; o WebSocket já garante integridade).
-- **Pi ↔ ESP32:** UART em USB, **115200 baud**, taxa de troca **20 Hz**. Cada
+- **Pi ↔ ESP32:** UART em USB, 115200 baud, taxa de troca 20 Hz. Cada
   mensagem é emoldurada (ver framing abaixo).
 
 ---
@@ -47,7 +45,7 @@ Raspberry Pi        <--(4) sensores-------  ESP32             [UART USB, 115200,
 - `<json compacto>`: JSON sem espaços supérfluos.
 - `*`: separador literal entre payload e checksum.
 - `<CRC8>`: CRC-8 do payload JSON (bytes UTF-8 antes do `*`), 2 dígitos hex minúsculos.
-- `\n`: terminador de quadro; o receptor **ressincroniza no `\n`** e descarta o
+- `\n`: terminador de quadro; o receptor ressincroniza no `\n` e descarta o
   quadro inteiro se o CRC não bater.
 
 Exemplo (ilustrativo, CRC fictício):
@@ -76,12 +74,12 @@ Exemplo (ilustrativo, CRC fictício):
 | Campo         | Tipo   | Unidade | Faixa        | Obrig. | Notas                                  |
 |---------------|--------|---------|--------------|--------|----------------------------------------|
 | `modo`        | enum   | —       | ver acima    | sim    | Estado desejado pelo operador.         |
-| `joystick.x`  | float  | —       | [-1, 1]      | sim    | Giro (ω): x>0 (direita) → ω **negativo** (horário); ω positivo = anti-horário (`joystick_to_twist` faz ω = -x, corrigido 2026-07-06). Ignorado fora de MANUAL. |
+| `joystick.x`  | float  | —       | [-1, 1]      | sim    | Giro (ω): x>0 (direita) → ω negativo (horário); ω positivo = anti-horário (`joystick_to_twist` faz ω = -x). Ignorado fora de MANUAL. |
 | `joystick.y`  | float  | —       | [-1, 1]      | sim    | Avanço (v). Ignorado fora de MANUAL.   |
-| `garfo`       | enum   | —       | subir/descer/parar | sim | Canal independente; vale nos dois modos. **Sempre manual** — ver nota abaixo.|
+| `garfo`       | enum   | —       | subir/descer/parar | sim | Canal independente; vale nos dois modos. Sempre manual — ver nota abaixo.|
 | `ts_ms`       | int    | ms      | ≥ 0          | sim    | Usado para watchdog de comando no Pi.  |
 
-> **Garfo:** o campo `garfo` é o **único** canal de comando do garfo em todo o
+> **Garfo:** o campo `garfo` é o único canal de comando do garfo em todo o
 > sistema. Não existe variante autônoma no WebSocket nem extensão prevista no
 > protocolo. Em missão pick-and-place, o operador usa este mesmo campo durante
 > AT_PICK / AT_PLACE.
@@ -117,14 +115,37 @@ Exemplo (ilustrativo, CRC fictício):
 | `visao.detectado`   | bool        | —       | —         | sim    | Há tag no FOV?                         |
 | `visao.id`          | int \| null | —       | —         | sim    | ID da AprilTag ou null.                |
 | `visao.z_cm`        | float\|null | cm      | —         | sim    | Distância ao alvo ou null.             |
-| `visao.x_cm`        | float\|null | cm      | —         | sim    | Deslocamento lateral ou null. Positivo = tag à **ESQUERDA** (o `pose.py` nega o x do frame óptico OpenCV na fronteira — corrigido 2026-07-06). |
+| `visao.x_cm`        | float\|null | cm      | —         | sim    | Deslocamento lateral ou null. Positivo = tag à esquerda (`pose.py` nega o x do frame óptico OpenCV na fronteira). |
 | `visao.pitch_deg`   | float\|null | graus   | —         | sim    | Orientação relativa da tag ou null.    |
 | `bateria.cel`       | float\|null | V?      | —         | sim    | Tensão de célula; null sem leitura.    |
 | `bateria.i_a`       | float\|null | A       | —         | sim    | Corrente; null sem leitura.            |
 | `bateria.temp_c`    | float\|null | °C      | —         | sim    | Temperatura; null sem leitura.         |
 | `ts_ms`             | int         | ms      | ≥ 0       | sim    | Relógio do Pi.                         |
 
+Além dos campos base acima, a telemetria WebSocket inclui campos **estendidos**
+que não passam pela UART — são populados pelo Pi:
+
+| Campo estendido   | Tipo          | Notas |
+|--------------------|---------------|-------|
+| `parado_reason`   | string\|null  | Razão do último `PARADO`: `tag_loss`, `command_watchdog`, `ws_disconnect`, `serial_loss`, `force_stop`. |
+| `nav_phase`       | string\|null  | Fase do navegador legado (`COARSE_ALIGN`, `APPROACH`, etc.) ou `null`. |
+| `ekf`             | object\|null  | `{x, y, theta, cov, ellipse}` — pose EKF 2D, covariância 3×3. |
+| `mission`         | object\|null  | `{state, pick_id, place_id, ...}` — estado da missão. |
+| `navigation`      | object\|null  | `{executor_state, segment_index, ...}` — progresso do executor. |
+| `dock`            | object\|null  | `{state, mode, ...}` — estado do dock-to-tag. |
+| `detected_tags`   | list          | Cache multi-tag de detecções. |
+| `map_name`        | string\|null  | Nome do mapa carregado. |
+
+Definição completa: `models.py` (`Telemetry`) e `contracts.ts` (`TelemetryExtended`).
+
 > `TODO(equipe)`: confirmar a unidade de `bateria.cel` (tensão de célula em V?).
+
+### Watchdogs do Pi (relacionados ao protocolo)
+
+| Watchdog | Constante | Valor | Condição |
+|----------|-----------|-------|----------|
+| Comando | `COMMAND_WATCHDOG_MS` | 400 ms | MANUAL + rodas em movimento + sem comando novo → `PARADO` |
+| Serial loss | `SERIAL_LOST_FRAMES` | 5 frames (~250 ms @20 Hz) | Sem sensor frames do ESP32 → `force_stop("serial_loss")` |
 
 ---
 
@@ -146,16 +167,17 @@ Exemplo (ilustrativo, CRC fictício):
 
 > **Garfo manual — sem atuação autônoma.** O campo `garfo` permanece no canal
 > manual existente (`subir` / `descer` / `parar`), repassado do frontend ao Pi
-> e do Pi ao ESP32 sem transformação. **Não há campo adicional** no protocolo
+> e do Pi ao ESP32 sem transformação. Não há campo adicional no protocolo
 > serial para controle autônomo do garfo — nem em missão pick-and-place, nem em
 > modo AUTOMATICO. Nos estados AT_PICK e AT_PLACE da missão, o operador aciona
 > a garra pelo mesmo botão da UI; a missão só retoma via `POST /mission/continue`
 > (WebSocket/API), não por comando serial dedicado. O fim-de-curso é tratado
-> localmente no ESP32 (~100 Hz) e não altera o framing JSON.
+> localmente no ESP32 (~100 Hz) e não altera o framing JSON. No firmware atual,
+> os pinos de fim-de-curso estão desabilitados (`PIN_FORK_LIMIT_TOP/BOTTOM = -1`).
 
-> Se o ESP32 não receber setpoint novo, mantém o último válido por um intervalo
-> curto (`SETPOINT_TIMEOUT_MS`, `TODO(equipe)`) e depois entra em estado seguro
-> (motores zerados).
+> Se o ESP32 não receber setpoint novo, mantém o último válido por
+> `SETPOINT_TIMEOUT_MS` (200 ms, `firmware/src/config.h`) e depois entra em
+> estado seguro (motores zerados).
 
 ---
 
@@ -177,10 +199,10 @@ Exemplo (ilustrativo, CRC fictício):
 |--------------|-------------|---------|--------|---------------------------------------------|
 | `enc.esq`    | float       | rad/s   | sim    | Velocidade medida pelo encoder esquerdo.    |
 | `enc.dir`    | float       | rad/s   | sim    | Velocidade medida pelo encoder direito.     |
-| `mpu.ax/ay/az` | float     | m/s²    | sim    | Aceleração **crua** (filtragem é no Pi).    |
-| `mpu.gx/gy/gz` | float     | graus/s | sim    | Velocidade angular **crua**.                |
+| `mpu.ax/ay/az` | float     | m/s²    | sim    | Aceleração crua (filtragem é no Pi).        |
+| `mpu.gx/gy/gz` | float     | graus/s | sim    | Velocidade angular crua.                    |
 | `mpu.temp_c` | float       | °C      | sim    | Temperatura do MPU-6050.                    |
 | `bms`        | obj \| null | —       | sim    | `{cel, i_a, temp_c}` como em `bateria`, ou null.|
 
-> O ESP32 envia **dados crus** do MPU-6050. A fusão (Kalman → roll/pitch) acontece
-> no Pi (`pi/app/control/kalman.py`). [ref: Seção 7]
+> O ESP32 envia dados crus do MPU-6050. A fusão (Kalman → roll/pitch) acontece
+> no Pi (`pi/app/control/kalman.py`).

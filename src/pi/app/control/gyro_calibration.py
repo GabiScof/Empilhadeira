@@ -1,26 +1,10 @@
-"""Auto-calibração de orientação do IMU + bias do giroscópio (na partida).
+"""Auto-calibração de orientação do IMU e bias do giroscópio na partida.
 
-Faz TUDO com o robô parado nos primeiros segundos após ligar — sem teste de
-giro manual, sem configurar eixo/sinal na mão:
-
-1. **Qual eixo é o vertical (yaw) e para que lado?**  Em repouso o
-   acelerômetro lê +1 g ao longo do eixo que aponta para CIMA. Medindo o
-   vetor gravidade descobrimos a direção "para cima" no frame do sensor.
-
-2. **Qual o sinal da taxa de yaw?**  O MPU-6050 é um sensor **destro**
-   (regra da mão direita). Sabendo a direção "para cima", o sinal do yaw fica
-   totalmente determinado — projetamos o vetor do giroscópio sobre "para
-   cima": ``yaw = giro · û_cima``. Isso dá a taxa de rotação em torno da
-   vertical real, com o sinal certo, mesmo com a placa levemente inclinada.
-   Positivo = anti-horário visto de cima = convenção de θ do EKF.
-
-3. **Bias de taxa-zero:**  a componente de yaw medida parado é o bias; é
-   subtraída de todas as leituras (e rastreada devagar p/ drift térmico).
-
-Consequência: a POSIÇÃO e a ORIENTAÇÃO do IMU no chassi deixam de importar —
-basta o eixo vertical não ficar deitado. A rotulagem X/Y/Z impressa na placa
-(notoriamente trocada nas GY-8x) é ignorada; usamos o sensor físico + a
-gravidade medida. [ref: discussão IMU]
+Com o robô parado, infere o eixo vertical pela gravidade, projeta o giroscópio
+sobre esse eixo (yaw = giro·û_cima, positivo = anti-horário = convenção do EKF)
+e estima o bias de taxa-zero (rastreado devagar para drift térmico). A montagem
+da placa no chassi deixa de importar desde que o eixo vertical não fique deitado;
+a rotulagem X/Y/Z da GY-8x é ignorada.
 """
 
 from __future__ import annotations
@@ -71,7 +55,6 @@ class GyroCalibrator:
         self._tilt_deg = 0.0
         self._axis_label = "?"
 
-    # ---- estado exposto -----------------------------------------------------
     @property
     def calibrated(self) -> bool:
         return self._calibrated
@@ -95,7 +78,6 @@ class GyroCalibrator:
         """Eixo de yaw detectado, ex.: '+Z' (Z p/ cima) ou '-Z' (Z p/ baixo)."""
         return self._axis_label
 
-    # ---- lógica -------------------------------------------------------------
     def _is_stationary(
         self, w_left_cmd: float, w_right_cmd: float, w_left_meas: float, w_right_meas: float
     ) -> bool:

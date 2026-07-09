@@ -6,8 +6,6 @@ Esta variante deve ser identica ao firmware:
 - CRC-8/MAXIM (Dallas/1-Wire)
 - Polinomio normal 0x31, refletido 0x8C
 - Init 0x00, RefIn true, RefOut true, XorOut 0x00
-
-[ref: docs/serial-protocol.md; Secao 6 e 7 da AGENTS.md]
 """
 
 from __future__ import annotations

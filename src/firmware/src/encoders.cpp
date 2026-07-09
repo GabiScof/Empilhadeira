@@ -26,12 +26,8 @@
  * O acesso ao contador e feito em secao critica (noInterrupts/interrupts)
  * para atomicidade na leitura + reset do acumulador.
  *
- * Nota de engenharia [ref: Secao 4 da AGENTS.md]:
- *   A cinematica diferencial assume rodas sem escorregamento. Se a roda
- *   patinar, a odometria por encoder degrada. Essa limitacao e tratada
- *   no nivel do Pi, nao aqui.
- *
- * [ref: Secao 7 e 8 da AGENTS.md; Secao 2.5 e 5.2 do relatorio]
+ * A cinematica diferencial assume rodas sem escorregamento; se patinar,
+ * a odometria degrada — tratado no Pi, nao aqui.
  */
 #include "encoders.h"
 

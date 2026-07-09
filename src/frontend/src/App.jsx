@@ -13,10 +13,6 @@ import MissionPanel from "./components/MissionPanel.jsx";
 import DemoPage from "./pages/DemoPage.jsx";
 import MapPage from "./pages/MapPage.jsx";
 
-// Contrato de comunicação vindo de main: o alvo do WebSocket é configurável via
-// VITE_PI_WS_URL (ex.: ws://192.168.0.10:8000/ws) para apontar o frontend ao IP do
-// Pi. Sem a env, cai no mesmo-host (servido a partir do próprio Pi).
-
 function OperatorPage() {
   const { telemetry, connected, sendCommand } = useWebSocket(WS_URL);
   const [mode, setMode] = useState("PARADO");

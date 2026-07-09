@@ -1,25 +1,22 @@
 # Empilhadeira — Frontend (React + Vite)
 
-Interface de operação da empilhadeira robótica. Roda no navegador do celular,
-conecta ao backend Pi via WebSocket.
-
 ## Funcionalidades
 
 ### Tela de Operador (`/`)
-- **Joystick** (nipplejs) — controle manual, mapeia para `x,y ∈ [-1,1]`
-- **Seletor de Modo** — MANUAL / AUTOMATICO / PARADO
-- **Controle do Garfo** — subir / descer / parar (sempre ativo)
-- **Painel de Telemetria** — rodas (rad/s), IMU (roll/pitch), visão (z/x/pitch),
+- Joystick (nipplejs) — controle manual, mapeia para `x,y ∈ [-1,1]`
+- Seletor de modo — MANUAL / AUTOMATICO / PARADO
+- Controle do garfo — subir / descer / parar (sempre ativo)
+- Painel de telemetria — rodas (rad/s), IMU (roll/pitch), visão (z/x/pitch),
   mini-gráficos (Recharts), indicador de conexão
 
 ### Tela Demo (`/demo`)
 Disponível quando conectado ao backend em modo SIM:
-- **Arena** (canvas) — vista de cima do almoxarifado, robô + heading, rastro,
+- Arena (canvas) — vista de cima do almoxarifado, robô + heading, rastro,
   pallet com AprilTag, cone de FOV, anel do Zref
-- **Garfo (vista lateral)** — altura do garfo + indicadores de fim-de-curso
-- **Reset de Pose** — definir pose inicial arbitrária (x, y, θ)
-- **Injeção de Falhas** — queda serial, tag oculta, slip de roda, bateria saturada
-- **Telemetria** — mesmo painel da tela de operador
+- Garfo (vista lateral) — altura do garfo + indicadores de fim-de-curso
+- Reset de pose — definir pose inicial arbitrária (x, y, θ)
+- Injeção de falhas — queda serial, tag oculta, slip de roda, bateria saturada
+- Telemetria — mesmo painel da tela de operador
 
 ## Como rodar
 

@@ -1,46 +1,15 @@
 /**
  * motors.cpp — Acionamento dos motores via PWM (LEDC) -> driver L298n.
  *
- * O ESP32 controla tres motores atraves de driver(s) L298n (ponte H):
- *   - Roda esquerda (Lego NXT 53787)
- *   - Roda direita   (Lego NXT 53787)
- *   - Garfo           (JGY-370-12V, worm gear)
+ * Tres motores: rodas esq/dir (Lego NXT 53787) e garfo (JGY-370-12V).
+ * Cada motor usa IN1/IN2 (sentido) + ENA (PWM via LEDC).
  *
- * NOTA: um unico L298n tem 2 canais H-bridge. Tres motores exigem 2 modulos
- * L298n (um para as rodas, outro para o garfo) ou um L298n + driver menor
- * para o garfo. TODO(equipe): definir a configuracao exata.
+ * Rodas: |u| -> duty clamped; sinal -> IN1/IN2.
+ * Garfo: SUBIR/DESCER em FORK_DUTY; PARAR em duty 0 (worm gear segura carga).
+ * Fim-de-curso bloqueia SUBIR no topo e DESCER na base (local, ~100 Hz).
+ * Desabilitados enquanto PIN_FORK_LIMIT_* = -1.
  *
- * Cada motor usa 3 pinos no L298n:
- *   - IN1 + IN2: sentido de rotacao (HIGH/LOW = frente, LOW/HIGH = re)
- *   - ENA (PWM): velocidade (duty cycle via periferico LEDC do ESP32)
- *
- * Para as rodas, o sinal `u` vem do PID (pid.cpp):
- *   - |u| -> duty PWM, clamped a [0, MAX_DUTY]
- *   - sinal de u -> sentido (IN1/IN2)
- *
- * Para o garfo [ref: Secao 7 da AGENTS.md; Secao 5.2 do relatorio]:
- *   - SUBIR/DESCER: PWM em duty fixo (FORK_DUTY, config.h) no sentido correto
- *   - PARAR: duty 0. A reducao worm gear do motor JGY-370-12V impede backdrive,
- *     segurando a carga na posicao atual sem manter corrente.
- *
- * Fim-de-curso do garfo [ref: Secao 5.2 do relatorio]:
- *   Duas chaves micro switch nos extremos do curso do garfo (topo e base).
- *   O check e feito localmente em motorSetFork() a cada chamada (~100 Hz):
- *     - Garfo no topo (switch superior acionado) + comando SUBIR -> bloqueado
- *     - Garfo na base (switch inferior acionado) + comando DESCER -> bloqueado
- *     - Sentido oposto -> liberado normalmente
- *     - PARAR -> sempre permitido (motor para, worm gear segura)
- *   Os fim-de-curso estao DESABILITADOS por enquanto (-1 em config.h): o robo
- *   ainda nao tem as chaves montadas, entao motorSetFork() nunca bloqueia por limite.
- *   Quando as chaves forem instaladas, definir os GPIOs em config.h.
- *
- * API LEDC usada: ESP32 Arduino Core 2.x (ledcSetup + ledcAttachPin + ledcWrite).
- * Se o projeto migrar para Arduino Core 3.x (IDF 5), usar ledcAttach(pin, freq, bits)
- * e ledcWrite(pin, duty) — API baseada em pino em vez de canal.
- *
- * Estado seguro (motorsStop): zera duty das rodas e para o garfo. Chamado pelo
- * watchdog de setpoint em main.cpp quando a serial com o Pi cai.
- * [ref: Secao 4 e 7 da AGENTS.md]
+ * LEDC: ESP32 Arduino Core 2.x (ledcSetup + ledcAttachPin + ledcWrite).
  */
 #include "motors.h"
 
@@ -95,7 +64,6 @@ static void forkStop() {
 }
 
 void motorsBegin() {
-  // --- Pinos de direcao (IN1/IN2) como saida digital ---
   pinMode(PIN_MOTOR_ESQ_IN1, OUTPUT);
   pinMode(PIN_MOTOR_ESQ_IN2, OUTPUT);
   pinMode(PIN_MOTOR_DIR_IN1, OUTPUT);
@@ -103,7 +71,6 @@ void motorsBegin() {
   pinMode(PIN_FORK_IN1, OUTPUT);
   pinMode(PIN_FORK_IN2, OUTPUT);
 
-  // --- Fim-de-curso do garfo (INPUT_PULLUP) ---
   // So configura se o pino e valido (>= 0). Com -1, fica desabilitado.
   if (PIN_FORK_LIMIT_TOP >= 0) {
     pinMode(PIN_FORK_LIMIT_TOP, INPUT_PULLUP);
@@ -112,12 +79,10 @@ void motorsBegin() {
     pinMode(PIN_FORK_LIMIT_BOTTOM, INPUT_PULLUP);
   }
 
-  // --- Configurar canais LEDC (frequencia + resolucao) ---
   ledcSetup(LEDC_CH_ESQ,  LEDC_FREQ_HZ, LEDC_RESOLUTION_BITS);
   ledcSetup(LEDC_CH_DIR,  LEDC_FREQ_HZ, LEDC_RESOLUTION_BITS);
   ledcSetup(LEDC_CH_FORK, LEDC_FREQ_HZ, LEDC_RESOLUTION_BITS);
 
-  // --- Associar pino fisico ao canal LEDC ---
   ledcAttachPin(PIN_MOTOR_ESQ_PWM, LEDC_CH_ESQ);
   ledcAttachPin(PIN_MOTOR_DIR_PWM, LEDC_CH_DIR);
   ledcAttachPin(PIN_FORK_PWM,      LEDC_CH_FORK);

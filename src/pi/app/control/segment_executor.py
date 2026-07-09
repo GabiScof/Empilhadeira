@@ -1,13 +1,7 @@
 """Executor de segmentos de rota: FORWARD e TURN.
 
-Produz setpoints (ω_esq, ω_dir) para cada segmento da rota planejada.
-Malha externa de posição/heading (P/PI) sobre a estimativa do EKF.
-
-**Malha em cascata:**
-- Interna (velocidade): PID por roda no ESP32 ~100 Hz. NÃO duplicar.
-- Externa (posição/heading): este módulo, no Pi ~20 Hz.
-
-[ref: Seção 4 do mega-prompt]
+Malha externa de posição/heading (P/PI) sobre o EKF, ~20 Hz no Pi.
+A malha interna de velocidade fica no ESP32 (~100 Hz) — não duplicar aqui.
 """
 
 from __future__ import annotations

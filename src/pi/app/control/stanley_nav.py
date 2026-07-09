@@ -1,23 +1,9 @@
-"""Stanley/Unified path-following controller for tag approach.
+"""Stanley/unified path-following controller for tag approach.
 
-Alternative to the reactive NavigationController. Instead of switching between
-bearing-only and pitch-only modes, this controller ALWAYS combines both
-corrections in one formula:
-
-    ω = K_bearing · bearing_angle + K_pitch · pitch_angle
-
-Plus FACE/RETREAT at the goal when false equilibrium is detected.
-
-Key difference from reactive:
-  - During approach: bearing AND pitch are ALWAYS both active
-  - Reactive switches: bearing-only when |x|>1.5, pitch+x when |x|≤1.5
-  - The unified formula is smoother (no threshold switching) but slightly
-    slower because pitch and bearing corrections can partially cancel.
-
-This module exists for comparison/experimentation only.
-The existing NavigationController should remain the primary controller.
-
-[ref: Seção 7 da AGENTS.md — alternativa experimental]
+Alternative to the reactive NavigationController: always combines bearing and
+pitch in ω = K_bearing·bearing + K_pitch·pitch, plus FACE/RETREAT at the goal
+when false equilibrium is detected. Smoother than reactive (no threshold switch
+between bearing-only and pitch+x) but pitch and bearing can partially cancel.
 """
 
 from __future__ import annotations

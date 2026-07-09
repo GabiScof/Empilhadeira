@@ -20,8 +20,6 @@
  * 53787 @ 12V via L298n com LEDC 8 bits (0-255). Devem ser refinados via
  * Ziegler-Nichols e ajuste empirico com o hardware montado. Ver config.h
  * para o procedimento detalhado de sintonia.
- *
- * [ref: Secao 5.2 e 7 da AGENTS.md; Secao 5.2 do relatorio]
  */
 #include "pid.h"
 

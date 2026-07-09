@@ -2,8 +2,6 @@
 
 Encapsula o `Detector` e devolve as detecções cruas de um frame em tons de cinza.
 A estimativa de pose (translação/rotação) fica em `pose.py`.
-
-[ref: Seção 7 e 8 da AGENTS.md]
 """
 
 from __future__ import annotations
@@ -38,8 +36,6 @@ class AprilTagDetector:
                 ou, em último caso, ``config.CAMERA_PARAMS`` (placeholder).
             tag_size_m: tamanho físico da tag (m). Default: ``APRILTAG_SIZE_CM``.
             intrinsics: calibração carregada (tem prioridade sobre ``camera_params``).
-
-        [ref: APRILTAG_FAMILY em app/config.py; AprilTagDetector.from_calibration]
         """
         self.tag_family: str = config.APRILTAG_FAMILY
 

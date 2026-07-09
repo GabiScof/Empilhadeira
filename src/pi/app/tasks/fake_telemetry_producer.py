@@ -1,16 +1,6 @@
 """Produtor de telemetria FAKE — substituto temporário de Vision Loop + Serial Loop.
 
-# SCAFFOLDING: remover quando Vision Loop e Serial Loop entrarem em operação.
-# Ao remover este módulo, apagar também a linha que o importa em app/main.py.
-# Nenhum outro arquivo depende deste módulo.
-
-Escreve, a 20 Hz, valores plausíveis nos mesmos campos de SharedState que os loops
-reais irão preencher:
-  - state.last_sensors  ← seria escrito pelo Serial Loop (encoders + MPU + BMS)
-  - state.last_imu      ← seria escrito pelo Serial Loop após aplicar Kalman
-
-Os valores oscilatórios (senóides) permitem ver o TelemetryPanel vivo no celular
-sem nenhum hardware conectado.
+Escreve, a 20 Hz, valores plausíveis nos campos de SharedState usados pelos loops reais.
 """
 
 from __future__ import annotations
@@ -23,7 +13,7 @@ from app.models import Encoders, ImuAngles, MpuRaw, Sensors
 from app.state import SharedState
 
 
-async def fake_telemetry_producer(state: SharedState) -> None:  # SCAFFOLDING
+async def fake_telemetry_producer(state: SharedState) -> None:
     """Publica sensores e IMU sintéticos no SharedState a TELEMETRY_HZ.
 
     Args:

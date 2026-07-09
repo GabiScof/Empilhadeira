@@ -1,46 +1,18 @@
 /**
  * config.h — Pinos, taxas e ganhos do firmware do ESP32.
  *
- * ╔═══════════════════════════════════════════════════════════════════════╗
- * ║  BRANCH: feat/firmware-production-ready                              ║
- * ║  Todos os placeholders foram substituidos por valores reais.         ║
- * ║  PRONTO PARA GRAVAR NO ESP32 e testar no hardware.                  ║
- * ╚═══════════════════════════════════════════════════════════════════════╝
- *
- * Mapa de GPIOs — FONTE DA VERDADE: Testes_eletronica.ino (bate com a placa real).
- * Este config.h foi realinhado para coincidir 1:1 com aquele firmware de teste:
- *   - Rodas:  ESQ(M2)=IN1 12 / IN2 14 / PWM 13   DIR(M3)=IN1 27 / IN2 26 / PWM 25
- *   - Garfo (M1): IN1 18 / IN2 19 / PWM 5
- *   - Inversao:   M2_INV=true (roda ESQ montada invertida) → MOTOR_ESQ_INV
- *   - Encoders:   ESQ=23/15 (refiado em 2026-07-06; era 34/35)   DIR=32/33
- *   - I2C MPU-6050: SDA 21 / SCL 22
- *   - Fim-de-curso: DESABILITADOS por enquanto (sem chaves montadas → -1)
- *
- * Cuidados de hardware herdados desse mapa (nao sao "boas praticas", sao a placa real):
- *   - GPIO 12 (ESQ IN1) e strapping pin: PRECISA estar em LOW no boot, senao a
- *     seleccao de tensao da flash falha. Como IN1 idle = LOW, ok — mas nao ligar
- *     pull-up externo nele.
- *   - GPIO 34/35 ficaram LIVRES (input-only, sem pull-up interno — se reutilizar,
- *     lembrar do pull-up externo).
- *
- * Ganhos PID: valores iniciais conservadores para Lego NXT 53787.
- * Ajustar empiricamente com o procedimento Ziegler-Nichols (ver README).
- *
- * [ref: Secao 3 da AGENTS.md]
+ * Mapa de GPIOs alinhado com Testes_eletronica.ino (placa real).
+ * Ganhos PID: valores iniciais conservadores para Lego NXT 53787;
+ * ajustar empiricamente com Ziegler-Nichols (ver README).
  */
 #pragma once
 
 #include <stdint.h>
 
-// ═══════════════════════════════════════════════════════════════════════════
-// MEDIÇÕES PENDENTES NO ROBÔ REAL — calibrar antes de confiar na navegação
-// ═══════════════════════════════════════════════════════════════════════════
-// O firmware GRAVA e RODA com os valores atuais, mas os de baixo ainda são
-// estimativas/ganhos iniciais. Cada item diz O QUE medir, COMO medir, a UNIDADE
-// e ONDE gravar.  [F] = aqui no config.h (firmware).  [P] = no lado Pi, em
-// app/config.py (geometria/óptica não moram no firmware).
+// --- Calibracao pendente no robo real ---
+// [F] = config.h (firmware).  [P] = app/config.py (Pi).
 //
-// ── Firmware (este arquivo) ────────────────────────────────────────────────
+// Firmware (este arquivo):
 //  1. [F] ENCODER_PPR .......... (atual 1440 = 360 ciclos x4 da quadratura)
 //         COMO: gire a roda à mão EXATAMENTE 10 voltas completas e leia o total
 //         de pulsos contados; PPR = pulsos / 10. Com a decodificação x4
@@ -58,7 +30,7 @@
 //  4. [F] FORK_INV ............. (sentido do garfo)
 //         COMO: comando "subir" deve SUBIR o garfo. Se descer, trocar para true.
 //
-//  5. [F] FORK_DUTY ............ (atual 180, escala 0-255)
+//  5. [F] FORK_DUTY ............ (atual 220, escala 0-255)
 //         COMO: com a carga MÁXIMA prevista, achar o menor duty que ainda
 //         levanta o garfo com folga. Subir se patinar; descer se for brusco.
 //
@@ -71,7 +43,7 @@
 //         COMO: quando as chaves de fim-de-curso forem montadas, definir os
 //         GPIOs livres reais (lembrar que o GPIO 5 agora é o PWM do garfo).
 //
-// ── Lado Pi (app/config.py) — geometria/óptica ─────────────────────────────
+// Lado Pi (app/config.py) — geometria/optica:
 //  8. [P] WHEEL_BASE_L_CM ...... (atual 15.0 cm) — BITOLA: distância entre os
 //         pontos de contato das DUAS rodas no chão. Paquímetro/régua, em cm.
 //  9. [P] WHEEL_RADIUS_R_CM .... (atual 2.8 cm) — meça o DIÂMETRO externo da
@@ -84,12 +56,9 @@
 //         óptico da câmera até o ponto de referência do garfo.
 //         (Intrínsecos fx/fy/cx/cy da câmera: JÁ calibrados em
 //          calibracao/camera_intrinsics.json.)
-// ═══════════════════════════════════════════════════════════════════════════
 
-// ---------------------------------------------------------------------------
-// Serial (UART Pi <-> ESP32)
-// ---------------------------------------------------------------------------
-constexpr unsigned long SERIAL_BAUDRATE = 115200;  // decisao fechada (Secao 2)
+// --- Serial (UART Pi <-> ESP32) ---
+constexpr unsigned long SERIAL_BAUDRATE = 115200;
 constexpr float SERIAL_HZ = 20.0f;                 // taxa de troca de mensagens
 
 // Timeout do setpoint: se nenhum setpoint novo chegar nesse intervalo, o ESP32
@@ -99,10 +68,8 @@ constexpr float SERIAL_HZ = 20.0f;                 // taxa de troca de mensagens
 // o Pi realmente desconectar.
 constexpr unsigned long SETPOINT_TIMEOUT_MS = 200;
 
-// ---------------------------------------------------------------------------
-// Malha de controle
-// ---------------------------------------------------------------------------
-constexpr float PID_HZ = 100.0f;  // PID por roda a ~100 Hz (decisao fechada)
+// --- Malha de controle ---
+constexpr float PID_HZ = 100.0f;
 
 // Ganhos PID por roda — valores iniciais para Lego NXT 53787 @ 12V via L298n.
 //
@@ -131,9 +98,7 @@ constexpr float PID_KD_DIR = 1.0f;
 // termo integral sozinho nao sature o atuador indefinidamente.
 constexpr float PID_INTEGRAL_LIMIT = 500.0f;
 
-// ---------------------------------------------------------------------------
-// Pinos — Motores de tracao (rodas) via L298n #1
-// ---------------------------------------------------------------------------
+// --- Pinos — Motores de tracao (rodas) via L298n #1 ---
 // LADOS CONFERIDOS NA BANCADA (2026-07-06): teste fisico com
 // `bench_setpoint --w-esq 8 --w-dir 0` girou a roda DIREITA → na fiacao real
 // o canal A (12/14/13) aciona a roda DIREITA e o canal B (27/26/25) a
@@ -155,9 +120,7 @@ constexpr int PIN_MOTOR_DIR_PWM = 13;  // L298n ENA (canal A) — PWM  [era M2_E
 constexpr bool MOTOR_ESQ_INV = false;  // canal B (27/26/25)
 constexpr bool MOTOR_DIR_INV = true;   // canal A (12/14/13)
 
-// ---------------------------------------------------------------------------
-// Pinos — Motor do garfo via L298n #2 (ou driver separado)
-// ---------------------------------------------------------------------------
+// --- Pinos — Motor do garfo via L298n #2 (ou driver separado) ---
 // O garfo usa um segundo L298n (ou driver menor tipo L9110S / TB6612),
 // pois o primeiro L298n ja usa os 2 canais para as rodas.
 constexpr int PIN_FORK_IN1 = 18;  // L298n #2 IN1  [M1_IN1]
@@ -173,9 +136,7 @@ constexpr bool FORK_INV = false;
 // garfo com carga. Aumentar se nao subir; diminuir se for rapido demais.
 constexpr int FORK_DUTY = 220;
 
-// ---------------------------------------------------------------------------
-// Pinos — Chaves fim-de-curso do garfo
-// ---------------------------------------------------------------------------
+// --- Pinos — Chaves fim-de-curso do garfo ---
 // Micro switches NO (Normally Open) entre o pino e GND.
 // INPUT_PULLUP: HIGH = garfo livre, LOW = garfo no limite.
 //
@@ -193,9 +154,7 @@ constexpr int PIN_FORK_LIMIT_BOTTOM = -1;  // Fim-de-curso inferior — sem chav
 // puxam Arduino.h (ex.: pid.cpp), onde LOW/HIGH nao existem.
 constexpr int FORK_LIMIT_ACTIVE_LEVEL = 0;  // 0 = LOW; usar 1 (HIGH) p/ switch NC
 
-// ---------------------------------------------------------------------------
-// Alimentacao do encoder por GPIO (fiacao real da equipe)
-// ---------------------------------------------------------------------------
+// --- Alimentacao do encoder por GPIO (fiacao real da equipe) ---
 // Os fios de alimentacao do encoder foram ligados em GPIOs em vez dos pinos
 // de energia da placa: GPIO 2 faz papel de VCC (OUTPUT HIGH = 3,3 V) e
 // GPIO 4 faz papel de GND (OUTPUT LOW). encodersBegin() os inicializa ANTES
@@ -214,9 +173,7 @@ constexpr int FORK_LIMIT_ACTIVE_LEVEL = 0;  // 0 = LOW; usar 1 (HIGH) p/ switch 
 constexpr int PIN_ENC_POWER_VCC = 2;  // OUTPUT HIGH -> "VCC" do encoder
 constexpr int PIN_ENC_POWER_GND = 4;  // OUTPUT LOW  -> "GND" do encoder
 
-// ---------------------------------------------------------------------------
-// Pinos — Encoders de quadratura (Lego NXT 53787)
-// ---------------------------------------------------------------------------
+// --- Pinos — Encoders de quadratura (Lego NXT 53787) ---
 // GPIO 32/33: suportam interrupcao e INPUT_PULLUP interno.
 // LADOS CONFERIDOS NA BANCADA (2026-07-06): encoder da roda DIREITA em 32/33.
 // FIACAO REFEITA (2026-07-06): o encoder ESQUERDO estava nos GPIOs 34/35
@@ -247,9 +204,7 @@ constexpr bool ENC_DIR_INV = true;
 // Espelhar qualquer mudanca aqui no EMU_ENCODER_PPR do app/config.py (Pi).
 constexpr int ENCODER_PPR = 1440;
 
-// ---------------------------------------------------------------------------
-// Pinos — MPU-6050 (I2C via Wire)
-// ---------------------------------------------------------------------------
+// --- Pinos — MPU-6050 (I2C via Wire) ---
 // GPIO 21 (SDA) e 22 (SCL) sao os pinos I2C padrao do ESP32.
 constexpr int PIN_I2C_SDA = 21;
 constexpr int PIN_I2C_SCL = 22;
@@ -257,9 +212,7 @@ constexpr int PIN_I2C_SCL = 22;
 // Endereco I2C do MPU-6050. 0x68 com AD0=GND (padrao).
 constexpr uint8_t MPU6050_ADDR = 0x68;
 
-// ---------------------------------------------------------------------------
-// LEDC (PWM)
-// ---------------------------------------------------------------------------
+// --- LEDC (PWM) ---
 // 20 kHz: acima da faixa audivel humana, compativel com L298n.
 constexpr int LEDC_FREQ_HZ = 20000;
 

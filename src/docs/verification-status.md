@@ -1,23 +1,20 @@
 # Status de Verificação — Simulação e Testes
 
-> Última verificação: **2026-06-23**. Este documento consolida os achados das sessões
-> de simulação (anteriormente em `ACHADOS_SIM.md` e `ACHADOS_SIM_v2.md`).
+Última verificação: 2026-06-23 (achados das sessões de simulação, antes em `ACHADOS_SIM.md` e `ACHADOS_SIM_v2.md`).
 
 ---
 
-## Resumo executivo
-
-O sistema está **funcional e validado em simulação**. A lógica de controle, missão,
+O sistema está funcional e validado em simulação. A lógica de controle, missão,
 navegação e telemetria roda identicamente em `SIM=1` e `SIM=0` — só mudam os encaixes
 de hardware (câmera e serial).
 
 | Verificação | Resultado |
 |-------------|-----------|
-| pytest (`pi/tests/`) | **162/162** passam |
-| vitest (`frontend/`) | **11/11** passam |
-| `sim_sweep.py` (9 cenários) | **9/9** convergem |
-| `full_trace.py` (13 cenários) | **12/13** convergem |
-| Cenário `far_off25_h20` | **LOST esperado** — tag fora do FOV (offset 25 cm + heading 20° a 130 cm) |
+| pytest (`pi/tests/`) | 162/162 passam |
+| vitest (`frontend/`) | 11/11 passam |
+| `sim_sweep.py` (9 cenários) | 9/9 convergem |
+| `full_trace.py` (13 cenários) | 12/13 convergem |
+| Cenário `far_off25_h20` | LOST esperado — tag fora do FOV (offset 25 cm + heading 20° a 130 cm) |
 
 ---
 
@@ -59,7 +56,7 @@ Distância final: 15,0–16,3 cm (ZREF=15). Offset lateral máx: ~2,4 cm. Headin
 ### Navegação reativa vs path-following
 
 Análise comparativa (Stanley, Pure Pursuit, bearing unificado) concluiu que o controlador
-**APPROACH/FACE/RETREAT com mode-switching** é a abordagem correta para robô diferencial
+APPROACH/FACE/RETREAT com mode-switching é a abordagem adequada para robô diferencial
 com câmera frontal. Detalhes em [`navigation.md`](./navigation.md).
 
 ---

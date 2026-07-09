@@ -6,8 +6,6 @@ ruído, motion blur, drop e perda por campo de visão.
 Suporta múltiplas tags (do mapa carregado).
 
 Unidades internas: SI (metros, radianos).
-
-[ref: Seção 6 e 7 do mega-prompt]
 """
 
 from __future__ import annotations

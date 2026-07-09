@@ -206,7 +206,6 @@ export default function TelemetryPanel({ telemetry, connected, worldState }) {
         </div>
       )}
 
-      {/* Encoders + Kalman */}
       <div className="border-t border-slate-700 pt-3 space-y-1">
         <p className="text-xs font-medium text-cyan-400 mb-1">Sensores</p>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1">
@@ -217,7 +216,6 @@ export default function TelemetryPanel({ telemetry, connected, worldState }) {
         </div>
       </div>
 
-      {/* EKF */}
       {telemetry?.ekf && (
         <div className="border-t border-slate-700 pt-3 space-y-1">
           <p className="text-xs font-medium text-amber-400 mb-1">EKF 2D [x, y, θ]</p>
@@ -233,7 +231,6 @@ export default function TelemetryPanel({ telemetry, connected, worldState }) {
         </div>
       )}
 
-      {/* PID (from sim world-state) */}
       {worldState?.pid && (
         <div className="border-t border-slate-700 pt-3 space-y-2">
           <p className="text-xs font-medium text-rose-400 mb-1">PID (firmware)</p>

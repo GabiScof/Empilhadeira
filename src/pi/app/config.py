@@ -1,13 +1,7 @@
 """Constantes e parâmetros de configuração do app do Raspberry Pi.
 
-Centraliza **todos** os números do alto nível. Nenhum número mágico deve aparecer
-fora deste módulo (convenção da Seção 10).
-
-Os parâmetros marcados com ``PROVISÓRIO — TODO(equipe): confirmar`` são **placeholders**
-com valores provisórios razoáveis para simulação. A equipe deve medir e confirmar
-cada um no hardware real antes de usar em produção.
-
-[ref: Seção 3 da AGENTS.md]
+Centraliza todos os números do alto nível. Parâmetros marcados com
+``PROVISÓRIO — TODO(equipe): confirmar`` precisam de medição no hardware real.
 """
 
 from __future__ import annotations
@@ -16,14 +10,8 @@ import math
 import os
 from pathlib import Path
 
-# ---------------------------------------------------------------------------
-# Modo de simulação
-# ---------------------------------------------------------------------------
 SIM: bool = os.getenv("SIM", "0") == "1"
 
-# ---------------------------------------------------------------------------
-# Rede / WebSocket (Frontend ↔ Pi)
-# ---------------------------------------------------------------------------
 WS_HOST: str = os.getenv("PI_HOST", "0.0.0.0")
 WS_PORT: int = int(os.getenv("PI_PORT", "8000"))
 
@@ -35,25 +23,23 @@ TELEMETRY_HZ: float = 20.0
 CONTROL_HZ: float = 20.0
 
 # Timeout do canal de comando: se nenhum comando chegar neste intervalo, o Pi força
-# PARADO independentemente do modo. [ref: Seção 4 e 7]
+# PARADO independentemente do modo.
 # RTT alvo < 170 ms; o frontend envia heartbeat a ~100 ms, então 400 ms é conservador
 # e seguro — ajustar empiricamente conforme a rede da PUC.
 # Valor de contrato vindo de main (real); nome usado pelo state_machine.
 COMMAND_WATCHDOG_MS: int = 400  # ajustável; deve ser >> RTT + jitter
 
-# ---------------------------------------------------------------------------
+
 # Serial (Pi ↔ ESP32)
-# ---------------------------------------------------------------------------
 SERIAL_PORT: str = os.getenv("SERIAL_PORT", "/dev/ttyUSB0")
 SERIAL_BAUDRATE: int = int(os.getenv("SERIAL_BAUDRATE", "115200"))
 SERIAL_HZ: float = 20.0
 
 # Ciclos consecutivos sem sensor que ativam o watchdog serial → PARADO (~250 ms @20 Hz).
-SERIAL_LOST_FRAMES: int = 5  # [ref: Seção 7]
+SERIAL_LOST_FRAMES: int = 5
 
-# ---------------------------------------------------------------------------
-# Cinemática diferencial — [ref: Seção 3 e 7]
-# ---------------------------------------------------------------------------
+
+# Cinemática diferencial
 # PROVISÓRIO — TODO(equipe): confirmar — distância entre rodas (cm).
 # Estimado para chassi Lego em escala; medir no robô montado.
 WHEEL_BASE_L_CM: float = 15.0
@@ -72,9 +58,8 @@ MAX_LINEAR_SPEED: float = 19.0
 # Confirmar com 1 volta no lugar cronometrada (ω = 2π/t) e ajustar.
 MAX_ANGULAR_SPEED: float = 2.5
 
-# ---------------------------------------------------------------------------
-# Navegação automática — [ref: Seção 3 e 7]
-# ---------------------------------------------------------------------------
+
+# Navegação automática
 # PROVISÓRIO — TODO(equipe): confirmar — ganho de aproximação (eixo Z).
 NAV_KZ: float = 0.5
 
@@ -111,9 +96,8 @@ NAV_MAX_APPROACH_SPEED: float = 15.0  # PROVISÓRIO — TODO(equipe): confirmar 
 NAV_ALIGN_X_TOL: float = 0.5  # cm — tolerância lateral para considerar alinhado
 NAV_ALIGN_PITCH_TOL: float = 2.0  # graus — tolerância angular
 
-# ---------------------------------------------------------------------------
-# Visão / AprilTag — [ref: Seção 3 e 8]
-# ---------------------------------------------------------------------------
+
+# Visão / AprilTag
 APRILTAG_FAMILY: str = "tag25h9"
 
 # PROVISÓRIO — TODO(equipe): confirmar — tamanho físico da tag (cm).
@@ -203,9 +187,8 @@ APRILTAG_QUAD_DECIMATE: float = 2.0
 # os intrínsecos placeholder de config NÃO servem para o hardware real).
 REQUIRE_CAMERA_CALIBRATION: bool = os.getenv("REQUIRE_CAMERA_CALIBRATION", "1") == "1"
 
-# ---------------------------------------------------------------------------
-# Plataforma / mecânica — [ref: Seção 3]
-# ---------------------------------------------------------------------------
+
+# Plataforma / mecânica
 # PROVISÓRIO — TODO(equipe): confirmar — massa real do pallet (kg).
 # INCONSISTÊNCIA ABERTA: a intro do relatório diz ~1 kg, mas o cálculo do garfo
 # usou 0,1 kg. Usando 0,1 kg como padrão conservador para o garfo.
@@ -214,9 +197,8 @@ PALLET_MASS_KG: float = 0.1
 # PROVISÓRIO — TODO(equipe): confirmar — versão/torque do motor do garfo.
 FORK_MOTOR_VERSION: str = "JGY-370-12V-40rpm"
 
-# ---------------------------------------------------------------------------
+
 # Constantes do emulador / simulação (espelho do firmware)
-# ---------------------------------------------------------------------------
 # PID (espelha config.h do firmware)
 EMU_PID_KP: float = 20.0
 EMU_PID_KI: float = 5.0
@@ -256,9 +238,8 @@ SIM_VISION_MAX_RANGE: float = 150.0  # cm — distância máxima de detecção
 SIM_VISION_NOISE_STD_CM: float = 0.2  # desvio-padrão do ruído de posição (cm)
 SIM_VISION_NOISE_STD_DEG: float = 0.5  # desvio-padrão do ruído de ângulo (graus)
 
-# ---------------------------------------------------------------------------
-# Modelo de mundo — [ref: Seção 2 do mega-prompt]
-# ---------------------------------------------------------------------------
+
+# Modelo de mundo
 # Mapa padrão — selecionável por .env/CLI/UI.
 # HARDCODED (2026-07-07): mapa REAL medido da arena (80x160, april_tag_id
 # preenchidos). Sem env — o MAP= do .env apontava para o mapa antigo sem
@@ -269,11 +250,8 @@ DEFAULT_MAP: str = "corredor_6tags_80x160"
 # Diretório dos mapas
 MAPS_DIR: Path = Path(__file__).resolve().parent.parent / "maps"
 
-# ---------------------------------------------------------------------------
-# Parâmetros SI — usados internamente pela navegação/EKF/mundo
-# ---------------------------------------------------------------------------
-# Os valores abaixo derivam dos parâmetros em cm já existentes.
-# O Pi usa SI internamente; converte só na fronteira do protocolo.
+
+# Parâmetros SI (derivados dos valores em cm acima)
 WHEELBASE_M: float = WHEEL_BASE_L_CM / 100.0    # PROVISÓRIO — TODO(equipe): confirmar
 WHEEL_RADIUS_M: float = WHEEL_RADIUS_R_CM / 100.0  # PROVISÓRIO — TODO(equipe): confirmar
 ENCODER_PPR: int = EMU_ENCODER_PPR  # TODO(equipe): confirmar
@@ -281,18 +259,16 @@ ENCODER_PPR: int = EMU_ENCODER_PPR  # TODO(equipe): confirmar
 MAX_LINEAR_SPEED_MS: float = MAX_LINEAR_SPEED / 100.0  # m/s
 MAX_ANGULAR_SPEED_RADS: float = MAX_ANGULAR_SPEED  # já em rad/s
 
-# ---------------------------------------------------------------------------
-# EKF 2D — [ref: Seção 3 do mega-prompt]
-# ---------------------------------------------------------------------------
+
+# EKF 2D
 EKF_Q_XY: float = 0.001   # TODO(equipe): ruído de processo posição (m²)
 EKF_Q_THETA: float = 0.002  # TODO(equipe): ruído de processo heading (rad²)
 EKF_R_XY: float = 0.01    # TODO(equipe): ruído de observação tag posição (m²)
 EKF_R_THETA: float = 0.05  # TODO(equipe): ruído de observação tag heading (rad²)
 EKF_MAHALANOBIS_GATE: float = 3.0  # TODO(equipe): limiar de Mahalanobis
 
-# ---------------------------------------------------------------------------
+
 # IMU / Giroscópio — calibração de bias (zero-rate) e convenção de eixo
-# ---------------------------------------------------------------------------
 # Na PARTIDA (robô parado) o GyroCalibrator mede a gravidade p/ descobrir o
 # eixo vertical (yaw) e seu sinal, e estima o bias de taxa-zero. Como o
 # MPU-6050 é destro, gravidade + sensor bastam p/ fixar o sinal do yaw — sem
@@ -306,9 +282,8 @@ GYRO_CAL_MIN_SAMPLES: int = 40  # amostras paradas p/ travar a calibração (~2s
 GYRO_CAL_STATIONARY_EPS_RADS: float = 0.05  # |ω| roda (cmd e medido) < isto = parado
 GYRO_CAL_TRACK_ALPHA: float = 0.01  # EMA p/ rastrear drift térmico após calibrado
 
-# ---------------------------------------------------------------------------
-# Navegação genérica — [ref: Seção 4 do mega-prompt]
-# ---------------------------------------------------------------------------
+
+# Navegação genérica
 NAV_K_DIST: float = 1.5     # ganho proporcional distância → v (1/s); cap em MAX_LINEAR_SPEED_MS
 NAV_K_HEADING: float = 2.5  # ganho proporcional heading → ω (1/s); cap em MAX_ANGULAR_SPEED_RADS
 NAV_POS_TOL_M: float = 0.02  # tolerância de posição (m)
@@ -332,9 +307,8 @@ NAV_FALLBACK_V_MS: float = 0.08  # velocidade fixa quando K_DIST=0 (fallback de 
 NAV_FALLBACK_OMEGA_RADS: float = 1.0  # vel. angular fixa quando K_HEADING=0 (fallback)
 NAV_MAX_SEGMENT_TIME_S: float = 45.0  # timeout por segmento (margem p/ corredores longos)
 
-# ---------------------------------------------------------------------------
+
 # Simulação — injeção de falhas de visão
-# ---------------------------------------------------------------------------
 SIM_VISION_BLUR_PROB: float = 0.0   # probabilidade de blur por frame
 SIM_VISION_DROP_PROB: float = 0.0   # probabilidade de drop (sem detecção)
 SIM_ENCODER_NOISE_STD: float = 0.05  # desvio-padrão do ruído de encoder (rad/s)
@@ -345,22 +319,9 @@ SIM_SLIP_FRICTION: float = 1.0  # multiplicador de atrito desigual
 # Garante que o robô chega PELA FRENTE da tag (face visível).
 TAG_APPROACH_STANDOFF_M: float = float(os.getenv("TAG_STANDOFF_M", "0.15"))
 
-# ---------------------------------------------------------------------------
+
 # Dock-to-tag — aproximação por segmentos (FORWARD/TURN) a UMA tag avulsa.
-#
-# Modo de teste independente da missão: o robô vê uma tag, planeja uma rota
-# de segmentos discretos (avança / gira 90°) até parar PELA FRENTE dela e
-# executa via SegmentExecutor (mesma malha externa da missão). Diferente do
-# navegador legado (`NavigationController`), que servo-controla continuamente
-# sobre a leitura da tag.
-#
-# ALVO: ROBÔ REAL. Consome as mesmas leituras (z_cm/x_cm/pitch_deg) que o
-# navegador legado já usa no hardware.
-#
-# OPT-IN: desligado por padrão. Ligado, substitui o navegador legado no ramo
-# AUTOMATICO-sem-missão. Com DOCK_TO_TAG=0 o comportamento é idêntico ao atual.
-# [ref: docs/dock-to-tag.md]
-# ---------------------------------------------------------------------------
+# Opt-in: substitui o navegador legado no ramo AUTOMATICO-sem-missão.
 # HARDCODED True (2026-07-07): o env desligado a cada restart derrubava o
 # AUTOMATICO no caminho legado ("tag perdida" imediato). Dock e o modo padrao
 # do AUTOMATICO-sem-missao; desligavel em runtime via POST /dock/disable.
@@ -392,9 +353,8 @@ DOCK_MIN_DETECTIONS: int = int(os.getenv("DOCK_MIN_DETECTIONS", "3"))
 # volta para o robô). O modo "line_of_sight" IGNORA este valor.
 DOCK_PITCH_TO_TAG_YAW_OFFSET_RAD: float = math.pi
 
-# ---------------------------------------------------------------------------
-# Missão — [ref: Seção 5 do mega-prompt]
-# ---------------------------------------------------------------------------
+
+# Missão
 MISSION_SEED: int = int(os.getenv("MISSION_SEED", "42"))
 # TODO(equipe): confirmar gatilho de retomada — "continuar" (default) ou auto pelo fim-de-curso
 MISSION_RESUME_TRIGGER: str = os.getenv("MISSION_RESUME_TRIGGER", "button")

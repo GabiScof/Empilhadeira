@@ -5,7 +5,7 @@
  * pi/app/models.py (Pydantic) e firmware/src/protocol.h (C++).
  *
  * Convencoes: rad/s (rodas), graus (angulos), cm (distancias), A (corrente),
- * ms (timestamp). [ref: Secao 6 da AGENTS.md]
+ * ms (timestamp).
  */
 
 export type Mode = "MANUAL" | "AUTOMATICO" | "PARADO";

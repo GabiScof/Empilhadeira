@@ -1,6 +1,5 @@
 /**
  * protocol.cpp - Implementacao do framing JSON + CRC8 + '\n'.
- * [ref: docs/serial-protocol.md; Secao 6 e 7 da AGENTS.md]
  */
 #include "protocol.h"
 

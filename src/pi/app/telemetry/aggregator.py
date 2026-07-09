@@ -1,7 +1,4 @@
-"""Agregador de telemetria: monta o contrato (2) a partir do estado do robô.
-
-[ref: Seção 6 da AGENTS.md]
-"""
+"""Agregador de telemetria: monta o contrato (2) a partir do estado do robô."""
 
 from __future__ import annotations
 

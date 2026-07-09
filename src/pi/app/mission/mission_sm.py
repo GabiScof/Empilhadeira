@@ -4,20 +4,8 @@ Fluxo:
   IDLE → LOAD_MAP → DRAW_TARGETS → GO_TO_PICK → AT_PICK(aguarda operador)
   → GO_TO_PLACE → AT_PLACE(aguarda operador) → GO_HOME → DONE
 
-Transições automáticas e manuais:
-- LOAD_MAP → DRAW_TARGETS: quando mapa carregado com sucesso.
-- DRAW_TARGETS → GO_TO_PICK: quando alvos sorteados/recebidos.
-- GO_TO_PICK → AT_PICK: chegada confirmada (EKF + leitura do ID da tag).
-- AT_PICK → GO_TO_PLACE: operador clica "continuar" na UI.
-- GO_TO_PLACE → AT_PLACE: chegada confirmada.
-- AT_PLACE → GO_HOME: operador clica "continuar" na UI.
-- GO_HOME → DONE: chegada em home confirmada.
-- Qualquer → FAULT: falha crítica (timeout, EKF divergiu, etc.).
-
-A garra NÃO é controlada automaticamente. Nos estados AT_PICK e AT_PLACE,
-o robô para e o operador aciona a garra manualmente pelo canal existente.
-
-[ref: Seção 5 do mega-prompt]
+A garra NÃO é controlada automaticamente — nos estados AT_PICK e AT_PLACE
+o robô para e o operador aciona a garra manualmente.
 """
 
 from __future__ import annotations

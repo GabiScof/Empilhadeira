@@ -1,11 +1,3 @@
-// useWebSocket.js — Hook de conexao WebSocket com o Pi.
-//
-// Conecta a ws://<IP_DO_PI>:<porta>/ws, recebe Telemetry (contrato 2) @20 Hz
-// e expoe sendCommand para emitir Command (contrato 1).
-// Reconecta automaticamente com backoff exponencial (500 ms → 10 s) em qualquer queda.
-//
-// [ref: Secao 6 da AGENTS.md] · tipos em ../types/contracts.ts
-
 import { useState, useEffect, useRef, useCallback } from "react";
 
 const RECONNECT_BASE_MS = 500;
@@ -24,7 +16,6 @@ export function useWebSocket(url) {
   const timerRef = useRef(null);
   const mountedRef = useRef(true);
 
-  // connect é estável enquanto url não muda
   const connect = useCallback(() => {
     if (!url || !mountedRef.current) return;
 

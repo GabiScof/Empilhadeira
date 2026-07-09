@@ -1,6 +1,6 @@
 """Cinemática diferencial: joystick → twist → velocidades de roda.
 
-Equações [ref: Seção 7 da AGENTS.md]:
+Equações:
     ω_esq = (v − ω·L/2) / r
     ω_dir = (v + ω·L/2) / r
 

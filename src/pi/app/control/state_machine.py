@@ -1,6 +1,6 @@
 """Máquina de estados do robô: MANUAL / AUTOMATICO / PARADO.
 
-Transições [ref: Seção 7 da AGENTS.md]:
+Transições:
 - Operador alterna MANUAL ↔ AUTOMATICO.
 - Condição de segurança → PARADO (rodas zeradas).
 - Em AUTOMATICO, perder a tag por >TAG_LOST_FRAMES (~250 ms @20 Hz) → PARADO.

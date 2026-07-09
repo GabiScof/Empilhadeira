@@ -14,8 +14,6 @@
  *
  * Na recepcao, o decoder ressincroniza no '\n' e descarta o quadro inteiro em
  * caso de CRC, JSON ou schema invalido.
- *
- * [ref: docs/serial-protocol.md; Secao 6 e 7 da AGENTS.md]
  */
 #pragma once
 

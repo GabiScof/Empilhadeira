@@ -1,8 +1,6 @@
 # Missão Pick-and-Place com Garra Manual
 
-[ref: `pi/app/mission/mission_sm.py`, `pi/app/tasks/control_loop.py`]
-
-## Visão Geral
+Módulos: `mission/mission_sm.py`, `tasks/control_loop.py`.
 
 O robô executa uma missão de pick-and-place onde:
 
@@ -13,8 +11,8 @@ O robô executa uma missão de pick-and-place onde:
 5. O operador aciona a garra manualmente (place)
 6. O robô volta para home
 
-A missão opera em modo **AUTOMATICO** com o planejador de rotas e o executor de
-segmentos. O garfo **nunca** entra em malha fechada autônoma — apenas o
+A missão opera em modo AUTOMATICO com o planejador de rotas e o executor de
+segmentos. O garfo não entra em malha fechada autônoma — apenas o
 posicionamento do chassi é automático.
 
 ## Máquina de Estados
@@ -41,13 +39,13 @@ IDLE → LOAD_MAP → DRAW_TARGETS → GO_TO_PICK → AT_PICK(espera operador)
 | DONE | Missão concluída | (reset para nova missão) |
 | FAULT | Falha crítica | Motores zerados, sinaliza na UI |
 
-Qualquer estado pode transicionar para **FAULT** em falha crítica (timeout de
+Qualquer estado pode transicionar para FAULT em falha crítica (timeout de
 segmento, alvo ausente no mapa, divergência do EKF, etc.). Em FAULT, a máquina
 de estados de segurança (`state_machine`) força motores zerados.
 
 ## Garra Manual
 
-A garra **NÃO** é controlada automaticamente. Nos estados AT_PICK e AT_PLACE:
+A garra não é controlada automaticamente. Nos estados AT_PICK e AT_PLACE:
 
 - O robô para completamente (`ω_esq = ω_dir = 0`)
 - A UI sinaliza "pronto para acionar a garra"
@@ -148,8 +146,8 @@ Resposta típica de `/mission/state`:
 ## Pré-requisitos
 
 - Mapa carregado (`WorldModel` disponível em `SharedState`)
-- Modo **AUTOMATICO** selecionado no frontend
-- Mapa com **≥ 2 tags** para sortear pick e place distintos
+- Modo AUTOMATICO selecionado no frontend
+- Mapa com pelo menos 2 tags para sortear pick e place distintos
 - EKF inicializado na pose de `start_pose` do mapa
 
 ## Testes

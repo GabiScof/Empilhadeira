@@ -8,8 +8,6 @@ Espelha fielmente o comportamento do firmware real (branch feat/firmware-product
 - MPU-6050: gera dados crus a partir da pose do robô (gravidade + ruído).
 - Watchdog: 200 ms sem setpoint → motores zerados, PID reset.
 - Cadências: PID ~100 Hz (acumulado), serial 20 Hz.
-
-[ref: firmware/src/main.cpp, pid.cpp, motors.cpp, encoders.cpp]
 """
 
 from __future__ import annotations

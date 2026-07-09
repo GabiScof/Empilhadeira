@@ -6,7 +6,6 @@ resolução do encoder) usadas pela cinemática, EKF e simulador.
 Todos os valores em SI (metros, radianos). Valores provisórios marcados com
 TODO(equipe).
 
-[ref: Seção 2 do mega-prompt]
 """
 
 from __future__ import annotations

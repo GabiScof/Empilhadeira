@@ -5,8 +5,6 @@ Permite injetar/remover falhas em tempo real para teste de modos de segurança:
 - Tag oculta (visão sintética retorna não-detecção).
 - Slip de roda (multiplicador por roda).
 - Bateria saturada (dados de BMS falsos).
-
-[ref: Seção 6b do mega-prompt]
 """
 
 from __future__ import annotations

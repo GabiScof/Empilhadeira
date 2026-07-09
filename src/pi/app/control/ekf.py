@@ -1,43 +1,8 @@
-"""EKF de pose 2D — [x, y, θ] com fusão de odometria e AprilTag.
+"""EKF de pose 2D [x, y, θ] com fusão de odometria e AprilTag.
 
-Substitui o AttitudeKalman (4 estados: roll, pitch, rates) por um filtro
-de pose no plano que é o que a navegação precisa.
-
-Matrizes do filtro (documentação em PT-BR):
-
-**Estado:** x = [x, y, θ]  (m, m, rad)
-
-**Predição (F):** modelo de cinemática diferencial.
-  Dado (ω_esq, ω_dir) em rad/s e dt:
-    v = r·(ω_esq + ω_dir)/2
-    ω = r·(ω_dir − ω_esq)/L
-    x' = x + v·cos(θ)·dt
-    y' = y + v·sin(θ)·dt
-    θ' = θ + ω·dt  (corrigido pelo giroscópio gz)
-
-  Jacobiano F = ∂f/∂x:
-    [[1, 0, −v·sin(θ)·dt],
-     [0, 1,  v·cos(θ)·dt],
-     [0, 0,  1           ]]
-
-**Ruído de processo (Q):** diagonal, cresce com |v| e |ω| (odometria piora
-com velocidade e giro). TODO(equipe): calibrar.
-
-**Observação por AprilTag (H):**
-  Quando uma tag de posição conhecida é detectada, usamos PnP para estimar
-  a pose do robô no mundo. A observação é:
-    z_obs = [x_tag − dx_cam, y_tag − dy_cam, θ_tag − dθ_cam]
-
-  H = I(3×3) (observação direta do estado).
-
-**Ruído de observação (R):** diagonal, depende da qualidade da detecção
-(distância, resolução). TODO(equipe): calibrar.
-
-**Gating (Mahalanobis):** rejeita correções com distância de Mahalanobis
-acima de um limiar (default 3.0σ) para evitar que blur/detecções ruins
-contaminem a pose.
-
-[ref: Seção 3 do mega-prompt]
+Predição por cinemática diferencial (rodas + giroscópio); correção por tag
+com H=I e gating de Mahalanobis para rejeitar detecções ruins.
+TODO(equipe): calibrar Q e R.
 """
 
 from __future__ import annotations
@@ -68,11 +33,9 @@ class PoseEKF:
 
     MAHALANOBIS_GATE: float = 3.0  # TODO(equipe): calibrar
 
-    # Ruído de processo base (escala com velocidade)
     Q_BASE_XY: float = 0.001  # TODO(equipe): calibrar (m²)
     Q_BASE_THETA: float = 0.002  # TODO(equipe): calibrar (rad²)
 
-    # Ruído de observação por AprilTag
     R_XY: float = 0.01  # TODO(equipe): calibrar (m²)
     R_THETA: float = 0.05  # TODO(equipe): calibrar (rad²)
 
@@ -142,13 +105,11 @@ class PoseEKF:
         v = r * (w_left + w_right) / 2.0
         omega_odom = r * (w_right - w_left) / L
 
-        # Fusão simples: média ponderada entre odometria e giroscópio para θ
         alpha_gyro = 0.7  # TODO(equipe): calibrar peso do giroscópio
         omega = alpha_gyro * gyro_z_rads + (1.0 - alpha_gyro) * omega_odom
 
         theta = self._x[2]
 
-        # Predição do estado
         dx = v * math.cos(theta) * dt
         dy = v * math.sin(theta) * dt
         dtheta = omega * dt
@@ -158,14 +119,12 @@ class PoseEKF:
         self._x[2] += dtheta
         self._x[2] = math.atan2(math.sin(self._x[2]), math.cos(self._x[2]))
 
-        # Jacobiano F
         F = np.array([
             [1.0, 0.0, -v * math.sin(theta) * dt],
             [0.0, 1.0, v * math.cos(theta) * dt],
             [0.0, 0.0, 1.0],
         ])
 
-        # Ruído de processo proporcional à velocidade
         speed_factor = max(abs(v), 0.01)
         turn_factor = max(abs(omega), 0.01)
         Q = np.diag([
@@ -215,7 +174,6 @@ class PoseEKF:
 
         S = H @ self._P @ H.T + R
 
-        # Gating de Mahalanobis
         try:
             S_inv = np.linalg.inv(S)
         except np.linalg.LinAlgError:

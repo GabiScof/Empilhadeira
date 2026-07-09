@@ -26,11 +26,9 @@ export default function Arena({ worldState, telemetry }) {
     const toX = (xm) => xm * scale;
     const toY = (ym) => ym * scale;
 
-    // Background
     ctx.fillStyle = "#1e293b";
     ctx.fillRect(0, 0, w, h);
 
-    // Grid (every 0.1m)
     ctx.strokeStyle = "#334155";
     ctx.lineWidth = 0.5;
     const gridStep = 0.1;
@@ -47,12 +45,10 @@ export default function Arena({ worldState, telemetry }) {
       ctx.stroke();
     }
 
-    // Arena border
     ctx.strokeStyle = "#64748b";
     ctx.lineWidth = 2;
     ctx.strokeRect(1, 1, w - 2, h - 2);
 
-    // Home pose marker
     if (worldState.world_model?.home_pose) {
       const hp = worldState.world_model.home_pose;
       ctx.fillStyle = "rgba(34, 197, 94, 0.3)";
@@ -64,7 +60,6 @@ export default function Arena({ worldState, telemetry }) {
       ctx.fillText("HOME", toX(hp.x_m) - 14, toY(hp.y_m) + 18);
     }
 
-    // Waypoints and edges (if graph exists)
     if (worldState.world_model?.waypoints) {
       const wpMap = {};
       worldState.world_model.waypoints.forEach((wp) => {
@@ -94,7 +89,6 @@ export default function Arena({ worldState, telemetry }) {
       });
     }
 
-    // Planned path
     if (worldState.planned_path && worldState.planned_path.length > 0) {
       ctx.strokeStyle = "rgba(99, 102, 241, 0.6)";
       ctx.lineWidth = 2;
@@ -110,7 +104,6 @@ export default function Arena({ worldState, telemetry }) {
       ctx.setLineDash([]);
     }
 
-    // Executed trail
     const execTrail = worldState.executed_trail || trail;
     if (execTrail && execTrail.length > 1) {
       ctx.strokeStyle = "#475569";
@@ -123,7 +116,6 @@ export default function Arena({ worldState, telemetry }) {
       ctx.stroke();
     }
 
-    // Robot FOV
     const rx = toX(robot.x_m);
     const ry = toY(robot.y_m);
     const rTheta = robot.theta_rad;
@@ -140,7 +132,6 @@ export default function Arena({ worldState, telemetry }) {
     ctx.fill();
     ctx.restore();
 
-    // EKF covariance ellipse
     const ekf = worldState.ekf || telemetry?.ekf;
     if (ekf && ekf.ellipse_semi_major_m > 0) {
       ctx.save();
@@ -154,7 +145,6 @@ export default function Arena({ worldState, telemetry }) {
       ctx.restore();
     }
 
-    // Tags with front-side indicator
     const mission = worldState.mission || telemetry?.mission;
     const standoffPx = 0.15 * scale;
     tags.forEach((tag) => {
@@ -193,10 +183,8 @@ export default function Arena({ worldState, telemetry }) {
       // Tag body: back side (wall) is solid, front side is marked
       ctx.fillStyle = color;
       ctx.fillRect(-TAG_SIZE_PX / 2, -TAG_SIZE_PX / 2, TAG_SIZE_PX, TAG_SIZE_PX);
-      // Inner pattern (AprilTag-like)
       ctx.fillStyle = "#1e293b";
       ctx.fillRect(-TAG_SIZE_PX / 4, -TAG_SIZE_PX / 4, TAG_SIZE_PX / 2, TAG_SIZE_PX / 2);
-      // Front face indicator (white line on front edge)
       ctx.strokeStyle = "#e2e8f0";
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -210,7 +198,6 @@ export default function Arena({ worldState, telemetry }) {
       ctx.fillText(tag.position_id, tx + TAG_SIZE_PX, ty - 2);
     });
 
-    // Robot body
     ctx.save();
     ctx.translate(rx, ry);
     ctx.rotate(rTheta);
@@ -223,7 +210,6 @@ export default function Arena({ worldState, telemetry }) {
     ctx.fill();
     ctx.restore();
 
-    // Info overlay
     ctx.fillStyle = "#94a3b8";
     ctx.font = "10px monospace";
     const info = `(${robot.x_m.toFixed(2)}, ${robot.y_m.toFixed(2)}) θ=${robot.theta_deg.toFixed(1)}°`;

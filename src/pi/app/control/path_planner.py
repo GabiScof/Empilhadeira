@@ -7,8 +7,6 @@ Estratégias:
    Gera segmentos FORWARD/TURN em sequência alinhada à grade.
 
 Saída: lista de Segment (FORWARD com distância ou TURN com ângulo livre).
-
-[ref: Seção 4 do mega-prompt]
 """
 
 from __future__ import annotations
